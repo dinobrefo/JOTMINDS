@@ -3,12 +3,16 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import dailyChallengeRoutes from './daily-challenge-routes.tsx';
 
 const app = new Hono();
 
 // Middleware
 app.use('*', cors());
 app.use('*', logger(console.log));
+
+// Mount daily challenge routes
+app.route('/make-server-fc8eb847/daily-challenge', dailyChallengeRoutes);
 
 // Create Supabase client
 const getSupabaseClient = (serviceRole = false) => {
@@ -116,7 +120,7 @@ app.post('/make-server-fc8eb847/validate-org-code', async (c) => {
 // Sign up
 app.post('/make-server-fc8eb847/signup', async (c) => {
   try {
-    const { email, password, name, role, organizationName, organizationType, position, phone, school, educationLevel, age, organizationCode } = await c.req.json();
+    const { email, password, name, role, organizationName, organizationType, position, phone, school, educationLevel, dateOfBirth, organizationCode, hasConsented, consentType, consentDate } = await c.req.json();
     
     if (!email || !password || !name || !role) {
       return c.json({ error: 'Missing required fields' }, 400);
@@ -125,9 +129,9 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
     let finalOrgCode = null;
     let finalOrgName = organizationName || null;
 
-    // Handle organization code for Supervisors and Professionals
-    if (role === 'Supervisor') {
-      // Supervisor creates a new organization and gets a code
+    // Handle organization code for Organizations and Professionals
+    if (role === 'organization') {
+      // Organization creates a new organization and gets a code
       finalOrgCode = generateOrgCode();
       
       // Store organization
@@ -138,12 +142,8 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
         createdAt: new Date().toISOString(),
         createdBy: email
       });
-    } else if (role === 'Professional/Organization') {
-      // Professional must provide a valid organization code
-      if (!organizationCode) {
-        return c.json({ error: 'Organization code is required for professionals' }, 400);
-      }
-
+    } else if (role === 'professional' && organizationCode) {
+      // Professional can optionally provide an organization code
       const organization = await kv.get(`organization:${organizationCode}`);
       if (!organization) {
         return c.json({ error: 'Invalid organization code' }, 400);
@@ -160,7 +160,7 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
       email,
       password,
       email_confirm: true, // Auto-confirm email since email server isn't configured
-      user_metadata: { name, role, organizationName: finalOrgName, organizationType, position, phone, school, educationLevel, age, organizationCode: finalOrgCode }
+      user_metadata: { name, role, organizationName: finalOrgName, organizationType, position, phone, school, educationLevel, dateOfBirth, organizationCode: finalOrgCode, hasConsented, consentType, consentDate }
     });
 
     if (error) {
@@ -181,7 +181,10 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
       phone: phone || null,
       school: school || null,
       educationLevel: educationLevel || null,
-      age: age || null,
+      dateOfBirth: dateOfBirth || null,
+      hasConsented: hasConsented || false,
+      consentType: consentType || null,
+      consentDate: consentDate || null,
       createdAt: new Date().toISOString(),
       assessmentsCompleted: [],
       cognitiveProfile: null
@@ -254,23 +257,31 @@ app.get('/make-server-fc8eb847/session', async (c) => {
     // Get user profile from KV store
     const profile = await kv.get(`user:${user.id}`);
     
-    // Normalize role to lowercase (migration fix for old accounts)
+    console.log('[Session] User metadata:', user.user_metadata);
+    console.log('[Session] KV profile:', profile);
+    
+    // Build user data - KV store profile takes precedence over user_metadata
     const userData = {
       id: user.id,
       email: user.email,
       ...user.user_metadata,
-      ...profile
+      ...profile // Profile from KV store overrides metadata
     };
     
-    // Fix capitalized roles
+    console.log('[Session] Merged userData before normalization:', { role: userData.role });
+    
+    // Fix capitalized roles and migrate old role names
     if (userData.role) {
+      const originalRole = userData.role;
       const normalizedRole = userData.role === 'Professional/Organization' ? 'professional' : 
+                            userData.role === 'Supervisor' ? 'organization' :
                             userData.role === 'Teacher' ? 'teacher' :
                             userData.role === 'Student' ? 'student' :
                             userData.role === 'Parent' ? 'parent' :
                             userData.role === 'Educator' ? 'teacher' :
                             userData.role.toLowerCase();
       userData.role = normalizedRole;
+      console.log('[Session] Role normalization:', originalRole, '->', normalizedRole);
     }
     
     return c.json({ 
@@ -387,9 +398,32 @@ app.get('/make-server-fc8eb847/assessment/results/:assessmentType', async (c) =>
 
     const assessmentType = c.req.param('assessmentType');
     const resultKey = `result:${user.id}:${assessmentType}`;
+    console.log(`[Assessment Results] Fetching ${assessmentType} for user ${user.id}, key: ${resultKey}`);
+    
     const results = await kv.get(resultKey);
+    console.log(`[Assessment Results] Retrieved data:`, results);
+    console.log(`[Assessment Results] Data type:`, typeof results);
+    console.log(`[Assessment Results] Is null?`, results === null);
+    console.log(`[Assessment Results] Is undefined?`, results === undefined);
+    
+    // Let's also check if there are ANY keys for this user
+    const allUserKeys = await kv.getByPrefix(`result:${user.id}:`);
+    console.log(`[Assessment Results] All keys for user ${user.id}:`, allUserKeys);
+    console.log(`[Assessment Results] Number of results found:`, allUserKeys?.length || 0);
 
-    return c.json({ success: true, results });
+    // TEMPORARY DEBUG: Include debug info in response
+    return c.json({ 
+      success: true, 
+      results,
+      _debug: {
+        key: resultKey,
+        dataType: typeof results,
+        isNull: results === null,
+        isUndefined: results === undefined,
+        allKeysCount: allUserKeys?.length || 0,
+        allKeys: allUserKeys?.map((k: any) => k.id || k.key || JSON.stringify(k))
+      }
+    });
   } catch (error) {
     console.log(`Error fetching assessment results: ${error}`);
     return c.json({ error: 'Failed to fetch results' }, 500);
@@ -458,6 +492,189 @@ app.post('/make-server-fc8eb847/cognitive-profile', async (c) => {
   } catch (error) {
     console.log(`Error saving cognitive profile: ${error}`);
     return c.json({ error: 'Failed to save cognitive profile' }, 500);
+  }
+});
+
+// JHS Thinking Styles Assessment - Save results
+app.post('/make-server-fc8eb847/jhs-thinking/submit', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { responses, results } = await c.req.json();
+    
+    // Save JHS assessment results
+    const resultKey = `result:${user.id}:jhs-thinking`;
+    await kv.set(resultKey, {
+      id: resultKey,
+      userId: user.id,
+      assessmentType: 'jhs-thinking',
+      responses,
+      results,
+      completedAt: new Date().toISOString()
+    });
+
+    // Update user profile
+    const userProfile = await kv.get(`user:${user.id}`) || {};
+    const assessmentsCompleted = userProfile.assessmentsCompleted || [];
+    if (!assessmentsCompleted.includes('jhs-thinking')) {
+      assessmentsCompleted.push('jhs-thinking');
+    }
+    
+    await kv.set(`user:${user.id}`, {
+      ...userProfile,
+      assessmentsCompleted,
+      lastJHSAssessment: new Date().toISOString()
+    });
+
+    return c.json({ success: true, resultId: resultKey });
+  } catch (error) {
+    console.log(`Error submitting JHS Thinking assessment: ${error}`);
+    return c.json({ error: 'Failed to submit JHS results' }, 500);
+  }
+});
+
+// SHS Thinking Styles Assessment - Save results
+app.post('/make-server-fc8eb847/shs-thinking/submit', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { results } = await c.req.json();
+    
+    // Save SHS assessment results
+    const resultKey = `result:${user.id}:shs-thinking`;
+    await kv.set(resultKey, {
+      id: resultKey,
+      userId: user.id,
+      assessmentType: 'shs-thinking',
+      results,
+      completedAt: new Date().toISOString()
+    });
+
+    // Update user profile
+    const userProfile = await kv.get(`user:${user.id}`) || {};
+    const assessmentsCompleted = userProfile.assessmentsCompleted || [];
+    if (!assessmentsCompleted.includes('shs-thinking')) {
+      assessmentsCompleted.push('shs-thinking');
+    }
+    
+    await kv.set(`user:${user.id}`, {
+      ...userProfile,
+      assessmentsCompleted,
+      lastSHSAssessment: new Date().toISOString()
+    });
+
+    return c.json({ success: true, resultId: resultKey });
+  } catch (error) {
+    console.log(`Error submitting SHS Thinking assessment: ${error}`);
+    return c.json({ error: 'Failed to submit SHS results' }, 500);
+  }
+});
+
+// Get JHS Thinking Styles results
+app.get('/make-server-fc8eb847/jhs-thinking/results', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const resultKey = `result:${user.id}:jhs-thinking`;
+    const results = await kv.get(resultKey);
+
+    return c.json({ success: true, results });
+  } catch (error) {
+    console.log(`Error fetching JHS Thinking results: ${error}`);
+    return c.json({ error: 'Failed to fetch JHS results' }, 500);
+  }
+});
+
+// Get SHS Thinking Styles results
+app.get('/make-server-fc8eb847/shs-thinking/results', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const resultKey = `result:${user.id}:shs-thinking`;
+    const results = await kv.get(resultKey);
+
+    if (!results) {
+      return c.json({ error: 'No SHS assessment results found' }, 404);
+    }
+
+    return c.json(results);
+  } catch (error) {
+    console.log(`Error fetching SHS Thinking results: ${error}`);
+    return c.json({ error: 'Failed to fetch SHS results' }, 500);
+  }
+});
+
+// Adult Thinking Styles Assessment - Save results
+app.post('/make-server-fc8eb847/adult-thinking/submit', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { results } = await c.req.json();
+    
+    // Save Adult assessment results
+    const resultKey = `result:${user.id}:adult-thinking`;
+    await kv.set(resultKey, {
+      id: resultKey,
+      userId: user.id,
+      assessmentType: 'adult-thinking',
+      results,
+      completedAt: new Date().toISOString()
+    });
+
+    // Update user profile
+    const userProfile = await kv.get(`user:${user.id}`) || {};
+    const assessmentsCompleted = userProfile.assessmentsCompleted || [];
+    if (!assessmentsCompleted.includes('adult-thinking')) {
+      assessmentsCompleted.push('adult-thinking');
+    }
+    
+    await kv.set(`user:${user.id}`, {
+      ...userProfile,
+      assessmentsCompleted,
+      lastAdultAssessment: new Date().toISOString()
+    });
+
+    return c.json({ success: true, resultId: resultKey });
+  } catch (error) {
+    console.log(`Error submitting Adult Thinking assessment: ${error}`);
+    return c.json({ error: 'Failed to submit Adult results' }, 500);
+  }
+});
+
+// Get Adult Thinking Styles results
+app.get('/make-server-fc8eb847/adult-thinking/results', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const resultKey = `result:${user.id}:adult-thinking`;
+    const results = await kv.get(resultKey);
+
+    if (!results) {
+      return c.json({ error: 'No Adult assessment results found' }, 404);
+    }
+
+    return c.json(results);
+  } catch (error) {
+    console.log(`Error fetching Adult Thinking results: ${error}`);
+    return c.json({ error: 'Failed to fetch Adult results' }, 500);
   }
 });
 
@@ -604,10 +821,11 @@ app.get('/make-server-fc8eb847/admin/stats', async (c) => {
         'student': 'Student',
         'teacher': 'Teacher',
         'parent': 'Parent',
-        'professional': 'Professional/Organization',
-        'professional/organization': 'Professional/Organization',
+        'professional': 'Professional',
+        'professional/organization': 'Professional',
         'admin': 'Admin',
-        'supervisor': 'Supervisor'
+        'supervisor': 'Organization',
+        'organization': 'Organization'
       };
       
       // Get the properly formatted role name
@@ -1282,15 +1500,30 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
   try {
     const user = await verifyAuth(c.req.raw);
     if (!user) {
+      console.log('[supervisor/employees] ✗ No user from verifyAuth');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
+    console.log('[supervisor/employees] ✓ User authenticated:', user.id);
+
     const userProfile = await kv.get(`user:${user.id}`);
-    if (userProfile?.role !== 'Supervisor' && userProfile?.role !== 'supervisor') {
-      return c.json({ error: 'Forbidden - Supervisor access required' }, 403);
+    console.log('[supervisor/employees] User profile:', userProfile ? 'Found' : 'NOT FOUND');
+    console.log('[supervisor/employees] User profile role:', userProfile?.role);
+    
+    if (!userProfile) {
+      console.log('[supervisor/employees] ✗ User profile not found in KV store');
+      return c.json({ error: 'User profile not found' }, 404);
+    }
+    
+    // Accept both 'organization' and 'supervisor' roles (they're the same in this context)
+    const normalizedRole = (userProfile?.role || '').toLowerCase();
+    if (normalizedRole !== 'supervisor' && normalizedRole !== 'organization') {
+      console.log('[supervisor/employees] ✗ User is not a supervisor/organization, role:', userProfile?.role);
+      return c.json({ error: 'Forbidden - Organization/Supervisor access required' }, 403);
     }
 
     let orgCode = userProfile.organizationCode;
+    console.log('[supervisor/employees] Organization code from profile:', orgCode);
     
     // MIGRATION FIX: If supervisor doesn't have an org code, generate one now
     if (!orgCode) {
@@ -1316,15 +1549,24 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
       console.log(`[Migration] Generated organization code ${orgCode} for supervisor ${user.id}`);
     }
 
+    console.log('[supervisor/employees] Fetching all users...');
     const allUsers = await kv.getByPrefix('user:');
+    console.log('[supervisor/employees] Total users in KV:', allUsers.length);
     
     // Filter users by organization code who are professionals
-    const employees = allUsers.filter((u: any) => 
-      u.organizationCode === orgCode && 
-      (u.role === 'Professional/Organization' || u.role === 'professional') && 
-      u.id !== user.id
-    );
+    const employees = allUsers.filter((u: any) => {
+      const matches = u.organizationCode === orgCode && 
+        (u.role === 'Professional/Organization' || u.role === 'professional') && 
+        u.id !== user.id;
+      
+      if (u.organizationCode === orgCode) {
+        console.log(`[supervisor/employees] User ${u.email} - orgCode match: ${u.organizationCode}, role: ${u.role}, matches: ${matches}`);
+      }
+      
+      return matches;
+    });
 
+    console.log('[supervisor/employees] ✓ Found', employees.length, 'employees for org code:', orgCode);
     return c.json({ success: true, employees, organizationCode: orgCode });
   } catch (error) {
     console.log(`Error fetching supervised employees: ${error}`);
@@ -1343,8 +1585,9 @@ app.post('/make-server-fc8eb847/supervisor/review', async (c) => {
     const reviewData = await c.req.json();
     
     const userProfile = await kv.get(`user:${user.id}`);
-    if (userProfile?.role !== 'Supervisor') {
-      return c.json({ error: 'Forbidden - Supervisor access required' }, 403);
+    const normalizedRole = (userProfile?.role || '').toLowerCase();
+    if (normalizedRole !== 'supervisor' && normalizedRole !== 'organization') {
+      return c.json({ error: 'Forbidden - Organization/Supervisor access required' }, 403);
     }
 
     // Save review with timestamp
@@ -1435,6 +1678,281 @@ app.get('/make-server-fc8eb847/debug/user-results/:userId', async (c) => {
   } catch (error) {
     console.log(`Error in debug endpoint: ${error}`);
     return c.json({ error: 'Failed to fetch debug data' }, 500);
+  }
+});
+
+// MIGRATION: Fix professional's organization code
+app.post('/make-server-fc8eb847/admin/fix-professional-org-code', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check if user is admin
+    if (user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403);
+    }
+
+    const { professionalEmail, organizationCode } = await c.req.json();
+    
+    if (!professionalEmail || !organizationCode) {
+      return c.json({ error: 'Professional email and organization code are required' }, 400);
+    }
+
+    // Validate organization code exists
+    const organization = await kv.get(`organization:${organizationCode}`);
+    if (!organization) {
+      return c.json({ error: 'Invalid organization code' }, 400);
+    }
+
+    // Find professional by email
+    const allUsers = await kv.getByPrefix('user:');
+    const professional = allUsers.find((u: any) => 
+      u.email.toLowerCase() === professionalEmail.toLowerCase()
+    );
+
+    if (!professional) {
+      return c.json({ error: 'Professional not found' }, 404);
+    }
+
+    if (professional.role !== 'professional' && professional.role !== 'Professional/Organization') {
+      return c.json({ error: 'User is not a professional' }, 400);
+    }
+
+    // Update professional with organization code
+    const updatedProfessional = {
+      ...professional,
+      organizationCode: organizationCode,
+      organizationName: organization.name
+    };
+
+    await kv.set(`user:${professional.id}`, updatedProfessional);
+
+    console.log(`[MIGRATION] Updated professional ${professionalEmail} with org code ${organizationCode}`);
+
+    return c.json({ 
+      success: true, 
+      message: `Successfully linked ${professional.name} to organization ${organization.name}`,
+      professional: updatedProfessional
+    });
+  } catch (error) {
+    console.log(`Error fixing professional org code: ${error}`);
+    return c.json({ error: 'Failed to fix organization code' }, 500);
+  }
+});
+
+// ============= CHILDREN'S CHALLENGE ROUTES =============
+
+// Get children's challenge progress
+app.get('/make-server-fc8eb847/get-challenge-progress', async (c) => {
+  try {
+    const userId = c.req.query('userId');
+    
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400);
+    }
+
+    const key = `children_challenge:${userId}`;
+    const progressData = await kv.get(key);
+
+    if (!progressData) {
+      // Initialize new user progress
+      const initialProgress = {
+        completedChallenges: [],
+        currentStreak: 0,
+        totalStars: 0,
+        lastCompletedDate: null,
+      };
+
+      await kv.set(key, initialProgress);
+      
+      return c.json({
+        success: true,
+        progress: initialProgress,
+      });
+    }
+
+    return c.json({
+      success: true,
+      progress: progressData,
+    });
+  } catch (error) {
+    console.error('Error getting children challenge progress:', error);
+    return c.json({ 
+      error: 'Failed to get challenge progress', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, 500);
+  }
+});
+
+// Save children's challenge progress
+app.post('/make-server-fc8eb847/save-challenge-progress', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userId, challengeId, completedAt, currentStreak, totalStars } = body;
+
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400);
+    }
+
+    const key = `children_challenge:${userId}`;
+    const progressData = await kv.get(key) || {
+      completedChallenges: [],
+      currentStreak: 0,
+      totalStars: 0,
+      lastCompletedDate: null,
+    };
+
+    // Create challenge key
+    const today = new Date().toDateString();
+    const challengeKey = `${today}-${challengeId}`;
+    
+    // Check if already completed
+    if (progressData.completedChallenges?.includes(challengeKey)) {
+      return c.json({ error: 'Challenge already completed today' }, 400);
+    }
+
+    // Update progress
+    const updatedProgress = {
+      completedChallenges: [...(progressData.completedChallenges || []), challengeKey],
+      currentStreak: currentStreak || (progressData.currentStreak || 0),
+      totalStars: totalStars || (progressData.totalStars || 0),
+      lastCompletedDate: completedAt,
+    };
+
+    await kv.set(key, updatedProgress);
+
+    return c.json({
+      success: true,
+      progress: updatedProgress,
+    });
+  } catch (error) {
+    console.error('Error saving children challenge progress:', error);
+    return c.json({ 
+      error: 'Failed to save challenge progress', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, 500);
+  }
+});
+
+// ============= MOOD METER ROUTES =============
+
+// Get mood history
+app.get('/make-server-fc8eb847/get-mood-history', async (c) => {
+  try {
+    const userId = c.req.query('userId');
+    
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400);
+    }
+
+    const key = `mood_history:${userId}`;
+    const historyData = await kv.get(key);
+
+    if (!historyData) {
+      // Initialize new user history
+      const initialHistory = {
+        history: [],
+        currentStreak: 0,
+      };
+
+      await kv.set(key, initialHistory);
+      
+      return c.json({
+        success: true,
+        history: [],
+        currentStreak: 0,
+      });
+    }
+
+    return c.json({
+      success: true,
+      history: historyData.history || [],
+      currentStreak: historyData.currentStreak || 0,
+    });
+  } catch (error) {
+    console.error('Error getting mood history:', error);
+    return c.json({ 
+      error: 'Failed to get mood history', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, 500);
+  }
+});
+
+// Save mood
+app.post('/make-server-fc8eb847/save-mood', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userId, mood, date, timestamp } = body;
+
+    if (!userId || !mood) {
+      return c.json({ error: 'User ID and mood are required' }, 400);
+    }
+
+    const key = `mood_history:${userId}`;
+    const historyData = await kv.get(key) || {
+      history: [],
+      currentStreak: 0,
+    };
+
+    const today = new Date().toISOString().split('T')[0];
+    const moodDate = date || timestamp ? new Date(date || timestamp).toISOString().split('T')[0] : today;
+
+    // Check if mood already recorded for today
+    const existingIndex = historyData.history?.findIndex((entry: any) => 
+      entry.date.split('T')[0] === moodDate
+    );
+
+    let updatedHistory;
+    if (existingIndex !== -1) {
+      // Update existing mood
+      updatedHistory = [...historyData.history];
+      updatedHistory[existingIndex] = { mood, date: new Date().toISOString() };
+    } else {
+      // Add new mood
+      updatedHistory = [...(historyData.history || []), { mood, date: new Date().toISOString() }];
+    }
+
+    // Calculate streak
+    const sortedHistory = updatedHistory.sort((a: any, b: any) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    let streak = 0;
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    let checkDate = new Date(today);
+
+    for (const entry of sortedHistory) {
+      const entryDate = new Date(entry.date).toISOString().split('T')[0];
+      const expectedDate = checkDate.toISOString().split('T')[0];
+      
+      if (entryDate === expectedDate) {
+        streak++;
+        checkDate = new Date(checkDate.getTime() - oneDayMs);
+      } else {
+        break;
+      }
+    }
+
+    const updatedData = {
+      history: updatedHistory,
+      currentStreak: streak,
+    };
+
+    await kv.set(key, updatedData);
+
+    return c.json({
+      success: true,
+      history: updatedHistory,
+      currentStreak: streak,
+    });
+  } catch (error) {
+    console.error('Error saving mood:', error);
+    return c.json({ 
+      error: 'Failed to save mood', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, 500);
   }
 });
 

@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './components/AuthContext';
+import { useState, useEffect } from 'react';
+import { User } from './types';
 import { AuthForm } from './components/AuthForm';
 import { LandingPage } from './components/LandingPage';
-import { SupervisorApp } from './components/SupervisorApp';
+import { OrganizationApp } from './components/OrganizationApp';
 import { Dashboard } from './components/Dashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 import { TeacherDashboard } from './components/TeacherDashboard';
 import { ParentDashboard } from './components/ParentDashboard';
 import { ProfessionalDashboard } from './components/ProfessionalDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
+import { AuthProvider, useAuth } from './components/AuthContext';
+import { Toaster } from './components/ui/sonner';
+import { createClient } from './utils/supabase/client';
+import { setAuthToken, getUserData } from './utils/api';
 import { Assessment } from './components/Assessment';
 import { AssessmentSummary } from './components/AssessmentSummary';
 import { CognitiveProfile } from './components/CognitiveProfile';
-import { AdminPanel } from './components/AdminPanel';
-import { DebugPanel } from './components/DebugPanel';
-import { getUserData, setAuthToken, clearAuthToken } from './utils/api';
-import { createClient } from './utils/supabase/client';
-import './styles/globals.css';
 
 type ViewType = 
   | 'landing'
   | 'auth'
-  | 'supervisor'
+  | 'organization'
   | 'dashboard' 
   | 'assessment' 
   | 'summary' 
@@ -87,7 +87,11 @@ function AppContent() {
       // BUT allow them to view dashboard when impersonating a user
       console.log('[App] ⚠️ Admin in dashboard view without impersonation! Redirecting to admin panel');
       setCurrentView('admin');
-    } else if (user && user.role !== 'admin' && (currentView === 'landing' || currentView === 'auth')) {
+    } else if (user?.role === 'supervisor' || user?.role === 'Supervisor') {
+      // Supervisors should only use the Supervisor Portal, not the main app
+      console.log('[App] ⚠️ Supervisor detected in main app, redirecting to supervisor portal');
+      setCurrentView('organization');
+    } else if (user && user.role !== 'admin' && user.role !== 'supervisor' && user.role !== 'Supervisor' && (currentView === 'landing' || currentView === 'auth')) {
       console.log('[App] Regular user detected, routing to dashboard');
       setCurrentView('dashboard');
     }
@@ -134,7 +138,7 @@ function AppContent() {
   };
 
   const handleSupervisorPortal = () => {
-    setCurrentView('supervisor');
+    setCurrentView('organization');
   };
 
   const handleBackToLanding = () => {
@@ -252,8 +256,8 @@ function AppContent() {
       return <AuthForm onLogin={handleAuthSuccess} onBack={handleBackToLanding} />;
     }
     
-    if (currentView === 'supervisor') {
-      return <SupervisorApp onBackToMain={handleBackToLanding} />;
+    if (currentView === 'organization') {
+      return <OrganizationApp onBackToMain={handleBackToLanding} />;
     }
     
     return (
@@ -274,8 +278,8 @@ function AppContent() {
         />
       );
 
-    case 'supervisor':
-      return <SupervisorApp onBackToMain={handleBackToLanding} />;
+    case 'organization':
+      return <OrganizationApp onBackToMain={handleBackToLanding} />;
 
     case 'assessment':
       return currentAssessment ? (
@@ -304,7 +308,7 @@ function AppContent() {
 
     case 'admin':
       return (
-        <AdminPanel 
+        <AdminDashboard 
           onBack={handleBackToDashboard}
           onLogout={handleLogout}
           onViewUserDashboard={handleViewUserDashboard}
@@ -321,6 +325,12 @@ function AppContent() {
       
       // Normalize role to lowercase for comparison (handles old accounts with capitalized roles)
       const normalizedRole = displayUser.role?.toLowerCase();
+      
+      // Supervisors should not access dashboards - redirect to supervisor portal
+      if (normalizedRole === 'supervisor') {
+        console.log('[App] Supervisor trying to access dashboard, redirecting to supervisor portal');
+        return <OrganizationApp onBackToMain={handleBackToLanding} />;
+      }
       
       if (normalizedRole === 'teacher') {
         return (
@@ -374,7 +384,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppContent />
-      <DebugPanel />
+      <Toaster />
     </AuthProvider>
   );
 }

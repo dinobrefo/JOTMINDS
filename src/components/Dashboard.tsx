@@ -47,7 +47,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
 
         // If organization user, fetch members
-        if (displayUser?.role === 'Professional/Organization' && !impersonatedUser) {
+        if (displayUser?.role === 'professional' && !impersonatedUser) {
           try {
             const { members } = await getOrganizationMembers();
             setOrganizationMembers(members || []);

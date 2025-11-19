@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
 import { getCurrentUser, saveCurrentUser } from '../utils/storage';
-import { SupervisorAuthForm } from './SupervisorAuthForm';
+import { OrganizationAuthForm } from './OrganizationAuthForm';
 import { SupervisorDashboard } from './SupervisorDashboard';
 import { Toaster } from './ui/sonner';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 
-interface SupervisorAppProps {
+interface OrganizationAppProps {
   onBackToMain: () => void;
 }
 
-export function SupervisorApp({ onBackToMain }: SupervisorAppProps) {
+export function OrganizationApp({ onBackToMain }: OrganizationAppProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing supervisor session with Supabase
+    // Check for existing organization session with Supabase
     checkSupabaseSession();
   }, []);
 
@@ -26,7 +26,7 @@ export function SupervisorApp({ onBackToMain }: SupervisorAppProps) {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
-        console.log('[SupervisorApp] Found active Supabase session');
+        console.log('[OrganizationApp] Found active Supabase session');
         
         // Fetch user profile from backend
         const response = await fetch(
@@ -40,20 +40,20 @@ export function SupervisorApp({ onBackToMain }: SupervisorAppProps) {
 
         if (response.ok) {
           const responseData = await response.json();
-          console.log('[SupervisorApp] Full response data:', responseData);
+          console.log('[OrganizationApp] Full response data:', responseData);
           
           // The backend returns { success: true, user: {...} }
           const userData = responseData.user || responseData;
-          console.log('[SupervisorApp] Extracted user data:', userData);
+          console.log('[OrganizationApp] Extracted user data:', userData);
           
-          // Only restore session if user is a supervisor
-          if (userData.role === 'Supervisor' || userData.role === 'supervisor') {
-            console.log('[SupervisorApp] Restoring supervisor session');
+          // Only restore session if user is an organization
+          if (userData.role === 'organization' || userData.role === 'supervisor' || userData.role === 'Supervisor') {
+            console.log('[OrganizationApp] Restoring organization session');
             const user: User = {
               id: userData.id,
               email: userData.email,
               name: userData.name,
-              role: userData.role,
+              role: 'organization',
               organizationName: userData.organizationName,
               organizationType: userData.organizationType,
               position: userData.position,
@@ -64,18 +64,18 @@ export function SupervisorApp({ onBackToMain }: SupervisorAppProps) {
             setCurrentUser(user);
             saveCurrentUser(user);
           } else {
-            console.log('[SupervisorApp] User is not a supervisor, clearing session');
+            console.log('[OrganizationApp] User is not an organization, clearing session. Role:', userData.role);
             await supabase.auth.signOut();
           }
         } else {
-          console.log('[SupervisorApp] Failed to fetch user profile, clearing session');
+          console.log('[OrganizationApp] Failed to fetch user profile, clearing session');
           await supabase.auth.signOut();
         }
       } else {
-        console.log('[SupervisorApp] No active Supabase session');
+        console.log('[OrganizationApp] No active Supabase session');
       }
     } catch (error) {
-      console.error('[SupervisorApp] Error checking session:', error);
+      console.error('[OrganizationApp] Error checking session:', error);
     } finally {
       setIsLoading(false);
     }
@@ -100,17 +100,22 @@ export function SupervisorApp({ onBackToMain }: SupervisorAppProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-indigo-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading Supervisor Portal...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading Organization Portal...</p>
         </div>
       </div>
     );
   }
 
   if (!currentUser) {
-    return <SupervisorAuthForm onLogin={handleLogin} onBackToMain={onBackToMain} />;
+    return (
+      <>
+        <OrganizationAuthForm onLogin={handleLogin} onBackToMain={onBackToMain} />
+        <Toaster />
+      </>
+    );
   }
 
   return (

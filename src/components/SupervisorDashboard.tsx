@@ -49,7 +49,7 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
   const loadProfessionals = async () => {
     try {
       // Get the current Supabase session
-      const supabase = createClient(projectId, publicAnonKey);
+      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {

@@ -130,11 +130,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
   }
 
   const roleColors: { [key: string]: string } = {
-    'Student': '#2C2E83',
-    'Teacher': '#1FC8E1',
+    'Student': '#1FC8E1',
+    'Teacher': '#7B61FF',
     'Parent': '#10B981',
-    'Professional/Organization': '#FF715B',
-    'Supervisor': '#8B5CF6'
+    'Professional': '#FF715B',
+    'Organization': '#8B5CF6'
   };
 
   return (

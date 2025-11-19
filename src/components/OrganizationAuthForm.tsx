@@ -7,16 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { User, OrganizationType } from '../types';
 import { signup } from '../utils/api';
 import { Alert, AlertDescription } from './ui/alert';
-import { AlertCircle, ShieldCheck, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Building2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { PasswordStrengthIndicator, checkPasswordStrength } from './PasswordStrengthIndicator';
+import { Checkbox } from './ui/checkbox';
 
-interface SupervisorAuthFormProps {
+interface OrganizationAuthFormProps {
   onLogin: (user: User) => void;
   onBackToMain: () => void;
 }
 
-export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthFormProps) {
+export function OrganizationAuthForm({ onLogin, onBackToMain }: OrganizationAuthFormProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +30,9 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasConsented, setHasConsented] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState('Weak');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,81 +44,106 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
 
       if (isLogin) {
         // Sign in using Supabase client
-        console.log('[SupervisorAuth] Signing in with email:', email);
+        console.log('[OrganizationAuth] Signing in with email:', email);
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password
         });
         
         if (signInError) {
-          console.error('[SupervisorAuth] Sign in error:', signInError);
+          console.error('[OrganizationAuth] Sign in error:', signInError);
           setError(signInError.message);
           setLoading(false);
           return;
         }
 
         if (!data.session) {
-          console.error('[SupervisorAuth] No session returned after sign in');
+          console.error('[OrganizationAuth] No session returned after sign in');
           setError('Failed to create session. Please try again.');
           setLoading(false);
           return;
         }
 
-        console.log('[SupervisorAuth] Sign in successful, session created');
-        console.log('[SupervisorAuth] Access token:', data.session.access_token.substring(0, 30) + '...');
-        console.log('[SupervisorAuth] User ID:', data.user.id);
+        console.log('[OrganizationAuth] Sign in successful, session created');
+        console.log('[OrganizationAuth] Access token:', data.session.access_token.substring(0, 30) + '...');
+        console.log('[OrganizationAuth] User ID:', data.user.id);
         
         // Fetch user profile from backend
-        console.log('[SupervisorAuth] Fetching user profile from backend...');
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-fc8eb847/session`,
-          {
-            headers: {
-              'Authorization': `Bearer ${data.session.access_token}`
-            }
-          }
-        );
-
-        console.log('[SupervisorAuth] Profile fetch response status:', response.status);
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('[SupervisorAuth] Profile fetch error:', errorData);
-          setError(errorData.error || 'Failed to fetch user profile');
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
-        }
-
-        const responseData = await response.json();
-        console.log('[SupervisorAuth] Full response data:', responseData);
+        console.log('[OrganizationAuth] Fetching user profile from backend...');
+        let userData;
         
-        // The backend returns { success: true, user: {...} }
-        const userData = responseData.user || responseData;
-        console.log('[SupervisorAuth] User profile received:', { 
+        try {
+          const response = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-fc8eb847/session`,
+            {
+              headers: {
+                'Authorization': `Bearer ${data.session.access_token}`
+              }
+            }
+          );
+
+          console.log('[OrganizationAuth] Profile fetch response status:', response.status);
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('[OrganizationAuth] Profile fetch error:', errorData);
+            setError(errorData.error || 'Failed to fetch user profile');
+            await supabase.auth.signOut();
+            setLoading(false);
+            return;
+          }
+
+          const responseData = await response.json();
+          console.log('[OrganizationAuth] Full response data:', responseData);
+          
+          // The backend returns { success: true, user: {...} }
+          userData = responseData.user || responseData;
+        } catch (fetchError: any) {
+          console.error('[OrganizationAuth] Network error fetching profile:', fetchError);
+          
+          // Backend not available - use Supabase metadata as fallback
+          console.log('[OrganizationAuth] ⚠️  Backend not available, using Supabase metadata');
+          userData = {
+            id: data.user.id,
+            email: data.user.email || '',
+            name: data.user.user_metadata?.name || '',
+            role: data.user.user_metadata?.role || '',
+            organizationName: data.user.user_metadata?.organizationName || '',
+            organizationType: data.user.user_metadata?.organizationType,
+            position: data.user.user_metadata?.position,
+            phone: data.user.user_metadata?.phone || ''
+          };
+        }
+        console.log('[OrganizationAuth] User profile received:', { 
           id: userData.id, 
           email: userData.email, 
           role: userData.role,
-          organizationName: userData.organizationName 
+          organizationName: userData.organizationName,
+          fullUserData: userData
         });
         
-        // Verify the user is a supervisor (check both capitalized and lowercase)
-        if (userData.role !== 'Supervisor' && userData.role !== 'supervisor') {
-          console.error('[SupervisorAuth] User is not a supervisor, role:', userData.role);
-          setError('This account is not registered as a supervisor. Please use the main application.');
+        // Verify the user is an organization/supervisor (not a professional or other role)
+        const userRole = (userData.role || '').toLowerCase();
+        const isOrgAccount = userRole === 'organization' || userRole === 'supervisor';
+        
+        if (!isOrgAccount) {
+          console.error('[OrganizationAuth] User is not an organization account');
+          console.error('[OrganizationAuth] Role received:', userData.role);
+          console.error('[OrganizationAuth] Normalized role:', userRole);
+          setError(`This account is not registered as an organization. Your role is: "${userData.role}". Please use the main application.`);
           await supabase.auth.signOut();
           setLoading(false);
           return;
         }
         
-        console.log('[SupervisorAuth] ✓ Supervisor verified, calling onLogin');
+        console.log('[OrganizationAuth] ✓ Organization verified, calling onLogin');
         
         // Call onLogin with the user data
         onLogin({
           id: userData.id,
           email: userData.email,
           name: userData.name,
-          role: userData.role,
+          role: 'organization',
           organizationName: userData.organizationName,
           organizationType: userData.organizationType,
           position: userData.position,
@@ -124,7 +154,22 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
       } else {
         // Sign up
         if (!organizationName || !position) {
-          setError('Organization name and position are required for supervisors.');
+          setError('Organization name and position are required.');
+          setLoading(false);
+          return;
+        }
+
+        // Validate consent
+        if (!hasConsented) {
+          setError('Please provide consent to proceed with registration.');
+          setLoading(false);
+          return;
+        }
+
+        // Validate password strength for new signups
+        const passwordCheck = checkPasswordStrength(password);
+        if (!passwordCheck.isValid) {
+          setError('Please create a stronger password. Meet at least 4 out of 5 password requirements.');
           setLoading(false);
           return;
         }
@@ -133,31 +178,37 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
           email,
           password,
           name,
-          role: 'Supervisor',
+          role: 'organization',
           organizationName,
           organizationType,
           position,
-          phone
+          phone,
+          hasConsented: true,
+          consentType: 'organizational',
+          consentDate: new Date().toISOString()
         });
 
-        // Show organization code to supervisor
+        // Show organization code to organization admin
         if (result.organizationCode) {
           alert(`✅ Account created successfully!\n\nYour Organization Code: ${result.organizationCode}\n\nShare this code with your team members so they can join your organization.\n\nYou can also find this code in your dashboard after logging in.`);
         }
 
         // Auto-login after signup using Supabase client
-        console.log('[SupervisorAuth] Auto-login after signup...');
+        console.log('[OrganizationAuth] Auto-login after signup...');
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password
         });
         
         if (signInError) {
-          console.error('[SupervisorAuth] Auto-login error:', signInError);
+          console.error('[OrganizationAuth] Auto-login error:', signInError);
           setError('Account created but auto-login failed. Please log in manually.');
           setLoading(false);
           return;
         }
+
+        console.log('[OrganizationAuth] Auto-login successful, fetching profile...');
+        console.log('[OrganizationAuth] Access token:', data.session.access_token.substring(0, 30) + '...');
 
         // Fetch user profile
         const response = await fetch(
@@ -169,22 +220,37 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
           }
         );
 
+        console.log('[OrganizationAuth] Profile fetch response status:', response.status);
+
         if (!response.ok) {
           const errorData = await response.json();
+          console.error('[OrganizationAuth] Profile fetch failed:', errorData);
           setError(errorData.error || 'Failed to fetch user profile');
           setLoading(false);
           return;
         }
 
         const responseData = await response.json();
+        console.log('[OrganizationAuth] Profile data received:', responseData);
+        
         // The backend returns { success: true, user: {...} }
         const userData = responseData.user || responseData;
+        
+        console.log('[OrganizationAuth] User role from backend:', userData.role);
+        
+        // Verify this is an organization account
+        const userRole = userData.role?.toLowerCase();
+        if (userRole !== 'organization') {
+          console.error('[OrganizationAuth] ⚠️ WARNING: User registered as organization but role is:', userData.role);
+          console.error('[OrganizationAuth] This may indicate a backend data issue');
+          // Still proceed to login but log the warning
+        }
         
         onLogin({
           id: userData.id,
           email: userData.email,
           name: userData.name,
-          role: userData.role,
+          role: 'organization',
           organizationName: userData.organizationName,
           organizationType: userData.organizationType,
           position: userData.position,
@@ -194,7 +260,7 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
         });
       }
     } catch (err: any) {
-      console.error('[SupervisorAuth] Error:', err);
+      console.error('[OrganizationAuth] Error:', err);
       setError(err.message || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -218,11 +284,11 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
         <Card className="w-full border-2 shadow-large">
           <CardHeader className="space-y-3 text-center pb-6">
             <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-              <ShieldCheck className="h-8 w-8 text-white" />
+              <Building2 className="h-8 w-8 text-white" />
             </div>
             <div>
               <h1 className="text-3xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                JotMinds Supervisor Portal
+                JotMinds Organization Portal
               </h1>
               <p className="text-sm text-muted-foreground">Organizational Assessment Management</p>
             </div>
@@ -240,7 +306,7 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
                 <Input
                   id="email"
                   type="email"
-                  placeholder="supervisor@organization.com"
+                  placeholder="admin@organization.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -276,6 +342,8 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
                     </span>
                   </Button>
                 </div>
+                {/* Only show password strength indicator during registration */}
+                {!isLogin && <PasswordStrengthIndicator password={password} />}
               </div>
 
               {!isLogin && (
@@ -351,6 +419,39 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
                       ✨ Upon registration, you'll receive a unique <strong>Organization Code</strong> to share with your team members. They can use this code to join your organization when signing up as a Professional.
                     </AlertDescription>
                   </Alert>
+
+                  {/* Consent Section */}
+                  <div className="space-y-3 pt-2">
+                    <Alert className="border-purple-200 bg-purple-50">
+                      <AlertCircle className="h-4 w-4" style={{ color: '#7B61FF' }} />
+                      <AlertDescription className="text-sm">
+                        <div className="space-y-2">
+                          <p className="font-semibold" style={{ color: '#2C2E83' }}>Organizational Terms and Consent</p>
+                          <p className="text-gray-700">
+                            By registering your organization, you agree to the collection and use of assessment data from your team members 
+                            to provide organizational insights and team analytics. All data will be stored securely and used only for 
+                            providing cognitive assessment services.
+                          </p>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="flex items-start gap-3 p-3 border-2 border-purple-200 rounded-lg bg-white">
+                      <Checkbox 
+                        id="orgConsent" 
+                        checked={hasConsented}
+                        onCheckedChange={(checked) => setHasConsented(checked as boolean)}
+                        className="mt-1"
+                      />
+                      <label 
+                        htmlFor="orgConsent" 
+                        className="text-sm cursor-pointer leading-relaxed"
+                      >
+                        I agree to register this organization for JotMinds cognitive assessments and consent to the collection 
+                        and use of organizational assessment data for the purpose of providing team insights and analytics.
+                      </label>
+                    </div>
+                  </div>
                 </>
               )}
 

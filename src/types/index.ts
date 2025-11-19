@@ -1,6 +1,6 @@
-export type UserRole = 'student' | 'teacher' | 'parent' | 'professional' | 'supervisor';
+export type UserRole = 'student' | 'teacher' | 'parent' | 'professional' | 'organization';
 
-export type EducationLevel = 'JHS' | 'SHS' | 'Tertiary';
+export type EducationLevel = 'Elementary' | 'JHS' | 'SHS' | 'Tertiary';
 
 export type OrganizationType = 'Corporate' | 'NGO' | 'Government' | 'Startup' | 'Educational Institution' | 'Other';
 
@@ -16,7 +16,8 @@ export interface User {
   school?: string; // Optional - not applicable for supervisors
   role: UserRole;
   educationLevel?: EducationLevel;
-  age?: number;
+  dateOfBirth?: string; // Changed from age to dateOfBirth (ISO format: YYYY-MM-DD)
+  age?: number; // Computed property - calculated from dateOfBirth
   parentId?: string;
   teacherId?: string;
   students?: string[]; // For teachers and parents

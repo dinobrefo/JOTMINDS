@@ -49,7 +49,7 @@ export function AdminDashboard({ onLogout, onViewUser }: AdminDashboardProps) {
         return 'bg-green-100 text-green-800 border-green-200';
       case 'professional':
         return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'supervisor':
+      case 'organization':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -62,7 +62,7 @@ export function AdminDashboard({ onLogout, onViewUser }: AdminDashboardProps) {
     teachers: users.filter(u => u.role === 'teacher').length,
     parents: users.filter(u => u.role === 'parent').length,
     professionals: users.filter(u => u.role === 'professional').length,
-    supervisors: users.filter(u => u.role === 'supervisor').length,
+    organizations: users.filter(u => u.role === 'organization').length,
   };
 
   return (
@@ -142,10 +142,10 @@ export function AdminDashboard({ onLogout, onViewUser }: AdminDashboardProps) {
 
           <Card className="border-2 border-red-200 bg-gradient-to-br from-white to-red-50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-red-900">Supervisors</CardTitle>
+              <CardTitle className="text-sm text-red-900">Organizations</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-900">{userStats.supervisors}</div>
+              <div className="text-2xl font-bold text-red-900">{userStats.organizations}</div>
             </CardContent>
           </Card>
         </div>

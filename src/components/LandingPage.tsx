@@ -92,12 +92,12 @@ export function LandingPage({ onGetStarted, onSupervisorPortal }: LandingPagePro
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Supervisor Portal Link */}
+      {/* Organization Portal Link */}
       {onSupervisorPortal && (
         <div className="absolute top-4 right-4">
           <Button variant="outline" onClick={onSupervisorPortal} className="gap-2">
             <ShieldCheck className="h-4 w-4" />
-            Supervisor Portal
+            Organization Portal
           </Button>
         </div>
       )}

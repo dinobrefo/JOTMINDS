@@ -11,6 +11,8 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
 import { ArrowLeft, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { PasswordStrengthIndicator, checkPasswordStrength } from './PasswordStrengthIndicator';
+import { Checkbox } from './ui/checkbox';
 
 interface AuthFormProps {
   onLogin: () => void;
@@ -26,7 +28,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
   const [school, setSchool] = useState('');
   const [role, setRole] = useState('Student');
   const [educationLevel, setEducationLevel] = useState('JHS');
-  const [age, setAge] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState(''); // Changed from age to dateOfBirth
   const [organizationName, setOrganizationName] = useState('');
   const [organizationType, setOrganizationType] = useState('Corporate');
   const [position, setPosition] = useState('');
@@ -36,6 +38,23 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
+  const [hasConsented, setHasConsented] = useState(false);
+
+  // Calculate age from date of birth
+  const calculateAge = (dob: string): number => {
+    if (!dob) return 0;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Determine if user is a minor (under 18)
+  const isMinor = role === 'student' && dateOfBirth && calculateAge(dateOfBirth) < 18;
 
   const validateOrgCode = async () => {
     if (!organizationCode.trim()) {
@@ -190,6 +209,22 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
       } else {
         // Sign up - keep roles lowercase for consistency
         console.log('[AuthForm] Attempting signup...');
+        
+        // Validate consent for registration
+        if (!hasConsented) {
+          setError('Please provide consent to proceed with registration.');
+          setLoading(false);
+          return;
+        }
+        
+        // Validate password strength for new signups
+        const passwordCheck = checkPasswordStrength(password);
+        if (!passwordCheck.isValid) {
+          setError('Please create a stronger password. Meet at least 4 out of 5 password requirements.');
+          setLoading(false);
+          return;
+        }
+        
         const signupData = {
           email,
           password,
@@ -198,11 +233,14 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
           organizationName: role === 'professional' ? organizationName : undefined,
           organizationType: role === 'professional' ? organizationType : undefined,
           position: role === 'professional' ? position : undefined,
-          organizationCode: role === 'professional' ? organizationCode.toUpperCase() : undefined,
+          organizationCode: role === 'professional' && organizationCode ? organizationCode.toUpperCase() : undefined,
           phone,
           school: role === 'student' || role === 'teacher' ? school : undefined,
           educationLevel: role === 'student' ? educationLevel : undefined,
-          age: role === 'student' && age ? parseInt(age) : undefined
+          dateOfBirth: role === 'student' && dateOfBirth ? dateOfBirth : undefined,
+          hasConsented: true,
+          consentType: isMinor ? 'parental' : 'individual',
+          consentDate: new Date().toISOString()
         };
         
         console.log('[AuthForm] Signup data:', { ...signupData, password: '[REDACTED]' });
@@ -324,6 +362,8 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                   </span>
                 </Button>
               </div>
+              {/* Only show password strength indicator during registration */}
+              {!isLogin && <PasswordStrengthIndicator password={password} />}
             </div>
 
             {!isLogin && (
@@ -354,7 +394,11 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
 
                 <div className="space-y-2">
                   <Label htmlFor="role">I am a...</Label>
-                  <Select value={role} onValueChange={(val) => setRole(val)}>
+                  <Select value={role} onValueChange={(val) => {
+                    setRole(val);
+                    // Reset consent when role changes as consent text may change
+                    setHasConsented(false);
+                  }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -362,7 +406,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                       <SelectItem value="student">Student</SelectItem>
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="parent">Parent</SelectItem>
-                      <SelectItem value="professional">Professional/Organization</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -390,6 +434,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="Elementary">Elementary (Primary School)</SelectItem>
                           <SelectItem value="JHS">JHS (Junior High School)</SelectItem>
                           <SelectItem value="SHS">SHS (Senior High School)</SelectItem>
                           <SelectItem value="Tertiary">Tertiary</SelectItem>
@@ -398,15 +443,17 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="age">Age</Label>
+                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
                       <Input
-                        id="age"
-                        type="number"
-                        placeholder="Your age"
-                        value={age}
-                        onChange={(e) => setAge(e.target.value)}
-                        min="5"
-                        max="100"
+                        id="dateOfBirth"
+                        type="date"
+                        placeholder="Your date of birth"
+                        value={dateOfBirth}
+                        onChange={(e) => {
+                          setDateOfBirth(e.target.value);
+                          // Reset consent when date of birth changes as it may affect consent type (parental vs individual)
+                          setHasConsented(false);
+                        }}
                       />
                     </div>
                   </>
@@ -416,7 +463,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                   <>
                     {role === 'professional' && (
                       <div className="space-y-2">
-                        <Label htmlFor="organizationCode">Organization Code</Label>
+                        <Label htmlFor="organizationCode">Organization Code (Optional)</Label>
                         <div className="flex gap-2">
                           <Input
                             id="organizationCode"
@@ -427,7 +474,6 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                               setOrganizationCode(e.target.value.toUpperCase());
                               setVerifiedOrgName(''); // Clear verification when code changes
                             }}
-                            required
                             disabled={!!verifiedOrgName}
                           />
                           <Button
@@ -454,7 +500,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                           </Alert>
                         )}
                         <p className="text-xs text-muted-foreground">
-                          Enter the organization code provided by your supervisor
+                          If you have an organization code from your supervisor, enter it here. Otherwise, you can skip this field.
                         </p>
                       </div>
                     )}
@@ -503,6 +549,59 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                   </>
                 )}
               </>
+            )}
+
+            {/* Consent Section - Only show during registration */}
+            {!isLogin && (
+              <div className="space-y-3 pt-2">
+                <Alert className="border-purple-200 bg-purple-50">
+                  <AlertCircle className="h-4 w-4" style={{ color: '#7B61FF' }} />
+                  <AlertDescription className="text-sm">
+                    {isMinor ? (
+                      <div className="space-y-2">
+                        <p className="font-semibold" style={{ color: '#2C2E83' }}>Parental Consent Required</p>
+                        <p className="text-gray-700">
+                          As you are under 18 years old, a parent or legal guardian must provide consent for you to use JotMinds. 
+                          By checking the box below, your parent/guardian confirms they have read and agree to our terms.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="font-semibold" style={{ color: '#2C2E83' }}>Terms and Consent</p>
+                        <p className="text-gray-700">
+                          By registering, you agree to the collection and use of your assessment data to provide personalized insights 
+                          and recommendations. Your data will be stored securely and used only for improving your learning experience.
+                        </p>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex items-start gap-3 p-3 border-2 border-purple-200 rounded-lg bg-white">
+                  <Checkbox 
+                    id="consent" 
+                    checked={hasConsented}
+                    onCheckedChange={(checked) => setHasConsented(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <label 
+                    htmlFor="consent" 
+                    className="text-sm cursor-pointer leading-relaxed"
+                  >
+                    {isMinor ? (
+                      <>
+                        I am a parent/legal guardian and I consent to my child's participation in JotMinds assessments. 
+                        I understand that assessment data will be collected and used to provide educational insights.
+                      </>
+                    ) : (
+                      <>
+                        I agree to participate in JotMinds assessments and consent to the collection and use of my assessment data 
+                        for the purpose of providing personalized learning insights and recommendations.
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
             )}
 
             {error && (

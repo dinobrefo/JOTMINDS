@@ -139,6 +139,11 @@ export const signup = async (userData: {
   school?: string;
   educationLevel?: string;
   age?: number;
+  organizationCode?: string;
+  hasConsented?: boolean;
+  consentType?: string;
+  consentDate?: string;
+  dateOfBirth?: string;
 }) => {
   return makeRequest('/signup', {
     method: 'POST',

@@ -1,21 +1,44 @@
+import { ParentAccessRequests } from './ParentAccessRequests';
+import { DailyChallengeTab } from './DailyChallengeTab';
+import { ChildrenDailyChallenges } from './ChildrenDailyChallenges';
+import { MindMoodMeter } from './MindMoodMeter';
+import { DiscoveryOfTheDay } from './DiscoveryOfTheDay';
+import { ParentTeacherGuide } from './ParentTeacherGuide';
+import { ChildrenThinkingContainer } from './ChildrenThinkingContainer';
+import { JHSThinkingContainer } from './JHSThinkingContainer';
+import { SHSThinkingContainer } from './SHSThinkingContainer';
+import { AdultThinkingContainer } from './AdultThinkingContainer';
+import { calculateAge } from '../utils/dateUtils';
 import { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { BookOpen, FileText, TrendingUp, LogOut, Eye, Info, BarChart3, Home, Sparkles, MessageSquare, UserPlus } from 'lucide-react';
+import { User, Assessment } from '../types';
+import { getUserAssessments, getUserReflections } from '../utils/storage';
+import { getUserAssessmentResults } from '../utils/api';
+import { useAuth } from './AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { 
+  BookOpen, 
+  Eye, 
+  LogOut, 
+  TrendingUp, 
+  FileText,
+  Sparkles,
+  GraduationCap,
+  Home,
+  BarChart3,
+  UserPlus,
+  MessageSquare
+} from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { AssessmentTaking } from './AssessmentTaking';
 import { AssessmentReport } from './AssessmentReport';
+import { CombinedCognitiveProfile } from './CombinedCognitiveProfile';
 import { FrameworkInfo } from './FrameworkInfo';
 import { AssessmentHistory } from './AssessmentHistory';
 import { ReflectionsViewer } from './ReflectionsViewer';
-import { CombinedCognitiveProfile } from './CombinedCognitiveProfile';
-import { ParentAccessRequests } from './ParentAccessRequests';
-import { useAuth } from './AuthContext';
-import { User, Assessment } from '../types';
-import { getUserAssessments, getUserReflections } from '../utils/storage';
-import { getUserAssessmentResults } from '../utils/api';
+import { AssessmentExecutiveSummary } from './AssessmentExecutiveSummary';
 
 interface StudentDashboardProps {
   user: User;
@@ -26,9 +49,16 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const { impersonatedUser } = useAuth();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [activeAssessment, setActiveAssessment] = useState<'kolb' | 'sternberg' | 'dual-process' | null>(null);
+  const [showJHSAssessment, setShowJHSAssessment] = useState(false);
+  const [showSHSAssessment, setShowSHSAssessment] = useState(false);
+  const [showAdultAssessment, setShowAdultAssessment] = useState(false);
+  const [showChildrenAssessment, setShowChildrenAssessment] = useState(false);
   const [viewingReport, setViewingReport] = useState<Assessment | null>(null);
   const [viewingCombinedProfile, setViewingCombinedProfile] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [challengeKey, setChallengeKey] = useState(0);
+  const [moodMeterKey, setMoodMeterKey] = useState(0);
 
   useEffect(() => {
     loadAssessments();
@@ -87,6 +117,16 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     return assessments.some(a => a.type === type);
   };
 
+  const hasCompletedAtLeastOne = () => {
+    return assessments.length > 0;
+  };
+
+  const hasCompletedAllThree = () => {
+    return hasCompletedAssessment('kolb') && 
+           hasCompletedAssessment('sternberg') && 
+           hasCompletedAssessment('dual-process');
+  };
+
   const getLatestAssessment = (type: 'kolb' | 'sternberg' | 'dual-process') => {
     return assessments.filter(a => a.type === type).sort((a, b) => 
       new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
@@ -113,6 +153,51 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     }));
   };
 
+  // Determine which Thinking Styles assessment to show based on education level (primary) and age (secondary)
+  const getThinkingStylesAssessment = () => {
+    // Calculate age from dateOfBirth if available
+    let userAge = user.age;
+    if (!userAge && user.dateOfBirth) {
+      userAge = calculateAge(user.dateOfBirth);
+    }
+
+    // PRIMARY: Use education level as the main determinant
+    // This accounts for students who might be younger/older than typical for their grade
+    if (user.educationLevel) {
+      switch (user.educationLevel) {
+        case 'Elementary':
+          return 'Children'; // Ages 6-10 typically
+        case 'JHS':
+          return 'JHS'; // Ages 11-14 typically
+        case 'SHS':
+          return 'SHS'; // Ages 15-18 typically
+        case 'Tertiary':
+          return 'Adult'; // Ages 19+ typically
+      }
+    }
+
+    // SECONDARY: Fall back to age-based determination if no education level
+    if (userAge) {
+      if (userAge >= 6 && userAge <= 10) return 'Children';
+      if (userAge >= 11 && userAge <= 14) return 'JHS';
+      if (userAge >= 15 && userAge <= 18) return 'SHS';
+      if (userAge >= 19) return 'Adult';
+      
+      // User is too young (under 6)
+      return null;
+    }
+
+    // DEFAULT: If neither education level nor age is available, default to Adult
+    return 'Adult';
+  };
+
+  const thinkingStylesAssessment = getThinkingStylesAssessment();
+
+  // Helper to check if user should see children's features (ages 6-10)
+  const isChildrenUser = () => {
+    return user.educationLevel === 'Elementary' || thinkingStylesAssessment === 'Children';
+  };
+
   if (activeAssessment) {
     return (
       <AssessmentTaking
@@ -124,12 +209,58 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     );
   }
 
-  if (viewingCombinedProfile) {
+  if (showJHSAssessment) {
     return (
-      <CombinedCognitiveProfile
-        assessments={assessments}
+      <JHSThinkingContainer
+        userId={user.id}
         userName={user.name}
-        onBack={() => setViewingCombinedProfile(false)}
+        onComplete={() => {
+          loadAssessments();
+          setShowJHSAssessment(false);
+        }}
+        onCancel={() => setShowJHSAssessment(false)}
+      />
+    );
+  }
+
+  if (showSHSAssessment) {
+    return (
+      <SHSThinkingContainer
+        userId={user.id}
+        userName={user.name}
+        onComplete={() => {
+          loadAssessments();
+          setShowSHSAssessment(false);
+        }}
+        onCancel={() => setShowSHSAssessment(false)}
+      />
+    );
+  }
+
+  if (showAdultAssessment) {
+    return (
+      <AdultThinkingContainer
+        userId={user.id}
+        userName={user.name}
+        onComplete={() => {
+          loadAssessments();
+          setShowAdultAssessment(false);
+        }}
+        onCancel={() => setShowAdultAssessment(false)}
+      />
+    );
+  }
+
+  if (showChildrenAssessment) {
+    return (
+      <ChildrenThinkingContainer
+        userId={user.id}
+        userName={user.name}
+        onComplete={() => {
+          loadAssessments();
+          setShowChildrenAssessment(false);
+        }}
+        onCancel={() => setShowChildrenAssessment(false)}
       />
     );
   }
@@ -140,6 +271,17 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
         assessment={viewingReport}
         userName={user.name}
         onBack={() => setViewingReport(null)}
+        userRole={user.role}
+      />
+    );
+  }
+
+  if (viewingCombinedProfile) {
+    return (
+      <CombinedCognitiveProfile
+        userId={user.id}
+        userName={user.name}
+        onBack={() => setViewingCombinedProfile(false)}
         userRole={user.role}
       />
     );
@@ -184,31 +326,82 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
       </div>
 
       <div className="max-w-7xl mx-auto p-4 space-y-6">
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-5 mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <Home className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="track-record" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Track Record
-            </TabsTrigger>
-            <TabsTrigger value="reflections" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Reflections
-            </TabsTrigger>
-            <TabsTrigger value="parent-access" className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Parent Access
-            </TabsTrigger>
-            <TabsTrigger value="feedback" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Feedback
-            </TabsTrigger>
-          </TabsList>
-
+        <Tabs 
+          defaultValue="dashboard" 
+          className="w-full"
+          onValueChange={(value) => {
+            setActiveTab(value);
+            // Force reload when switching to specific tabs
+            if (value === 'daily-challenges') {
+              setChallengeKey(prev => prev + 1);
+            }
+            if (value === 'mood-meter') {
+              setMoodMeterKey(prev => prev + 1);
+            }
+          }}
+        >
+          {/* Different tabs based on education level (primary) or age (secondary) */}
+          {isChildrenUser() ? (
+            <TabsList className="grid w-full max-w-5xl mx-auto grid-cols-6 mb-6">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                <Home className="h-4 w-4" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="daily-challenges" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Mind Play
+              </TabsTrigger>
+              <TabsTrigger value="mood-meter" className="flex items-center gap-2">
+                🌞
+                Mood Meter
+              </TabsTrigger>
+              <TabsTrigger value="discoveries" className="flex items-center gap-2">
+                💡
+                Discoveries
+              </TabsTrigger>
+              <TabsTrigger value="parent-guide" className="flex items-center gap-2">
+                📘
+                Parent Guide
+              </TabsTrigger>
+              <TabsTrigger value="track-record" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                My Progress
+              </TabsTrigger>
+            </TabsList>
+          ) : (
+            <TabsList className="grid w-full max-w-5xl mx-auto grid-cols-6 mb-6">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                <Home className="h-4 w-4" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="daily-challenges" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Mind Booster
+              </TabsTrigger>
+              <TabsTrigger value="track-record" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Track Record
+              </TabsTrigger>
+              <TabsTrigger value="reflections" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Reflections
+              </TabsTrigger>
+              <TabsTrigger value="parent-access" className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Parent Access
+              </TabsTrigger>
+              <TabsTrigger value="feedback" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Feedback
+              </TabsTrigger>
+            </TabsList>
+          )}
           <TabsContent value="dashboard" className="space-y-6">
+            {/* Executive Summary Section */}
+            <AssessmentExecutiveSummary 
+              userId={user.id}
+            />
+
             <div className="grid gap-6 md:grid-cols-3">
           <Card className="border-2 border-blue-200 hover:shadow-large transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-blue-50">
             <CardHeader>
@@ -349,92 +542,524 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
           </Card>
             </div>
 
-            {/* Combined Profile Card - Show when all three assessments complete */}
-            {hasCompletedAssessment('kolb') && hasCompletedAssessment('sternberg') && hasCompletedAssessment('dual-process') && (
-              <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-white via-cyan-50 to-indigo-50 shadow-lg">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center">
-                    <Sparkles className="h-6 w-6 text-white" />
+            {/* NEW: Thinking Styles Adventure - Show ONLY after completing ALL THREE core assessments */}
+            {hasCompletedAllThree() && (
+              <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <Sparkles className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-green-900">🎉 Great Progress!</CardTitle>
+                      <CardDescription>
+                        Ready for your next adventure? Discover your Thinking Style!
+                      </CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-xl bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] bg-clip-text text-transparent">
-                      Your Complete Cognitive Profile
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-700 mb-4">
+                    Congratulations on completing all three core assessments! Now take the next step to discover your unique thinking patterns and unlock personalized program recommendations!
+                  </p>
+                  <Button 
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md"
+                    onClick={() => {
+                      // Scroll down to thinking styles assessment
+                      const element = document.getElementById('thinking-styles-section');
+                      element?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Explore Thinking Styles Adventure →
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* NEW: JHS Thinking Styles Adventure - For JHS Students (Ages 11-14) */}
+            {thinkingStylesAssessment === 'JHS' && hasCompletedAllThree() && (
+            <div id="thinking-styles-section">
+            <Card className="border-4 border-[#FF715B] bg-gradient-to-br from-white via-pink-50 to-purple-50 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Badge className="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-3 py-1 text-xs">
+                    🎉 NEW: For JHS Students
+                  </Badge>
+                  <Badge variant="outline" className="border-[#FF715B] text-[#FF715B]">
+                    Ages 11-14
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF715B] to-[#2C2E83] flex items-center justify-center shadow-lg">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-2xl bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] bg-clip-text text-transparent">
+                      🧠 Thinking Styles Adventure
                     </CardTitle>
-                    <CardDescription className="text-sm">
-                      View your comprehensive results with detailed insights and visualizations
+                    <CardDescription className="text-base mt-1">
+                      Discover how your mind learns, solves, and creates!
                     </CardDescription>
                   </div>
                 </div>
-                <Badge className="bg-green-100 text-green-800 border-green-200 text-sm px-3 py-1">
-                  ✓ All Complete
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border-2 border-[#FF715B]/30">
+                  <p className="text-sm text-gray-700 mb-3">
+                    👋 <strong>Hey there, Thinker!</strong> Take a fun journey to discover:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🎨</span>
+                      <span>Creative Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🔍</span>
+                      <span>Analytical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🛠️</span>
+                      <span>Practical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">💭</span>
+                      <span>Reflective Thinking</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg p-3 border border-yellow-200">
+                  <p className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <span className="text-lg">🎓</span>
+                    Get SHS Program Recommendations!
+                  </p>
+                  <p className="text-xs text-gray-700">
+                    Find out which Senior High School programs match your unique thinking powers
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={() => setShowJHSAssessment(true)}
+                  className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                  size="lg"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Start Your Thinking Adventure! 🚀
+                </Button>
+
+                <p className="text-xs text-center text-gray-500">
+                  ⏱️ Takes about 5-7 minutes • 24 fun questions with emoji responses 😕😐🙂😃🤩
+                </p>
+              </CardContent>
+            </Card>
+            </div>
+            )}
+
+            {/* NEW: SHS Thinking Styles Adventure - For SHS Students (Ages 15-18) */}
+            {thinkingStylesAssessment === 'SHS' && hasCompletedAllThree() && (
+            <div id="thinking-styles-section">
+            <Card className="border-4 border-indigo-300 bg-gradient-to-br from-white via-indigo-50 to-cyan-50 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Badge className="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-3 py-1 text-xs">
+                    🎯 NEW: For SHS Students
+                  </Badge>
+                  <Badge variant="outline" className="border-indigo-500 text-indigo-700">
+                    Ages 15-18
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                    <GraduationCap className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-2xl bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent">
+                      🎓 SHS Thinking Styles Assessment
+                    </CardTitle>
+                    <CardDescription className="text-base mt-1">
+                      Discover your thinking profile and find the perfect university program
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border-2 border-indigo-200">
+                  <p className="text-sm text-gray-700 mb-3">
+                    <strong>Understand your unique thinking patterns across four dimensions:</strong>
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🎨</span>
+                      <span>Creative Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🔍</span>
+                      <span>Analytical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🛠️</span>
+                      <span>Practical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">💭</span>
+                      <span>Reflective Thinking</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg p-3 border border-yellow-200">
+                  <p className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-yellow-700" />
+                    Get University & College Program Recommendations!
+                  </p>
+                  <p className="text-xs text-gray-700">
+                    Find tertiary programs that align with your thinking style, plus career pathways and top Philippine universities
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={() => setShowSHSAssessment(true)}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                  size="lg"
+                >
+                  <GraduationCap className="mr-2 h-5 w-5" />
+                  Begin Assessment →
+                </Button>
+
+                <p className="text-xs text-center text-gray-500">
+                  ⏱️ Takes 6-8 minutes • 24 questions with 5-point rating scale
+                </p>
+              </CardContent>
+            </Card>
+            </div>
+            )}
+
+            {/* NEW: Adult Thinking Styles Adventure - For Adults */}
+            {thinkingStylesAssessment === 'Adult' && hasCompletedAllThree() && (
+            <div id="thinking-styles-section">
+            <Card className="border-4 border-slate-300 bg-gradient-to-br from-white via-slate-50 to-zinc-50 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Badge className="bg-gradient-to-r from-slate-700 to-slate-900 text-white px-3 py-1 text-xs">
+                    💼 NEW: Professional Assessment
+                  </Badge>
+                  <Badge variant="outline" className="border-slate-600 text-slate-700">
+                    Ages 19+
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-2xl bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+                      💼 Professional Thinking Styles
+                    </CardTitle>
+                    <CardDescription className="text-base mt-1">
+                      Discover your thinking profile for career development and growth
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border-2 border-slate-200">
+                  <p className="text-sm text-gray-700 mb-3">
+                    <strong>Unlock your professional potential across four thinking dimensions:</strong>
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🎨</span>
+                      <span>Creative Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🔍</span>
+                      <span>Analytical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🛠️</span>
+                      <span>Practical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">💭</span>
+                      <span>Reflective Thinking</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
+                  <p className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <span className="text-lg">💼</span>
+                    Get Personalized Career Path Recommendations!
+                  </p>
+                  <p className="text-xs text-gray-700">
+                    Discover 20+ career paths aligned with your thinking style, including entrepreneurship, leadership roles, and professional development opportunities
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={() => setShowAdultAssessment(true)}
+                  className="w-full bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                  size="lg"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Begin Professional Assessment →
+                </Button>
+
+                <p className="text-xs text-center text-gray-500">
+                  ⏱️ Takes 8-10 minutes • 24 questions with professional Likert scale
+                </p>
+              </CardContent>
+            </Card>
+            </div>
+            )}
+
+            {/* NEW: Children Thinking Styles Adventure - For Children (Ages 6-10) */}
+            {thinkingStylesAssessment === 'Children' && hasCompletedAllThree() && (
+            <div id="thinking-styles-section">
+            <Card className="border-4 border-[#FF715B] bg-gradient-to-br from-white via-pink-50 to-purple-50 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Badge className="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-3 py-1 text-xs">
+                    🎉 NEW: For Children
+                  </Badge>
+                  <Badge variant="outline" className="border-[#FF715B] text-[#FF715B]">
+                    Ages 6-10
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF715B] to-[#2C2E83] flex items-center justify-center shadow-lg">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-2xl bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] bg-clip-text text-transparent">
+                      🧠 Thinking Styles Adventure
+                    </CardTitle>
+                    <CardDescription className="text-base mt-1">
+                      Discover how your mind learns, solves, and creates!
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border-2 border-[#FF715B]/30">
+                  <p className="text-sm text-gray-700 mb-3">
+                    👋 <strong>Hey there, Thinker!</strong> Take a fun journey to discover:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🎨</span>
+                      <span>Creative Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🔍</span>
+                      <span>Analytical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">🛠️</span>
+                      <span>Practical Thinking</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xl">💭</span>
+                      <span>Reflective Thinking</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg p-3 border border-yellow-200">
+                  <p className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <span className="text-lg">🎓</span>
+                    Get SHS Program Recommendations!
+                  </p>
+                  <p className="text-xs text-gray-700">
+                    Find out which Senior High School programs match your unique thinking powers
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={() => setShowChildrenAssessment(true)}
+                  className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                  size="lg"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Start Your Thinking Adventure! 🚀
+                </Button>
+
+                <p className="text-xs text-center text-gray-500">
+                  ⏱️ Takes about 5-7 minutes • 24 fun questions with emoji responses 😕😐🙂😃🤩
+                </p>
+              </CardContent>
+            </Card>
+            </div>
+            )}
+
+            {trendData.length > 1 && (
+              <Card className="border-2 border-purple-200 bg-gradient-to-br from-white via-purple-50 to-pink-50 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-md">
+                      <TrendingUp className="h-5 w-5 text-white" />
+                    </div>
+                    Your Learning Style Trends
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    Track how your learning preferences change over time
+                  </CardDescription>
+                </div>
+                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1">
+                  {trendData.length} Assessments
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 mb-4 border border-[#1FC8E1]/30">
-                <p className="text-sm text-gray-700 mb-3">
-                  🎉 Congratulations! You've completed all three assessments. View your complete cognitive profile to see:
-                </p>
-                <ul className="text-sm text-gray-600 space-y-2">
-                  <li className="flex items-center gap-2">
-                    <span className="text-[#1FC8E1]">•</span>
-                    <span>360° radar chart of all your cognitive dimensions</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-[#1FC8E1]">•</span>
-                    <span>Detailed breakdown of your strengths and growth areas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-[#1FC8E1]">•</span>
-                    <span>Personalized recommendations for academic success</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-[#1FC8E1]">•</span>
-                    <span>Visual balance charts across learning, thinking, and decision-making</span>
-                  </li>
-                </ul>
-              </div>
-              <Button 
-                onClick={() => setViewingCombinedProfile(true)}
-                className="w-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all"
-                size="lg"
-              >
-                <Sparkles className="mr-2 h-5 w-5" />
-                View Your Complete Profile
-                <Eye className="ml-2 h-5 w-5" />
-              </Button>
-            </CardContent>
-              </Card>
-            )}
-
-            {trendData.length > 1 && (
-              <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Your Learning Style Trends
-              </CardTitle>
-              <CardDescription>
-                Track how your learning preferences change over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
+              <div className="h-80 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-purple-200">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="CE" stroke="#ef4444" name="Concrete Experience" />
-                    <Line type="monotone" dataKey="RO" stroke="#3b82f6" name="Reflective Observation" />
-                    <Line type="monotone" dataKey="AC" stroke="#10b981" name="Abstract Conceptualization" />
-                    <Line type="monotone" dataKey="AE" stroke="#f59e0b" name="Active Experimentation" />
+                  <LineChart 
+                    data={trendData}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorCE" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05}/>
+                      </linearGradient>
+                      <linearGradient id="colorRO" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05}/>
+                      </linearGradient>
+                      <linearGradient id="colorAC" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+                      </linearGradient>
+                      <linearGradient id="colorAE" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.05}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      stroke="#e5e7eb" 
+                      strokeOpacity={0.5}
+                      vertical={false}
+                    />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#6b7280"
+                      style={{ fontSize: '12px', fontWeight: 500 }}
+                      tick={{ fill: '#6b7280' }}
+                    />
+                    <YAxis 
+                      stroke="#6b7280"
+                      style={{ fontSize: '12px', fontWeight: 500 }}
+                      tick={{ fill: '#6b7280' }}
+                      domain={[0, 'dataMax + 10']}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                      }}
+                      labelStyle={{ 
+                        fontWeight: 600, 
+                        color: '#1f2937',
+                        marginBottom: '8px',
+                        fontSize: '14px'
+                      }}
+                      itemStyle={{ 
+                        padding: '4px 0',
+                        fontSize: '13px',
+                        fontWeight: 500
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{
+                        paddingTop: '20px',
+                        fontSize: '13px',
+                        fontWeight: 500
+                      }}
+                      iconType="circle"
+                      iconSize={10}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="CE" 
+                      stroke="#ef4444" 
+                      strokeWidth={3}
+                      name="Concrete Experience" 
+                      dot={{ fill: '#ef4444', strokeWidth: 2, r: 5, stroke: '#fff' }}
+                      activeDot={{ r: 8, strokeWidth: 3, stroke: '#fff' }}
+                      fill="url(#colorCE)"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="RO" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3}
+                      name="Reflective Observation" 
+                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 5, stroke: '#fff' }}
+                      activeDot={{ r: 8, strokeWidth: 3, stroke: '#fff' }}
+                      fill="url(#colorRO)"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="AC" 
+                      stroke="#10b981" 
+                      strokeWidth={3}
+                      name="Abstract Conceptualization" 
+                      dot={{ fill: '#10b981', strokeWidth: 2, r: 5, stroke: '#fff' }}
+                      activeDot={{ r: 8, strokeWidth: 3, stroke: '#fff' }}
+                      fill="url(#colorAC)"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="AE" 
+                      stroke="#f59e0b" 
+                      strokeWidth={3}
+                      name="Active Experimentation" 
+                      dot={{ fill: '#f59e0b', strokeWidth: 2, r: 5, stroke: '#fff' }}
+                      activeDot={{ r: 8, strokeWidth: 3, stroke: '#fff' }}
+                      fill="url(#colorAE)"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+              
+              {/* Legend with descriptions */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+                <div className="p-3 bg-red-50 rounded-lg border-2 border-red-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span className="font-semibold text-sm text-red-900">CE</span>
+                  </div>
+                  <p className="text-xs text-red-700">Learning through feelings & experiences</p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span className="font-semibold text-sm text-blue-900">RO</span>
+                  </div>
+                  <p className="text-xs text-blue-700">Learning by watching & listening</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg border-2 border-green-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="font-semibold text-sm text-green-900">AC</span>
+                  </div>
+                  <p className="text-xs text-green-700">Learning through thinking & analyzing</p>
+                </div>
+                <div className="p-3 bg-yellow-50 rounded-lg border-2 border-yellow-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span className="font-semibold text-sm text-yellow-900">AE</span>
+                  </div>
+                  <p className="text-xs text-yellow-700">Learning by doing & experimenting</p>
+                </div>
               </div>
             </CardContent>
               </Card>
@@ -466,6 +1091,49 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
               </Card>
             )}
           </TabsContent>
+
+          <TabsContent value="daily-challenges" className="space-y-6">
+            {isChildrenUser() ? (
+              <ChildrenDailyChallenges 
+                key={challengeKey}
+                userId={user.id}
+                userName={user.name}
+              />
+            ) : (
+              <DailyChallengeTab 
+                key={challengeKey}
+                userId={user.id}
+                userName={user.name}
+                userAge={user.age || 18}
+              />
+            )}
+          </TabsContent>
+
+          {/* Children-specific tabs based on education level or age */}
+          {isChildrenUser() && (
+            <>
+              <TabsContent value="mood-meter" className="space-y-6">
+                <MindMoodMeter 
+                  key={moodMeterKey}
+                  userId={user.id}
+                  userName={user.name}
+                />
+              </TabsContent>
+
+              <TabsContent value="discoveries" className="space-y-6">
+                <DiscoveryOfTheDay 
+                  userId={user.id}
+                  userName={user.name}
+                />
+              </TabsContent>
+
+              <TabsContent value="parent-guide" className="space-y-6">
+                <ParentTeacherGuide 
+                  childName={user.name}
+                />
+              </TabsContent>
+            </>
+          )}
 
           <TabsContent value="track-record" className="space-y-6">
             <AssessmentHistory 
