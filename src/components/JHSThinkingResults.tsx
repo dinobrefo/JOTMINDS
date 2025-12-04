@@ -13,10 +13,14 @@ import {
   Target,
   Lightbulb,
   Trophy,
-  Compass
+  Compass,
+  X,
+  GraduationCap,
+  Briefcase,
+  DollarSign
 } from 'lucide-react';
 import { JHSResults } from '../utils/jhsScoring';
-import { THINKING_STYLES, SHS_PROGRAMS, MOTIVATION_MESSAGES } from '../utils/jhsThinkingData';
+import { THINKING_STYLES, SHS_PROGRAMS, MOTIVATION_MESSAGES, CAREER_PATHS, Career } from '../utils/jhsThinkingData';
 import {
   RadarChart,
   PolarGrid,
@@ -48,6 +52,9 @@ export function JHSThinkingResults({
   onShareWithParent 
 }: JHSThinkingResultsProps) {
   const [selectedProgram, setSelectedProgram] = useState<any>(null);
+  const [openChallenges, setOpenChallenges] = useState<{[key: number]: boolean}>({});
+  const [showCareerExplorer, setShowCareerExplorer] = useState(false);
+  const [selectedCareer, setSelectedCareer] = useState<Career | null>(null);
 
   const primaryStyle = THINKING_STYLES[results.primaryStyle];
   const secondaryStyle = THINKING_STYLES[results.secondaryStyle];
@@ -144,18 +151,21 @@ export function JHSThinkingResults({
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="breakdown" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="breakdown">
-              <Brain className="mr-2 h-4 w-4" />
-              Thinking Powers
+          <TabsList className="grid w-full grid-cols-3 gap-1">
+            <TabsTrigger value="breakdown" className="text-xs sm:text-sm flex items-center justify-center gap-1">
+              <Brain className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Thinking Powers</span>
+              <span className="sm:hidden">Powers</span>
             </TabsTrigger>
-            <TabsTrigger value="programs">
-              <BookOpen className="mr-2 h-4 w-4" />
-              SHS Programs
+            <TabsTrigger value="programs" className="text-xs sm:text-sm flex items-center justify-center gap-1">
+              <BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">School Programs</span>
+              <span className="sm:hidden">Programs</span>
             </TabsTrigger>
-            <TabsTrigger value="growth">
-              <Trophy className="mr-2 h-4 w-4" />
-              Growth Tips
+            <TabsTrigger value="tips" className="text-xs sm:text-sm flex items-center justify-center gap-1">
+              <Lightbulb className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">How to Improve</span>
+              <span className="sm:hidden">Tips</span>
             </TabsTrigger>
           </TabsList>
 
@@ -408,9 +418,17 @@ export function JHSThinkingResults({
                               size="sm"
                               className="text-xs"
                               style={{ borderColor: primaryStyle.color, color: primaryStyle.color }}
+                              onClick={() => setOpenChallenges(prev => ({ ...prev, [index]: !prev[index] }))}
                             >
                               💬 Try this mini challenge!
                             </Button>
+                            {openChallenges[index] && (
+                              <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-gray-700">
+                                  {program.miniChallenge}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -451,7 +469,7 @@ export function JHSThinkingResults({
           </TabsContent>
 
           {/* Tab 3: Growth Tips */}
-          <TabsContent value="growth" className="space-y-6">
+          <TabsContent value="tips" className="space-y-6">
             
             {/* Motivation Message */}
             <Card className="bg-gradient-to-r from-purple-100 to-pink-100">
@@ -538,7 +556,7 @@ export function JHSThinkingResults({
                 <CardTitle>🎮 Next Steps</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full" variant="outline">
+                <Button className="w-full" variant="outline" onClick={() => setShowCareerExplorer(true)}>
                   <BookOpen className="mr-2 h-4 w-4" />
                   📘 Career Explorer Mode
                 </Button>
@@ -589,6 +607,222 @@ export function JHSThinkingResults({
           </CardContent>
         </Card>
       </div>
+
+      {/* Career Explorer Modal */}
+      {showCareerExplorer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowCareerExplorer(false)}>
+          <div className="bg-white rounded-xl max-w-6xl max-h-[90vh] overflow-y-auto w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b-2 p-6 flex items-center justify-between" style={{ borderColor: primaryStyle.color }}>
+              <div>
+                <h2 className="text-3xl font-bold" style={{ color: primaryStyle.color }}>
+                  🚀 Career Explorer Mode
+                </h2>
+                <p className="text-gray-600 mt-1">Explore careers that match your {primaryStyle.name} thinking style</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowCareerExplorer(false)}>
+                <X className="h-6 w-6" />
+              </Button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Career Cards Grid */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {CAREER_PATHS[results.primaryStyle]?.map((career, index) => (
+                  <Card 
+                    key={index}
+                    className="hover:shadow-xl transition-all cursor-pointer border-2"
+                    style={{ borderColor: index === 0 ? primaryStyle.color : '#e5e7eb' }}
+                    onClick={() => setSelectedCareer(career)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="text-5xl">{career.emoji}</div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold mb-2" style={{ color: primaryStyle.color }}>
+                            {career.title}
+                          </h3>
+                          <p className="text-sm text-gray-700 mb-3">
+                            {career.description}
+                          </p>
+                          <div className="flex gap-2 flex-wrap">
+                            {career.matchingStyles.map((styleKey: string) => (
+                              <Badge key={styleKey} variant="secondary" className="text-xs">
+                                {THINKING_STYLES[styleKey]?.emoji} {THINKING_STYLES[styleKey]?.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Also show careers from secondary style if dual type */}
+              {results.profileType === 'dual' && results.secondaryStyle && (
+                <>
+                  <div className="border-t-2 pt-6" style={{ borderColor: secondaryStyle.color }}>
+                    <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                      <Sparkles className="h-6 w-6" style={{ color: secondaryStyle.color }} />
+                      Bonus: Careers for your {secondaryStyle.name} side
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {CAREER_PATHS[results.secondaryStyle]?.slice(0, 2).map((career, index) => (
+                        <Card 
+                          key={index}
+                          className="hover:shadow-xl transition-all cursor-pointer border-2"
+                          style={{ borderColor: '#e5e7eb' }}
+                          onClick={() => setSelectedCareer(career)}
+                        >
+                          <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="text-5xl">{career.emoji}</div>
+                              <div className="flex-1">
+                                <h3 className="text-xl font-bold mb-2" style={{ color: secondaryStyle.color }}>
+                                  {career.title}
+                                </h3>
+                                <p className="text-sm text-gray-700 mb-3">
+                                  {career.description}
+                                </p>
+                                <div className="flex gap-2 flex-wrap">
+                                  {career.matchingStyles.map((styleKey: string) => (
+                                    <Badge key={styleKey} variant="secondary" className="text-xs">
+                                      {THINKING_STYLES[styleKey]?.emoji} {THINKING_STYLES[styleKey]?.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Career Detail Modal */}
+      {selectedCareer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedCareer(null)}>
+          <div className="bg-white rounded-xl max-w-3xl max-h-[90vh] overflow-y-auto w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b-2 p-6" style={{ borderColor: primaryStyle.color }}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="text-6xl">{selectedCareer.emoji}</div>
+                  <div>
+                    <h2 className="text-3xl font-bold" style={{ color: primaryStyle.color }}>
+                      {selectedCareer.title}
+                    </h2>
+                    <p className="text-gray-600 mt-1">{selectedCareer.description}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedCareer(null)}>
+                  <X className="h-6 w-6" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* What You Do */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5" style={{ color: primaryStyle.color }} />
+                    What You'll Do
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {selectedCareer.whatYouDo.map((task, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-green-500 mt-1">✓</span>
+                        <span className="text-gray-700">{task}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Skills Needed */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="h-5 w-5" style={{ color: primaryStyle.color }} />
+                    Skills You'll Need
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedCareer.skillsNeeded.map((skill, index) => (
+                      <Badge key={index} variant="outline" className="px-3 py-1">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Education Path */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5" style={{ color: primaryStyle.color }} />
+                    Your Education Journey
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="text-gray-800">{selectedCareer.educationPath}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Salary Range */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" style={{ color: primaryStyle.color }} />
+                    Potential Earnings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <p className="text-gray-800 font-semibold">{selectedCareer.salaryRange}</p>
+                    <p className="text-xs text-gray-600 mt-1">* Actual salaries vary based on experience, location, and employer</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Fun Fact */}
+              <Card className="bg-gradient-to-r from-yellow-50 to-orange-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <Lightbulb className="h-6 w-6 text-yellow-600 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-bold mb-1 text-yellow-900">💡 Fun Fact</h4>
+                      <p className="text-gray-800">{selectedCareer.funFact}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Matching Styles */}
+              <div className="flex items-center justify-center gap-2 pt-4">
+                <span className="text-sm text-gray-600">Best for:</span>
+                {selectedCareer.matchingStyles.map((styleKey: string) => (
+                  <Badge key={styleKey} variant="secondary" style={{ backgroundColor: `${THINKING_STYLES[styleKey]?.color}20` }}>
+                    {THINKING_STYLES[styleKey]?.emoji} {THINKING_STYLES[styleKey]?.name} thinkers
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

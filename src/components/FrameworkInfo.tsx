@@ -149,11 +149,11 @@ export function FrameworkInfo({ trigger, defaultOpen = false, userRole }: Framew
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="frameworks">Frameworks</TabsTrigger>
-            <TabsTrigger value="cycle">The Cycle</TabsTrigger>
-            <TabsTrigger value="why">Why All Three?</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+            <TabsTrigger value="frameworks" className="text-xs sm:text-sm">Frameworks</TabsTrigger>
+            <TabsTrigger value="cycle" className="text-xs sm:text-sm">The Cycle</TabsTrigger>
+            <TabsTrigger value="why" className="text-xs sm:text-sm">Why All Three?</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">

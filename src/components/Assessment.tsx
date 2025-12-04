@@ -1,65 +1,123 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Label } from './ui/label';
-import { 
-  learningStyleQuestions, 
-  thinkingStyleQuestions, 
-  decisionStyleQuestions,
-  generatePersonalizedQuestions,
-  calculateResults,
-  generateInsights
-} from '../utils/assessmentData';
-import { saveProgress, submitAssessment } from '../utils/api';
 import { useAuth } from './AuthContext';
-import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Eye } from 'lucide-react';
+import { AssessmentPreview } from './AssessmentPreview';
+import { SectionSummary } from './SectionSummary';
+import { ConfettiCelebration } from './ConfettiCelebration';
+import { 
+  fetchAssessmentQuestions, 
+  autoSaveProgress, 
+  submitAssessmentWithServerScoring 
+} from '../utils/assessmentApi';
 
 interface AssessmentProps {
   type: 'learning' | 'thinking' | 'decision';
   onComplete: (results: any) => void;
   onBack: () => void;
+  showPreview?: boolean;
 }
 
-export const Assessment: React.FC<AssessmentProps> = ({ type, onComplete, onBack }) => {
+export const Assessment: React.FC<AssessmentProps> = ({ 
+  type, 
+  onComplete, 
+  onBack,
+  showPreview = true
+}) => {
   const { user } = useAuth();
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(showPreview);
+  const [showSectionSummary, setShowSectionSummary] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [questionVersion, setQuestionVersion] = useState('v1');
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
+  const cardRef = useRef<HTMLDivElement>(null);
 
+  // Load questions from backend
   useEffect(() => {
     if (!user) return;
 
-    const allQuestions = 
-      type === 'learning' ? learningStyleQuestions :
-      type === 'thinking' ? thinkingStyleQuestions :
-      decisionStyleQuestions;
+    const loadQuestions = async () => {
+      setIsLoadingQuestions(true);
+      try {
+        const framework = 
+          type === 'learning' ? 'kolb' :
+          type === 'thinking' ? 'sternberg' :
+          'dual-process';
+        
+        const data = await fetchAssessmentQuestions(framework, 'v1');
+        setQuestions(data.questions);
+        setQuestionVersion(data.version);
+        console.log(`[Assessment] Loaded ${data.questions.length} questions for ${framework}`);
+      } catch (error) {
+        console.error('[Assessment] Failed to load questions:', error);
+        // Fallback to local questions if backend fails
+        const { learningStyleQuestions, thinkingStyleQuestions, decisionStyleQuestions, generatePersonalizedQuestions } = await import('../utils/assessmentData');
+        const allQuestions = 
+          type === 'learning' ? learningStyleQuestions :
+          type === 'thinking' ? thinkingStyleQuestions :
+          decisionStyleQuestions;
+        const personalizedQuestions = generatePersonalizedQuestions(user.id, allQuestions);
+        setQuestions(personalizedQuestions);
+      } finally {
+        setIsLoadingQuestions(false);
+      }
+    };
 
-    const personalizedQuestions = generatePersonalizedQuestions(user.id, allQuestions);
-    setQuestions(personalizedQuestions);
+    loadQuestions();
   }, [type, user]);
 
+  // Auto-save progress every 3 seconds
   useEffect(() => {
-    // Auto-save progress
     if (answers.length > 0 && user) {
       const autoSave = async () => {
         setIsSaving(true);
         try {
-          await saveProgress(type, currentIndex, answers, false);
+          await autoSaveProgress(type, currentIndex, answers, false);
         } catch (error) {
-          console.error('Auto-save failed:', error);
+          console.error('[Assessment] Auto-save failed:', error);
         } finally {
           setIsSaving(false);
         }
       };
 
-      const timeout = setTimeout(autoSave, 1000);
+      const timeout = setTimeout(autoSave, 3000); // Changed to 3 seconds
       return () => clearTimeout(timeout);
     }
   }, [answers, currentIndex, type, user]);
+
+  // Auto-scroll to next question after selection
+  useEffect(() => {
+    if (autoScrollEnabled && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentIndex, autoScrollEnabled]);
+
+  // Check for section completion (every 5 questions)
+  const checkSectionComplete = (questionIndex: number) => {
+    return questionIndex > 0 && questionIndex % 5 === 0 && questionIndex < questions.length;
+  };
+
+  const getSectionMotivationalMessage = () => {
+    const messages = [
+      "You're doing great! Keep up the awesome work! 🌟",
+      "Fantastic progress! You're really getting into it! 💪",
+      "Amazing! You're more than halfway there! 🚀",
+      "Excellent work! Almost at the finish line! 🎯",
+      "Outstanding! One more section to go! 🏆"
+    ];
+    const sectionIndex = Math.floor(currentIndex / 5);
+    return messages[Math.min(sectionIndex, messages.length - 1)];
+  };
 
   const handleAnswer = () => {
     if (selectedOption === null) return;
@@ -84,10 +142,17 @@ export const Assessment: React.FC<AssessmentProps> = ({ type, onComplete, onBack
 
     setAnswers(newAnswers);
 
+    // Check if section is complete (every 5 questions)
+    const nextIndex = currentIndex + 1;
+    if (checkSectionComplete(nextIndex)) {
+      setShowSectionSummary(true);
+      return;
+    }
+
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setSelectedOption(newAnswers[currentIndex + 1] ? 
-        currentQuestion.options.findIndex((opt: any) => opt.text === newAnswers[currentIndex + 1].selectedOption) : 
+      setCurrentIndex(nextIndex);
+      setSelectedOption(newAnswers[nextIndex] ? 
+        currentQuestion.options.findIndex((opt: any) => opt.text === newAnswers[nextIndex].selectedOption) : 
         null
       );
     } else {
@@ -116,35 +181,35 @@ export const Assessment: React.FC<AssessmentProps> = ({ type, onComplete, onBack
       return;
     }
 
+    // Show confetti immediately
+    setShowConfetti(true);
+
     setIsSaving(true);
 
     try {
-      const results = calculateResults(answers, type);
-      const insights = generateInsights(results, type);
-
-      await submitAssessment(
+      const results = await submitAssessmentWithServerScoring(
         type,
         answers,
-        results,
-        insights.strengths,
-        insights.weaknesses,
-        insights.recommendations
+        questionVersion
       );
 
-      onComplete({
-        results,
-        insights,
-        completedAt: new Date().toISOString()
-      });
+      // Wait for confetti to finish before completing
+      setTimeout(() => {
+        onComplete({
+          results,
+          completedAt: new Date().toISOString()
+        });
+      }, 4000);
     } catch (error) {
       console.error('Failed to submit assessment:', error);
       alert('Failed to submit assessment. Please try again.');
+      setShowConfetti(false);
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (questions.length === 0) {
+  if (isLoadingQuestions) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -180,121 +245,202 @@ export const Assessment: React.FC<AssessmentProps> = ({ type, onComplete, onBack
     }
   };
 
+  // Show preview modal first
+  if (showPreviewModal) {
+    return (
+      <AssessmentPreview
+        type={type}
+        questionCount={questions.length}
+        estimatedTime={Math.ceil(questions.length * 0.5)} // ~30 seconds per question
+        onStart={() => setShowPreviewModal(false)}
+        onClose={onBack}
+      />
+    );
+  }
+
+  // Show section summary
+  if (showSectionSummary) {
+    const sectionNumber = Math.floor(currentIndex / 5);
+    const totalSections = Math.ceil(questions.length / 5);
+    
+    return (
+      <>
+        <SectionSummary
+          sectionNumber={sectionNumber}
+          totalSections={totalSections}
+          questionsAnswered={currentIndex}
+          totalQuestions={questions.length}
+          sectionTitle={`Section ${sectionNumber}`}
+          motivationalMessage={getSectionMotivationalMessage()}
+          onContinue={() => {
+            setShowSectionSummary(false);
+            setCurrentIndex(currentIndex);
+            setSelectedOption(answers[currentIndex] ? 
+              questions[currentIndex].options.findIndex((opt: any) => 
+                opt.text === answers[currentIndex].selectedOption
+              ) : null
+            );
+          }}
+        />
+        <ConfettiCelebration show={showSectionSummary} />
+      </>
+    );
+  }
+
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'linear-gradient(to bottom, #F8F9FA 0%, #FFFFFF 100%)' }}>
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl" style={{ color: '#2C2E83' }}>{getAssessmentTitle()}</h1>
-            <span className="text-sm" style={{ color: '#6B7280' }}>
-              Question {currentIndex + 1} of {questions.length}
-            </span>
-          </div>
-          
-          <Progress value={progress} className="h-2" />
-          
-          {isSaving && (
-            <p className="text-xs mt-2" style={{ color: '#1FC8E1' }}>Saving progress...</p>
-          )}
-        </div>
-
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl">{currentQuestion.question}</CardTitle>
-            <CardDescription>Select the option that best describes you</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup
-              value={selectedOption?.toString()}
-              onValueChange={(value) => setSelectedOption(parseInt(value))}
+    <>
+      <ConfettiCelebration 
+        show={showConfetti} 
+        onComplete={() => setShowConfetti(false)} 
+      />
+      
+      <div className="min-h-screen py-8 px-4" style={{ background: 'linear-gradient(to bottom, #F8F9FA 0%, #FFFFFF 100%)' }}>
+        <div className="max-w-3xl mx-auto">
+          {/* Header Section with strict spacing */}
+          <div className="mb-6">
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              className="mb-4"
             >
-              <div className="space-y-3">
-                {currentQuestion.options.map((option: any, index: number) => (
-                  <div
-                    key={index}
-                    className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                      selectedOption === index
-                        ? 'border-[#2C2E83] bg-[#F0F0FF]'
-                        : 'border-gray-200 hover:border-[#1FC8E1]'
-                    }`}
-                    onClick={() => setSelectedOption(index)}
-                  >
-                    <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                    <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                      {option.text}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </RadioGroup>
-
-            <div className="flex items-center justify-between mt-6 pt-6 border-t">
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentIndex === 0}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Previous
-              </Button>
-
-              <div className="flex gap-3">
-                {/* On last question, show Next/Save button if current question not answered yet */}
-                {isLastQuestion && !currentQuestionAnswered && (
-                  <Button
-                    onClick={handleAnswer}
-                    disabled={selectedOption === null}
-                    style={{ backgroundColor: selectedOption !== null ? '#2C2E83' : undefined }}
-                  >
-                    Save Answer
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                )}
-
-                {/* Show Submit button on last question only if current question is answered */}
-                {isLastQuestion && currentQuestionAnswered && (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!allQuestionsAnswered || isSaving}
-                    style={{ backgroundColor: allQuestionsAnswered ? '#FF715B' : undefined }}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    {isSaving ? 'Submitting...' : 'Submit Assessment'}
-                  </Button>
-                )}
-
-                {/* On all other questions, show Next button */}
-                {!isLastQuestion && (
-                  <Button
-                    onClick={handleAnswer}
-                    disabled={selectedOption === null}
-                    style={{ backgroundColor: selectedOption !== null ? '#2C2E83' : undefined }}
-                  >
-                    Next
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                )}
-              </div>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            
+            {/* Title: 16px margin bottom */}
+            <div className="flex items-center justify-between" style={{ marginBottom: '16px' }}>
+              <h1 className="text-2xl" style={{ color: '#2C2E83' }}>{getAssessmentTitle()}</h1>
+              <span className="text-sm" style={{ color: '#6B7280' }}>
+                Question {currentIndex + 1} of {questions.length}
+              </span>
             </div>
-          </CardContent>
-        </Card>
+            
+            {/* Subtitle: 12px margin bottom */}
+            <p className="text-sm" style={{ color: '#6B7280', marginBottom: '12px' }}>
+              Select the option that best describes you
+            </p>
+            
+            {/* Progress bar: 20px margin bottom - FIXED percentage calculation */}
+            <Progress 
+              value={Math.round((currentIndex + 1) / questions.length * 100)} 
+              className="h-2" 
+              style={{ marginBottom: '20px' }}
+            />
+            
+            {isSaving && (
+              <p className="text-xs" style={{ color: '#1FC8E1' }}>Saving progress...</p>
+            )}
+          </div>
 
-        <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: '#F0F9FF', borderLeft: '4px solid #1FC8E1' }}>
-          <p className="text-sm">
-            <strong>Note:</strong> These questions are personalized for you and will remain consistent across all your attempts. 
-            Your progress is automatically saved.
-          </p>
+          <Card className="shadow-lg" ref={cardRef}>
+            {/* Question Section with improved spacing */}
+            <CardHeader style={{ paddingBottom: '20px' }}>
+              {/* Question text: 20px margin bottom, improved line-height for mobile */}
+              <CardTitle 
+                className="text-xl leading-relaxed max-w-2xl" 
+                style={{ marginBottom: '0' }}
+              >
+                {currentQuestion.question}
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent>
+              {/* Options: 12px spacing between options */}
+              <RadioGroup
+                value={selectedOption?.toString()}
+                onValueChange={(value) => setSelectedOption(parseInt(value))}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {currentQuestion.options.map((option: any, index: number) => (
+                    <div
+                      key={index}
+                      className={`flex items-center rounded-lg border-2 transition-all cursor-pointer ${
+                        selectedOption === index
+                          ? 'border-[#2C2E83] bg-[#F0F0FF]'
+                          : 'border-gray-200 hover:border-[#1FC8E1]'
+                      }`}
+                      style={{ 
+                        padding: '12px 16px',
+                        gap: '12px'
+                      }}
+                      onClick={() => setSelectedOption(index)}
+                    >
+                      <RadioGroupItem value={index.toString()} id={`option-${index}`} />
+                      <Label 
+                        htmlFor={`option-${index}`} 
+                        className="flex-1 cursor-pointer leading-normal"
+                        style={{ margin: 0 }}
+                      >
+                        {option.text}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </RadioGroup>
+
+              {/* Navigation Buttons: 24px top, 12px bottom */}
+              <div 
+                className="flex items-center justify-between border-t" 
+                style={{ marginTop: '24px', paddingTop: '24px', paddingBottom: '12px' }}
+              >
+                <Button
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={currentIndex === 0}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+
+                <div className="flex gap-3">
+                  {/* On last question, show Next/Save button if current question not answered yet */}
+                  {isLastQuestion && !currentQuestionAnswered && (
+                    <Button
+                      onClick={handleAnswer}
+                      disabled={selectedOption === null}
+                      style={{ backgroundColor: selectedOption !== null ? '#2C2E83' : undefined }}
+                    >
+                      Save Answer
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  )}
+
+                  {/* Show Submit button on last question only if current question is answered */}
+                  {isLastQuestion && currentQuestionAnswered && (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={!allQuestionsAnswered || isSaving}
+                      style={{ backgroundColor: allQuestionsAnswered ? '#FF715B' : undefined }}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      {isSaving ? 'Submitting...' : 'Submit Assessment'}
+                    </Button>
+                  )}
+
+                  {/* On all other questions, show Next button */}
+                  {!isLastQuestion && (
+                    <Button
+                      onClick={handleAnswer}
+                      disabled={selectedOption === null}
+                      style={{ backgroundColor: selectedOption !== null ? '#2C2E83' : undefined }}
+                    >
+                      Next
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: '#F0F9FF', borderLeft: '4px solid #1FC8E1' }}>
+            <p className="text-sm">
+              <strong>Note:</strong> These questions are personalized for you and will remain consistent across all your attempts. 
+              Your progress is automatically saved.
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };

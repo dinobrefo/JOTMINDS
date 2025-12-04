@@ -490,9 +490,9 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Current Streak</p>
+                <p className="text-sm text-orange-700/70">Current Streak</p>
                 <p className="text-3xl font-bold text-orange-600">{progress.currentStreak}</p>
-                <p className="text-xs text-muted-foreground mt-1">days 🔥</p>
+                <p className="text-xs text-orange-700/70 mt-1">days 🔥</p>
               </div>
               <Flame className="h-12 w-12 text-orange-500" />
             </div>
@@ -503,9 +503,9 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Points</p>
+                <p className="text-sm text-yellow-700/70">Total Points</p>
                 <p className="text-3xl font-bold text-yellow-600">{progress.totalPoints}</p>
-                <p className="text-xs text-muted-foreground mt-1">XP earned ⭐</p>
+                <p className="text-xs text-yellow-700/70 mt-1">XP earned ⭐</p>
               </div>
               <Star className="h-12 w-12 text-yellow-500" />
             </div>
@@ -516,9 +516,9 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Longest Streak</p>
+                <p className="text-sm text-purple-700/70">Longest Streak</p>
                 <p className="text-3xl font-bold text-purple-600">{progress.longestStreak}</p>
-                <p className="text-xs text-muted-foreground mt-1">days 🏆</p>
+                <p className="text-xs text-purple-700/70 mt-1">days 🏆</p>
               </div>
               <Trophy className="h-12 w-12 text-purple-500" />
             </div>
@@ -529,9 +529,9 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Badges Earned</p>
+                <p className="text-sm text-blue-700/70">Badges Earned</p>
                 <p className="text-3xl font-bold text-blue-600">{progress.badges.length}</p>
-                <p className="text-xs text-muted-foreground mt-1">achievements 🎖️</p>
+                <p className="text-xs text-blue-700/70 mt-1">achievements 🎖️</p>
               </div>
               <Trophy className="h-12 w-12 text-blue-500" />
             </div>
@@ -576,13 +576,13 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
           <CardContent className="pt-8 pb-8 text-center">
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-green-700 mb-2">Challenge Complete! 🎉</h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-green-700/80 mb-4">
               You've completed today's challenge. Come back tomorrow for a new one!
             </p>
             <div className="flex items-center justify-center gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-green-600" />
-                <span>Next challenge in: {getTimeUntilMidnight()}</span>
+                <span className="text-green-700/80">Next challenge in: {getTimeUntilMidnight()}</span>
               </div>
             </div>
           </CardContent>
@@ -602,15 +602,15 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
               {getChallengeIcon(todayChallenge.type)}
               Today's Challenge
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-indigo-700/70">
               Complete today's challenge to maintain your streak and earn points!
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {renderChallengeContent()}
 
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between pt-4 border-t border-indigo-200">
+              <div className="text-sm text-indigo-700/70">
                 {isAnswersComplete() ? (
                   <span className="text-green-600 flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" />
@@ -624,10 +624,10 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
                 onClick={handleCompleteChallenge}
                 disabled={!isAnswersComplete() || completing}
                 className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
-                size="lg"
+                size="default"
               >
                 {completing ? 'Submitting...' : 'Complete Challenge'}
-                <Sparkles className="ml-2 h-5 w-5" />
+                <Sparkles className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </CardContent>
@@ -721,9 +721,9 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
                   onValueChange={(value) => setSelectedAnswers({ ...selectedAnswers, [qIndex]: parseInt(value) })}
                 >
                   {q.options.map((option: string, optIndex: number) => (
-                    <div key={optIndex} className="flex items-center space-x-2 mb-2">
+                    <div key={optIndex} className="flex items-center space-x-2 mb-2 bg-[rgba(0,0,0,0)]">
                       <RadioGroupItem value={optIndex.toString()} id={`q${qIndex}-opt${optIndex}`} />
-                      <Label htmlFor={`q${qIndex}-opt${optIndex}`} className="cursor-pointer">
+                      <Label htmlFor={`q${qIndex}-opt${optIndex}`} className="cursor-pointer text-gray-900">
                         {option}
                       </Label>
                     </div>
@@ -747,7 +747,7 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
               </p>
             </div>
             <div>
-              <Label htmlFor="puzzle-answer" className="mb-2 block">
+              <Label htmlFor="puzzle-answer" className="mb-2 block text-gray-900">
                 Your Answer:
               </Label>
               <input
@@ -770,7 +770,7 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
             </h3>
             <p className="text-gray-700 mb-4 italic">"{todayChallenge.content.prompt}"</p>
             <div>
-              <Label htmlFor="reflection-text" className="mb-2 block">
+              <Label htmlFor="reflection-text" className="mb-2 block text-gray-900">
                 Your Reflection (minimum {todayChallenge.content.minWords} words):
               </Label>
               <Textarea
@@ -780,7 +780,7 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
                 className="min-h-[150px] border-2 border-gray-300 focus:border-cyan-500"
                 placeholder="Share your thoughts..."
               />
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-gray-500 mt-2">
                 Word count: {reflectionText.trim().split(/\s+/).filter(w => w.length > 0).length} / {todayChallenge.content.minWords}
               </p>
             </div>
@@ -799,7 +799,7 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
               {todayChallenge.content.checkboxes.map((checkbox: string, index: number) => (
                 <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded border border-green-200">
                   <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm">{checkbox}</span>
+                  <span className="text-sm text-gray-700">{checkbox}</span>
                 </div>
               ))}
             </div>
@@ -811,7 +811,7 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
                   onChange={(e) => setPracticalCompleted(e.target.checked)}
                   className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
                 />
-                <span className="font-semibold">
+                <span className="font-semibold text-gray-900">
                   I've completed this practical challenge
                 </span>
               </label>

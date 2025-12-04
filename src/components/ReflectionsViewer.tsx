@@ -7,6 +7,7 @@ import { Reflection, Assessment } from '../types';
 import { getUserReflections, getUserAssessments } from '../utils/storage';
 import { FileText, Search, Calendar, Eye, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { formatDateTime, formatDate } from '../utils/dateFormat';
 
 interface ReflectionsViewerProps {
   userId: string;
@@ -62,7 +63,7 @@ export function ReflectionsViewer({ userId, onViewAssessment }: ReflectionsViewe
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
       const contentMatch = reflection.content.toLowerCase().includes(query);
-      const dateMatch = new Date(reflection.createdAt).toLocaleDateString().toLowerCase().includes(query);
+      const dateMatch = formatDate(reflection.createdAt).toLowerCase().includes(query);
       return contentMatch || dateMatch;
     }
     
@@ -237,15 +238,9 @@ export function ReflectionsViewer({ userId, onViewAssessment }: ReflectionsViewe
                               {getAssessmentTypeName(assessment.type)}
                             </Badge>
                           )}
-                          <span className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(reflection.createdAt).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                          <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5 inline-block align-text-bottom" />
+                            <span className="inline-block align-baseline">{formatDateTime(reflection.createdAt)}</span>
                           </span>
                         </div>
                       </div>

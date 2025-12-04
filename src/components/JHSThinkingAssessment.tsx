@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
-import { ArrowLeft, ArrowRight, CheckCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Sparkles, Eye, Award, PartyPopper } from 'lucide-react';
 import { JHS_QUESTIONS, THINKING_STYLES } from '../utils/jhsThinkingData';
 import { calculateJHSScores, JHSResults } from '../utils/jhsScoring';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { Confetti } from './kids/Confetti';
 
 interface JHSThinkingAssessmentProps {
   userId: string;
@@ -51,6 +53,10 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
   const [showIntro, setShowIntro] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [responses, setResponses] = useState<number[]>(new Array(24).fill(0));
+  const [showPreview, setShowPreview] = useState(false);
+  const [showSectionSummary, setShowSectionSummary] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const questionRef = useRef<HTMLDivElement>(null);
 
   const question = JHS_QUESTIONS[currentQuestion];
   const currentSection = question.section;
@@ -63,16 +69,45 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
   const isNewSection = currentQuestion === 0 || 
     JHS_QUESTIONS[currentQuestion].section !== JHS_QUESTIONS[currentQuestion - 1]?.section;
 
+  // Check if we're at the end of a section
+  const isEndOfSection = currentQuestion < JHS_QUESTIONS.length - 1 && 
+    JHS_QUESTIONS[currentQuestion].section !== JHS_QUESTIONS[currentQuestion + 1]?.section;
+
+  // Get section progress
+  const getSectionProgress = () => {
+    const sectionQuestions = JHS_QUESTIONS.filter(q => q.section === currentSection);
+    const sectionStartIndex = JHS_QUESTIONS.findIndex(q => q.section === currentSection);
+    const questionsAnswered = currentQuestion - sectionStartIndex + 1;
+    return {
+      total: sectionQuestions.length,
+      answered: questionsAnswered,
+      percentage: (questionsAnswered / sectionQuestions.length) * 100
+    };
+  };
+
   const handleResponse = (value: number) => {
     const newResponses = [...responses];
     newResponses[currentQuestion] = value;
     setResponses(newResponses);
+    
+    // Auto-scroll to top after selection
+    setTimeout(() => {
+      questionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
   };
 
   const handleNext = () => {
-    if (currentQuestion < JHS_QUESTIONS.length - 1) {
+    if (isEndOfSection && canProceed) {
+      // Show section summary before moving to next section
+      setShowSectionSummary(true);
+    } else if (currentQuestion < JHS_QUESTIONS.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     }
+  };
+
+  const handleContinueAfterSummary = () => {
+    setShowSectionSummary(false);
+    setCurrentQuestion(currentQuestion + 1);
   };
 
   const handlePrevious = () => {
@@ -82,18 +117,115 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
   };
 
   const handleSubmit = () => {
-    const results = calculateJHSScores(responses);
-    onComplete(results);
+    // Show confetti animation
+    setShowConfetti(true);
+    
+    // Calculate and submit results after a brief delay for confetti effect
+    setTimeout(() => {
+      const results = calculateJHSScores(responses);
+      onComplete(results);
+    }, 2000);
+  };
+
+  // Preview Questions Modal
+  const PreviewModal = () => (
+    <Dialog open={showPreview} onOpenChange={setShowPreview}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white">
+        <DialogHeader>
+          <DialogTitle className="text-2xl text-gray-900">
+            <Eye className="inline-block mr-2 h-6 w-6" style={{ color: '#2C2E83' }} />
+            Preview All Questions
+          </DialogTitle>
+          <DialogDescription className="text-gray-600">
+            Here's what you'll be asked. Don't worry — you'll answer one at a time!
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 mt-4">
+          {Object.entries(SECTION_INFO).map(([sectionKey, section]) => {
+            const sectionQuestions = JHS_QUESTIONS.filter(q => q.section === sectionKey);
+            return (
+              <div key={sectionKey} className="border rounded-lg p-4 bg-white" style={{ borderColor: section.color }}>
+                <h3 className="font-bold mb-3" style={{ color: section.color }}>
+                  {section.title}
+                </h3>
+                <div className="space-y-2">
+                  {sectionQuestions.map((q, idx) => (
+                    <div key={q.id} className="flex gap-2 text-sm text-gray-700">
+                      <span className="font-semibold text-gray-500">{idx + 1}.</span>
+                      <span>{q.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex justify-end mt-4">
+          <Button onClick={() => setShowPreview(false)} style={{ backgroundColor: '#2C2E83' }}>
+            Got it! Let's start
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Section Summary Checkpoint
+  const SectionSummary = () => {
+    const sectionProgress = getSectionProgress();
+    return (
+      <Dialog open={showSectionSummary} onOpenChange={setShowSectionSummary}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-center" style={{ color: sectionInfo.color }}>
+              <Award className="inline-block mr-2 h-8 w-8" />
+              Section Complete!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="text-center">
+              <div className="text-6xl mb-4">🎉</div>
+              <h3 className="font-bold text-xl mb-2" style={{ color: sectionInfo.color }}>
+                {sectionInfo.title}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                You just completed {sectionProgress.total} questions about {currentSection} thinking!
+              </p>
+              <div className="bg-gray-100 rounded-lg p-4">
+                <div className="text-3xl font-bold" style={{ color: sectionInfo.color }}>
+                  {sectionProgress.answered}/{sectionProgress.total}
+                </div>
+                <p className="text-sm text-gray-600">Questions answered</p>
+              </div>
+            </div>
+            <div className="pt-4">
+              <Progress value={((currentQuestion + 1) / JHS_QUESTIONS.length) * 100} className="h-3 mb-2" />
+              <p className="text-sm text-center text-gray-600">
+                Overall progress: {currentQuestion + 1} of {JHS_QUESTIONS.length} questions
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <Button 
+              onClick={handleContinueAfterSummary}
+              className="w-full"
+              style={{ backgroundColor: '#2C2E83' }}
+            >
+              Continue to Next Section <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   if (showIntro) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
         <div className="max-w-3xl mx-auto py-8">
-          <Card className="border-4" style={{ borderColor: '#2C2E83' }}>
+          <Card className="border-4 bg-white" style={{ borderColor: '#2C2E83' }}>
             <CardHeader className="text-center space-y-4">
               <div className="flex justify-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
                   <Sparkles className="h-10 w-10 text-white" />
                 </div>
               </div>
@@ -106,7 +238,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Welcome Message */}
-              <div className="bg-gradient-to-r from-blue-100 to-purple-100 p-6 rounded-lg">
+              <div className="bg-gradient-to-r from-blue-100 to-purple-100 p-6 rounded-lg border border-blue-200">
                 <p className="text-lg text-gray-800 leading-relaxed">
                   👋 <strong>Hey there, Thinker!</strong> Every brain is unique — including yours! 
                   Let's find out how you love to think, solve problems, and come up with ideas. 
@@ -124,7 +256,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
                 </p>
                 <div className="grid grid-cols-5 gap-2">
                   {EMOJI_SCALE.map((item) => (
-                    <div key={item.value} className="text-center p-3 bg-white rounded-lg shadow-sm">
+                    <div key={item.value} className="text-center p-3 bg-white rounded-lg shadow-sm border border-gray-200">
                       <div className="text-3xl mb-1">{item.emoji}</div>
                       <div className="text-xs text-gray-600">{item.label}</div>
                     </div>
@@ -153,10 +285,19 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
               </div>
 
               {/* Start Button */}
-              <div className="pt-4">
+              <div className="pt-4 space-y-3">
+                <Button 
+                  onClick={() => setShowPreview(true)}
+                  variant="outline"
+                  className="w-full py-6 border-2"
+                  style={{ borderColor: '#2C2E83', color: '#2C2E83' }}
+                >
+                  <Eye className="mr-2 h-5 w-5" />
+                  Preview All Questions
+                </Button>
                 <Button 
                   onClick={() => setShowIntro(false)}
-                  className="w-full text-lg py-6"
+                  className="w-full text-sm sm:text-base py-6"
                   style={{ backgroundColor: '#2C2E83' }}
                 >
                   Let's Start My Thinking Adventure! 🚀
@@ -172,18 +313,24 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
             </CardContent>
           </Card>
         </div>
+        
+        {/* Preview Modal */}
+        <PreviewModal />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
-      <div className="max-w-3xl mx-auto py-8">
-        <Card>
+      <div className="max-w-3xl mx-auto py-8" ref={questionRef}>
+        <Card className="bg-white">
           <CardHeader>
             {/* Section Header (show at start of each section) */}
             {isNewSection && (
-              <div className="mb-6 p-6 rounded-lg" style={{ backgroundColor: `${sectionInfo.color}15` }}>
+              <div className="mb-6 p-6 rounded-lg border-2" style={{ 
+                backgroundColor: `${sectionInfo.color}15`,
+                borderColor: `${sectionInfo.color}40`
+              }}>
                 <h2 className="text-2xl font-bold mb-2" style={{ color: sectionInfo.color }}>
                   {sectionInfo.title}
                 </h2>
@@ -208,7 +355,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
 
           <CardContent className="space-y-6">
             {/* Question */}
-            <div className="text-center py-6">
+            <div className="text-center py-6" ref={questionRef}>
               <p className="text-xl text-gray-800 leading-relaxed">
                 {question.text}
               </p>
@@ -224,7 +371,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
                   <button
                     key={item.value}
                     onClick={() => handleResponse(item.value)}
-                    className={`p-4 rounded-xl transition-all ${
+                    className={`p-3 rounded-xl transition-all flex flex-col items-center justify-center gap-2 ${
                       responses[currentQuestion] === item.value
                         ? 'ring-4 scale-110 shadow-lg'
                         : 'hover:scale-105 hover:shadow-md'
@@ -240,8 +387,8 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
                       ringColor: sectionInfo.color
                     }}
                   >
-                    <div className="text-4xl mb-2">{item.emoji}</div>
-                    <div className="text-xs text-gray-700 font-medium leading-tight">
+                    <div className="text-3xl sm:text-4xl">{item.emoji}</div>
+                    <div className="text-[10px] sm:text-xs text-gray-700 font-medium leading-tight text-center">
                       {item.label}
                     </div>
                   </button>
@@ -292,6 +439,8 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
           </CardContent>
         </Card>
       </div>
+      {showConfetti && <Confetti />}
+      <SectionSummary />
     </div>
   );
 }

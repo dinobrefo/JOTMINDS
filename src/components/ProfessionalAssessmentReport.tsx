@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Assessment } from '../types';
 import { getStyleDescription } from '../utils/scoring';
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts';
 import { Download, ArrowLeft, CheckCircle2, AlertCircle, Settings, MessageSquare, ExternalLink } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 import { getAssessmentInsights } from '../utils/insights';
+import { formatDate } from '../utils/dateFormat';
 
 interface CompetencyFit {
   competency: string;
@@ -342,11 +343,7 @@ export function ProfessionalAssessmentReport({
                   {userPosition} • {userOrganization}
                 </CardDescription>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {new Date(assessment.completedAt).toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
+                  {formatDate(assessment.completedAt)}
                 </p>
               </div>
               <div className="text-right">
@@ -375,7 +372,7 @@ export function ProfessionalAssessmentReport({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="font-semibold text-gray-900">{getLearningStyleDetail()}</div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-[rgb(52,52,52)]">
                       {assessment.score.kolb.style === 'Converging' && 'Learns best by combining conceptual planning with practical testing. Thinks strategically, applies ideas quickly.'}
                       {assessment.score.kolb.style === 'Diverging' && 'Learns through experience and reflection. Excels at viewing situations from multiple perspectives.'}
                       {assessment.score.kolb.style === 'Assimilating' && 'Prefers abstract concepts and logical reasoning. Strong at theoretical framework development.'}
@@ -383,13 +380,13 @@ export function ProfessionalAssessmentReport({
                     </p>
                     
                     {radarData.length > 0 && (
-                      <div className="h-48 -mx-2">
+                      <div className="h-64 -mx-2 mx-[-16px] my-[19px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart data={radarData}>
+                          <RadarChart data={radarData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
                             <PolarGrid stroke="hsl(var(--border))" />
                             <PolarAngleAxis 
                               dataKey="name" 
-                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                               stroke="hsl(var(--border))"
                             />
                             <PolarRadiusAxis 
@@ -403,6 +400,15 @@ export function ProfessionalAssessmentReport({
                               fill="#1FC8E1"
                               fillOpacity={0.3}
                               strokeWidth={2}
+                            />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: '#374151',
+                                color: '#ffffff',
+                                border: '1px solid #4B5563',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                              }}
                             />
                           </RadarChart>
                         </ResponsiveContainer>
@@ -420,7 +426,7 @@ export function ProfessionalAssessmentReport({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="font-semibold text-gray-900">{getThinkingStyleDetail()}</div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-[rgb(56,54,54)]">
                       {assessment.score.sternberg.scores.creative > 30 && assessment.score.sternberg.scores.analytical > 30 
                         ? 'Balances original thinking with logical reasoning. Integrates creativity with data-driven insights for innovative yet measurable outcomes.'
                         : assessment.score.sternberg.style === 'Creative'
@@ -481,7 +487,7 @@ export function ProfessionalAssessmentReport({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="font-semibold text-gray-900">{assessment.score.dualProcess.style}</div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-[rgb(25,25,25)]">
                       {Math.abs(assessment.score.dualProcess.scores.system1 - assessment.score.dualProcess.scores.system2) < 10
                         ? 'Shows a healthy balance across all domains — learns quickly, thinks critically, and decides confidently using both intuition and analysis.'
                         : assessment.score.dualProcess.style === 'Intuitive'

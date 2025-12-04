@@ -9,16 +9,23 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface OrganizationAppProps {
   onBackToMain: () => void;
+  initialUser?: User | null;
+  onLogout?: () => void;
 }
 
-export function OrganizationApp({ onBackToMain }: OrganizationAppProps) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function OrganizationApp({ onBackToMain, initialUser, onLogout }: OrganizationAppProps) {
+  const [currentUser, setCurrentUser] = useState<User | null>(initialUser || null);
+  const [isLoading, setIsLoading] = useState(!initialUser);
 
   useEffect(() => {
+    if (initialUser) {
+      setCurrentUser(initialUser);
+      setIsLoading(false);
+      return;
+    }
     // Check for existing organization session with Supabase
     checkSupabaseSession();
-  }, []);
+  }, [initialUser]);
 
   const checkSupabaseSession = async () => {
     try {
@@ -87,6 +94,11 @@ export function OrganizationApp({ onBackToMain }: OrganizationAppProps) {
   };
 
   const handleLogout = async () => {
+    if (onLogout) {
+      onLogout();
+      return;
+    }
+
     // Clear Supabase session
     const supabase = createClient();
     await supabase.auth.signOut();

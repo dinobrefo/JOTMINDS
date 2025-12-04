@@ -11,6 +11,7 @@ import { Assessment } from '../types';
 import { UserCheck, Target, TrendingUp, MessageSquare, CheckCircle2, AlertCircle, Star } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { saveReview } from '../utils/storage';
+import { formatDate } from '../utils/dateFormat';
 
 interface SupervisorReviewProps {
   employeeName: string;
@@ -164,7 +165,7 @@ export function SupervisorReview({
                 <>
                   <Badge className="mb-2">{latestLearning.score.kolb?.style}</Badge>
                   <p className="text-xs text-muted-foreground">
-                    Assessed {new Date(latestLearning.completedAt!).toLocaleDateString()}
+                    Assessed {formatDate(latestLearning.completedAt!)}
                   </p>
                 </>
               ) : (
@@ -178,7 +179,7 @@ export function SupervisorReview({
                 <>
                   <Badge className="mb-2">{latestThinking.score.sternberg?.style}</Badge>
                   <p className="text-xs text-muted-foreground">
-                    Assessed {new Date(latestThinking.completedAt!).toLocaleDateString()}
+                    Assessed {formatDate(latestThinking.completedAt!)}
                   </p>
                 </>
               ) : (
@@ -192,7 +193,7 @@ export function SupervisorReview({
                 <>
                   <Badge className="mb-2">{latestDecision.score.dualProcess?.style}</Badge>
                   <p className="text-xs text-muted-foreground">
-                    Assessed {new Date(latestDecision.completedAt!).toLocaleDateString()}
+                    Assessed {formatDate(latestDecision.completedAt!)}
                   </p>
                 </>
               ) : (

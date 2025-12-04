@@ -104,26 +104,40 @@ const makeRequest = async (endpoint: string, options: RequestInit = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  const data = await response.json();
-  
-  if (!response.ok) {
-    // 401 on /session endpoint is expected for logged out users - don't log as error
-    if (endpoint === '/session' && response.status === 401) {
-      console.log(`[API] Session endpoint returned 401 (no active session - expected for logged out users)`);
-    } else {
-      console.error(`[API] Error on ${endpoint}:`, data);
-      console.error(`[API] Response status: ${response.status}`);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      // 401 on /session endpoint is expected for logged out users - don't log as error
+      if (endpoint === '/session' && response.status === 401) {
+        console.log(`[API] Session endpoint returned 401 (no active session - expected for logged out users)`);
+      } else if (response.status >= 400 && response.status < 500) {
+        // 4xx errors are client errors (validation, unauthorized, etc) - log as warning
+        console.warn(`[API] Client error on ${endpoint}:`, data);
+        console.warn(`[API] Response status: ${response.status}`);
+      } else {
+        // 5xx errors are server errors - log as error
+        console.error(`[API] Error on ${endpoint}:`, data);
+        console.error(`[API] Response status: ${response.status}`);
+      }
+      throw new Error(data.error || 'API request failed');
     }
-    throw new Error(data.error || 'API request failed');
+    
+    console.log(`[API] Success on ${endpoint}`);
+    return data;
+  } catch (error: any) {
+    // Handle network errors specifically
+    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+      console.error(`[API] Network error on ${endpoint} - server may not be ready`);
+      throw new Error('Failed to fetch');
+    }
+    throw error;
   }
-  
-  console.log(`[API] Success on ${endpoint}`);
-  return data;
 };
 
 // Auth APIs
@@ -170,6 +184,20 @@ export const getSession = async () => {
   return makeRequest('/session');
 };
 
+// User Profile APIs
+export const updateUserProfile = async (updates: Partial<{
+  parentPin: string;
+  name: string;
+  phone: string;
+  school: string;
+  dateOfBirth: string;
+}>) => {
+  return makeRequest('/user/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+};
+
 // Assessment APIs
 export const saveProgress = async (assessmentType: string, currentQuestion: number, answers: any[], completed: boolean) => {
   return makeRequest('/assessment/progress', {
@@ -190,6 +218,8 @@ export const submitAssessment = async (
   weaknesses: string[],
   recommendations: string[]
 ) => {
+  console.log('[API] submitAssessment called:', { assessmentType, answersCount: answers.length, results });
+  console.log('[API] Current auth token:', getAuthToken() ? getAuthToken()!.substring(0, 30) + '...' : 'NULL');
   return makeRequest('/assessment/submit', {
     method: 'POST',
     body: JSON.stringify({ assessmentType, answers, results, strengths, weaknesses, recommendations }),
@@ -233,6 +263,15 @@ export const getOrganizationMembers = async () => {
   return makeRequest('/organization/members');
 };
 
+export const getStudentsForTeacher = async () => {
+  return makeRequest('/teacher/students');
+};
+
+export const getSupervisedEmployees = async (supervisorId?: string) => {
+  const query = supervisorId ? `?supervisorId=${supervisorId}` : '';
+  return makeRequest(`/supervisor/employees${query}`);
+};
+
 // Parent APIs
 export const getLinkedChildren = async () => {
   return makeRequest('/parent/children');
@@ -254,6 +293,54 @@ export const unlinkChild = async (childId: string) => {
 
 export const getChildrenAssessments = async () => {
   return makeRequest('/parent/children/assessments');
+};
+
+// Parent Observation APIs (Cross-device sync)
+export const saveParentObservation = async (observation: any) => {
+  return makeRequest('/observation', {
+    method: 'POST',
+    body: JSON.stringify(observation),
+  });
+};
+
+export const getParentObservations = async (parentId: string) => {
+  return makeRequest(`/observation/parent/${parentId}`);
+};
+
+export const getChildObservations = async (childId: string) => {
+  return makeRequest(`/observation/child/${childId}`);
+};
+
+// Sharing Consent APIs (Cross-device sync)
+export const saveSharingConsent = async (childId: string, parentId: string, consentGiven: boolean) => {
+  return makeRequest('/consent', {
+    method: 'POST',
+    body: JSON.stringify({ childId, parentId, consentGiven }),
+  });
+};
+
+export const getSharingConsent = async (childId: string, parentId: string) => {
+  return makeRequest(`/consent/${childId}/${parentId}`);
+};
+
+export const getChildConsents = async (childId: string) => {
+  return makeRequest(`/consent/child/${childId}`);
+};
+
+// Supervisor Review APIs (Cross-device sync)
+export const saveSupervisorReview = async (review: any) => {
+  return makeRequest('/review', {
+    method: 'POST',
+    body: JSON.stringify(review),
+  });
+};
+
+export const getProfessionalReviews = async (professionalId: string) => {
+  return makeRequest(`/review/professional/${professionalId}`);
+};
+
+export const getSupervisorReviews = async (supervisorId: string) => {
+  return makeRequest(`/review/supervisor/${supervisorId}`);
 };
 
 // Access Request APIs

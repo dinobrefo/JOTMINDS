@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ArrowLeft, TrendingUp, BookOpen, Brain, Target, Lightbulb, FileText } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { Textarea } from './ui/textarea';
+import { formatDate } from '../utils/dateFormat';
 
 interface StudentDetailViewProps {
   student: User;
@@ -26,7 +27,7 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
     .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
   
   const latestThinking = studentAssessments
-    .filter(a => a.type === 'sternberg')
+    .filter(a => ['sternberg', 'jhs-thinking', 'shs-thinking', 'adult-thinking', 'child-thinking'].includes(a.type))
     .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
   
   const latestDecision = studentAssessments
@@ -104,9 +105,23 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
     }
 
     if (latestThinking) {
-      const style = latestThinking.score.sternberg?.style;
+      let style = '';
+      if (latestThinking.type === 'sternberg') {
+        style = latestThinking.score.sternberg?.style;
+      } else if (latestThinking.type === 'jhs-thinking') {
+        const primaryKey = latestThinking.score['jhs-thinking']?.primaryStyle;
+        style = primaryKey ? primaryKey.charAt(0).toUpperCase() + primaryKey.slice(1) : '';
+      } else if (latestThinking.type === 'shs-thinking') {
+        style = latestThinking.score['shs-thinking']?.primaryStyle || '';
+      } else if (latestThinking.type === 'adult-thinking') {
+        style = latestThinking.score['adult-thinking']?.dominantStyle || '';
+      } else if (latestThinking.type === 'child-thinking') {
+        style = latestThinking.score['child-thinking']?.primaryStyle || '';
+      }
+
       switch (style) {
         case 'Analytical':
+        case 'analytical':
           strategies.push(
             'Present challenging analytical problems to solve',
             'Encourage critical evaluation and comparison',
@@ -114,6 +129,7 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
           );
           break;
         case 'Creative':
+        case 'creative':
           strategies.push(
             'Offer open-ended projects with creative freedom',
             'Encourage innovative solutions and imagination',
@@ -121,12 +137,21 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
           );
           break;
         case 'Practical':
+        case 'practical':
           strategies.push(
             'Connect lessons to everyday life applications',
             'Use case studies and real-world scenarios',
             'Emphasize practical skills and useful knowledge'
           );
           break;
+        case 'Reflective':
+        case 'reflective':
+            strategies.push(
+              'Allow time for observation and thinking before action',
+              'Use journaling and self-reflection exercises',
+              'Connect learning to past experiences'
+            );
+            break;
       }
     }
 
@@ -208,10 +233,19 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
       </Card>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="profile">Cognitive Profile</TabsTrigger>
-          <TabsTrigger value="strategies">Teaching Strategies</TabsTrigger>
-          <TabsTrigger value="progress">Progress & Notes</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-1">
+          <TabsTrigger value="profile" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">Cognitive Profile</span>
+            <span className="sm:hidden">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger value="strategies" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">Teaching Strategies</span>
+            <span className="sm:hidden">Strategies</span>
+          </TabsTrigger>
+          <TabsTrigger value="progress" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">Progress & Notes</span>
+            <span className="sm:hidden">Progress</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Cognitive Profile Tab */}
@@ -231,7 +265,7 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
                       {latestLearning.score.kolb?.style}
                     </Badge>
                     <p className="text-sm text-muted-foreground">
-                      Assessed on {new Date(latestLearning.completedAt!).toLocaleDateString()}
+                      Assessed on {formatDate(latestLearning.completedAt!)}
                     </p>
                   </div>
                 ) : (
@@ -251,10 +285,23 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
                 {latestThinking ? (
                   <div className="space-y-2">
                     <Badge className="text-base px-3 py-1">
-                      {latestThinking.score.sternberg?.style}
+                      {(() => {
+                        if (latestThinking.type === 'sternberg') return latestThinking.score.sternberg?.style;
+                        if (latestThinking.type === 'jhs-thinking') {
+                          const s = latestThinking.score['jhs-thinking']?.primaryStyle;
+                          return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Assessed';
+                        }
+                        if (latestThinking.type === 'shs-thinking') return latestThinking.score['shs-thinking']?.primaryStyle || 'Assessed';
+                        if (latestThinking.type === 'adult-thinking') {
+                            const s = latestThinking.score['adult-thinking']?.dominantStyle;
+                            return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Assessed';
+                        }
+                        if (latestThinking.type === 'child-thinking') return latestThinking.score['child-thinking']?.primaryStyle || 'Assessed';
+                        return 'Unknown';
+                      })()}
                     </Badge>
                     <p className="text-sm text-muted-foreground">
-                      Assessed on {new Date(latestThinking.completedAt!).toLocaleDateString()}
+                      Assessed on {formatDate(latestThinking.completedAt!)}
                     </p>
                   </div>
                 ) : (
@@ -277,7 +324,7 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
                       {latestDecision.score.dualProcess?.style}
                     </Badge>
                     <p className="text-sm text-muted-foreground">
-                      Assessed on {new Date(latestDecision.completedAt!).toLocaleDateString()}
+                      Assessed on {formatDate(latestDecision.completedAt!)}
                     </p>
                   </div>
                 ) : (
@@ -398,21 +445,34 @@ export function StudentDetailView({ student, assessments, onBack }: StudentDetai
                         <div>
                           <p className="font-medium">
                             {assessment.type === 'kolb' ? 'Learning Style' : 
-                             assessment.type === 'sternberg' ? 'Thinking Style' : 
+                             ['sternberg', 'jhs-thinking', 'shs-thinking', 'adult-thinking', 'child-thinking'].includes(assessment.type) ? 
+                               (assessment.type === 'jhs-thinking' ? 'JHS Thinking Style' :
+                                assessment.type === 'shs-thinking' ? 'SHS Thinking Style' :
+                                assessment.type === 'adult-thinking' ? 'Professional Thinking Style' :
+                                assessment.type === 'child-thinking' ? 'Child Thinking Style' : 'Thinking Style') : 
                              'Decision Style'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(assessment.completedAt!).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
+                            {formatDate(assessment.completedAt!)}
                           </p>
                         </div>
                         <Badge>
-                          {assessment.score.kolb?.style || 
-                           assessment.score.sternberg?.style || 
-                           assessment.score.dualProcess?.style}
+                          {(() => {
+                            if (assessment.type === 'kolb') return assessment.score.kolb?.style;
+                            if (assessment.type === 'sternberg') return assessment.score.sternberg?.style;
+                            if (assessment.type === 'dual-process') return assessment.score.dualProcess?.style;
+                            if (assessment.type === 'jhs-thinking') {
+                              const s = assessment.score['jhs-thinking']?.primaryStyle;
+                              return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Assessed';
+                            }
+                            if (assessment.type === 'shs-thinking') return assessment.score['shs-thinking']?.primaryStyle || 'Assessed';
+                            if (assessment.type === 'adult-thinking') {
+                                const s = assessment.score['adult-thinking']?.dominantStyle;
+                                return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Assessed';
+                            }
+                            if (assessment.type === 'child-thinking') return assessment.score['child-thinking']?.primaryStyle || 'Assessed';
+                            return 'Completed';
+                          })()}
                         </Badge>
                       </div>
                     ))}

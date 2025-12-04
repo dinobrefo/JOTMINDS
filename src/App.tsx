@@ -1,31 +1,45 @@
-import { useState, useEffect } from 'react';
-import { User } from './types';
-import { AuthForm } from './components/AuthForm';
+import React, { useState, useEffect } from 'react';
 import { LandingPage } from './components/LandingPage';
-import { OrganizationApp } from './components/OrganizationApp';
 import { Dashboard } from './components/Dashboard';
-import { StudentDashboard } from './components/StudentDashboard';
+import { Assessment } from './components/Assessment';
+import { AssessmentSummary } from './components/AssessmentSummary';
+import { CognitiveProfile } from './components/CognitiveProfile';
+import { AuthForm } from './components/AuthForm';
+import { ForgotPasswordForm } from './components/ForgotPasswordForm';
+import { ResetPasswordForm } from './components/ResetPasswordForm';
+import { AdminPanel } from './components/AdminPanel';
 import { TeacherDashboard } from './components/TeacherDashboard';
+import { StudentDashboard } from './components/StudentDashboard';
 import { ParentDashboard } from './components/ParentDashboard';
 import { ProfessionalDashboard } from './components/ProfessionalDashboard';
-import { AdminDashboard } from './components/AdminDashboard';
+import { OrganizationApp } from './components/supervisor/OrganizationApp';
+import { KidsModeWrapper } from './components/kids/KidsModeWrapper';
+import { KidsModeDemo } from './components/kids/KidsModeDemo';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import { createClient } from './utils/supabase/client';
 import { setAuthToken, getUserData } from './utils/api';
-import { Assessment } from './components/Assessment';
-import { AssessmentSummary } from './components/AssessmentSummary';
-import { CognitiveProfile } from './components/CognitiveProfile';
+import { UserConsentFlow } from './components/consent/UserConsentFlow';
+import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
+import { TermsOfUsePage } from './components/TermsOfUsePage';
+import { ContactPage } from './components/ContactPage';
 
 type ViewType = 
   | 'landing'
+  | 'consent'
+  | 'privacy-policy'
+  | 'terms-of-use'
+  | 'contact'
   | 'auth'
+  | 'forgot-password'
+  | 'reset-password'
   | 'organization'
   | 'dashboard' 
   | 'assessment' 
   | 'summary' 
   | 'profile' 
-  | 'admin';
+  | 'admin'
+  | 'kids-demo';
 
 type AssessmentType = 'learning' | 'thinking' | 'decision';
 
@@ -34,6 +48,7 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [currentAssessment, setCurrentAssessment] = useState<AssessmentType | null>(null);
   const [assessmentResults, setAssessmentResults] = useState<any>(null);
+  const [consentData, setConsentData] = useState<any>(null);
 
   // Set document title
   useEffect(() => {
@@ -44,6 +59,20 @@ function AppContent() {
     // Set up auth token on mount
     console.log('[App] ===== MOUNT - Setting up auth =====');
     const setupAuth = async () => {
+      // Check if this is a password reset callback
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Check for password recovery in the URL hash
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const type = hashParams.get('type');
+      
+      if (type === 'recovery') {
+        console.log('[App] Password recovery detected, showing reset password page');
+        setCurrentView('reset-password');
+        return;
+      }
+      
       // Check for admin session first - don't override with Supabase session
       const adminToken = localStorage.getItem('admin_token');
       const adminUser = localStorage.getItem('admin_user');
@@ -59,10 +88,6 @@ function AppContent() {
       }
 
       console.log('[App] No admin token, checking Supabase session...');
-      // For regular users, use Supabase session
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
       console.log('[App] Supabase session:', session ? 'FOUND' : 'NOT FOUND');
       
       if (session?.access_token) {
@@ -87,11 +112,11 @@ function AppContent() {
       // BUT allow them to view dashboard when impersonating a user
       console.log('[App] ⚠️ Admin in dashboard view without impersonation! Redirecting to admin panel');
       setCurrentView('admin');
-    } else if (user?.role === 'supervisor' || user?.role === 'Supervisor') {
+    } else if (user?.role === 'supervisor' || user?.role === 'Supervisor' || user?.role === 'organization' || user?.role === 'Organization') {
       // Supervisors should only use the Supervisor Portal, not the main app
       console.log('[App] ⚠️ Supervisor detected in main app, redirecting to supervisor portal');
       setCurrentView('organization');
-    } else if (user && user.role !== 'admin' && user.role !== 'supervisor' && user.role !== 'Supervisor' && (currentView === 'landing' || currentView === 'auth')) {
+    } else if (user && user.role !== 'admin' && user.role !== 'supervisor' && user.role !== 'Supervisor' && user.role !== 'organization' && user.role !== 'Organization' && (currentView === 'landing' || currentView === 'auth')) {
       console.log('[App] Regular user detected, routing to dashboard');
       setCurrentView('dashboard');
     }
@@ -127,7 +152,7 @@ function AppContent() {
     console.log('[App] Regular user login, refreshing user data...');
     // Refresh user first to get the latest user data
     await refreshUser();
-    
+
     console.log('[App] ===== Auth success complete, user loaded into context =====');
     // For regular users, show the dashboard
     setCurrentView('dashboard');
@@ -139,6 +164,11 @@ function AppContent() {
 
   const handleSupervisorPortal = () => {
     setCurrentView('organization');
+  };
+
+  const handleKidsDemo = () => {
+    console.log('[App] 🎨 Kids Mode Demo clicked! Switching to kids-demo view...');
+    setCurrentView('kids-demo');
   };
 
   const handleBackToLanding = () => {
@@ -252,18 +282,62 @@ function AppContent() {
 
   if (!user) {
     // Show landing page or auth form based on current view
+    if (currentView === 'consent') {
+      return (
+        <UserConsentFlow
+          onConsent={(data) => {
+            console.log('[App] User consent collected:', data);
+            setConsentData(data);
+            // Store consent in localStorage (backend should also store it)
+            localStorage.setItem('jotminds_consent', JSON.stringify(data));
+            // Proceed to auth form
+            setCurrentView('auth');
+          }}
+          onCancel={handleBackToLanding}
+        />
+      );
+    }
+    
+    if (currentView === 'privacy-policy') {
+      return <PrivacyPolicyPage onBack={handleBackToLanding} />;
+    }
+    
+    if (currentView === 'terms-of-use') {
+      return <TermsOfUsePage onBack={handleBackToLanding} />;
+    }
+    
+    if (currentView === 'contact') {
+      return <ContactPage onBack={handleBackToLanding} />;
+    }
+    
     if (currentView === 'auth') {
-      return <AuthForm onLogin={handleAuthSuccess} onBack={handleBackToLanding} />;
+      return <AuthForm onLogin={handleAuthSuccess} onBack={handleBackToLanding} onForgotPassword={() => setCurrentView('forgot-password')} />;
+    }
+    
+    if (currentView === 'forgot-password') {
+      return <ForgotPasswordForm onBack={() => setCurrentView('auth')} />;
+    }
+    
+    if (currentView === 'reset-password') {
+      return <ResetPasswordForm onSuccess={() => setCurrentView('auth')} onBack={() => setCurrentView('auth')} />;
     }
     
     if (currentView === 'organization') {
-      return <OrganizationApp onBackToMain={handleBackToLanding} />;
+      return <OrganizationApp onBackToMain={handleBackToLanding} initialUser={user} />;
+    }
+    
+    if (currentView === 'kids-demo') {
+      return <KidsModeDemo onBack={handleBackToLanding} />;
     }
     
     return (
       <LandingPage 
         onGetStarted={handleGetStarted}
         onSupervisorPortal={handleSupervisorPortal}
+        onKidsDemo={handleKidsDemo}
+        onViewPrivacyPolicy={() => setCurrentView('privacy-policy')}
+        onViewTermsOfUse={() => setCurrentView('terms-of-use')}
+        onViewContact={() => setCurrentView('contact')}
       />
     );
   }
@@ -275,11 +349,24 @@ function AppContent() {
         <LandingPage 
           onGetStarted={handleGetStarted}
           onSupervisorPortal={handleSupervisorPortal}
+          onKidsDemo={handleKidsDemo}
+          onViewPrivacyPolicy={() => setCurrentView('privacy-policy')}
+          onViewTermsOfUse={() => setCurrentView('terms-of-use')}
+          onViewContact={() => setCurrentView('contact')}
         />
       );
 
+    case 'kids-demo':
+      return <KidsModeDemo onBack={handleBackToLanding} />;
+
     case 'organization':
-      return <OrganizationApp onBackToMain={handleBackToLanding} />;
+      return (
+        <OrganizationApp 
+          onBackToMain={handleBackToLanding} 
+          initialUser={user} 
+          onLogout={handleLogout}
+        />
+      );
 
     case 'assessment':
       return currentAssessment ? (
@@ -308,7 +395,7 @@ function AppContent() {
 
     case 'admin':
       return (
-        <AdminDashboard 
+        <AdminPanel 
           onBack={handleBackToDashboard}
           onLogout={handleLogout}
           onViewUserDashboard={handleViewUserDashboard}
@@ -327,9 +414,15 @@ function AppContent() {
       const normalizedRole = displayUser.role?.toLowerCase();
       
       // Supervisors should not access dashboards - redirect to supervisor portal
-      if (normalizedRole === 'supervisor') {
+      if (normalizedRole === 'supervisor' || normalizedRole === 'organization') {
         console.log('[App] Supervisor trying to access dashboard, redirecting to supervisor portal');
-        return <OrganizationApp onBackToMain={handleBackToLanding} />;
+        return (
+          <OrganizationApp 
+            onBackToMain={handleBackToLanding} 
+            initialUser={displayUser} 
+            onLogout={logoutHandler}
+          />
+        );
       }
       
       if (normalizedRole === 'teacher') {
@@ -342,6 +435,31 @@ function AppContent() {
       }
       
       if (normalizedRole === 'student') {
+        // Check if student should use Kids Mode (ages 6-10)
+        // Calculate age if not already present
+        let age = displayUser.age;
+        if (!age && displayUser.dateOfBirth) {
+          const birthDate = new Date(displayUser.dateOfBirth);
+          const today = new Date();
+          age = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+        }
+        
+        const shouldUseKidsMode = age && age >= 6 && age <= 10;
+        console.log('[App] Student age check:', { age, dateOfBirth: displayUser.dateOfBirth, shouldUseKidsMode });
+        
+        if (shouldUseKidsMode) {
+          return (
+            <KidsModeWrapper
+              user={displayUser}
+              onLogout={logoutHandler}
+            />
+          );
+        }
+        
         return (
           <StudentDashboard
             user={displayUser}

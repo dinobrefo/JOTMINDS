@@ -5,13 +5,17 @@ import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Assessment, UserRole } from '../types';
+import { saveReflection, getReflections, generateId } from '../utils/storage';
 import { getGhanaMapping, getStyleDescription } from '../utils/scoring';
-import { saveReflection, generateId } from '../utils/storage';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, Cell, LabelList } from 'recharts';
-import { BookOpen, Briefcase, Lightbulb, FileText, Download, ArrowLeft, TrendingUp, AlertTriangle, Target, Users, BarChart3, Share2, Eye, Brain } from 'lucide-react';
+import { SternbergResults } from './SternbergResults';
+import { BookOpen, Briefcase, Lightbulb, FileText, Download, ArrowLeft, TrendingUp, AlertTriangle, Target, Users, BarChart3, Share2, Eye, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 import { getAssessmentInsights } from '../utils/insights';
 import { toast } from 'sonner@2.0.3';
+import { FeedbackPrompt } from './FeedbackPrompt';
+import { formatDateTime } from '../utils/dateFormat';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList, Tooltip as RechartsTooltip } from 'recharts';
+import { colors, componentSpacing } from '../utils/designTokens';
 
 interface AssessmentReportProps {
   assessment: Assessment;
@@ -24,36 +28,63 @@ interface AssessmentReportProps {
 export function AssessmentReport({ assessment, userName, onBack, isOrganizational = false, userRole }: AssessmentReportProps) {
   const [reflection, setReflection] = useState('');
   const [reflectionSaved, setReflectionSaved] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>('strengths');
+
+  // Add defensive check for assessment data
+  if (!assessment || !assessment.score) {
+    console.error('Invalid assessment data:', assessment);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+        <div className="max-w-4xl mx-auto py-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Error Loading Results</CardTitle>
+              <CardDescription>There was a problem loading your assessment results.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                The assessment data could not be loaded. This might be a temporary issue.
+              </p>
+              <Button onClick={onBack}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   const ghanaMapping = !isOrganizational ? getGhanaMapping(assessment.score) : null;
 
   const getReflectionPlaceholder = () => {
     switch (userRole) {
       case 'student':
-        return "What insights have you gained? How will you use this information in your studies? How does this help you understand how you learn best?";
+        return "What insights did you gain from this profile? How will this help your studies?";
       case 'teacher':
-        return "How will these insights help you understand your teaching approach? How can you use this knowledge to better support diverse learners in your classroom?";
+        return "What insights did you gain from this profile? How will this help your teaching?";
       case 'parent':
-        return "What have you learned about your own thinking patterns? How might this help you better understand and support your child's learning journey?";
+        return "What insights did you gain from this profile? How will this help you support your child?";
       case 'professional':
-        return "How do these results align with your work experiences? What insights can you apply to your professional development and team collaboration?";
+        return "What insights did you gain from this profile? How will this help your work?";
       default:
-        return "What insights have you gained from these results? How do they align with your experiences?";
+        return "What insights did you gain from this profile? How will you use them?";
     }
   };
 
   const getReflectionDescription = () => {
     switch (userRole) {
       case 'student':
-        return "Write down your thoughts about these results. How do they align with your learning experiences?";
+        return "Reflect on your results and how they relate to your learning journey.";
       case 'teacher':
-        return "Reflect on how these insights relate to your teaching practice and professional development.";
+        return "Reflect on how these insights connect to your teaching practice.";
       case 'parent':
-        return "Share your thoughts on these results and how they might help you support your child better.";
+        return "Share your thoughts on how this understanding can support your child.";
       case 'professional':
-        return "Document your insights and how you plan to apply them in your professional role.";
+        return "Consider how you'll apply these insights in your professional role.";
       default:
-        return "Write down your thoughts about these results. How do they align with your experiences?";
+        return "Take a moment to reflect on your results and what they mean for you.";
     }
   };
 
@@ -196,20 +227,47 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
         },
       ];
     } else if (assessment.score.dualProcess) {
+      // Handle both naming conventions: system1/system2 (old) and Intuitive/Reflective (new from server)
+      const scores = assessment.score.dualProcess.scores;
+      const system1Score = scores.system1 || scores.Intuitive || 0;
+      const system2Score = scores.system2 || scores.Reflective || 0;
+      
+      console.log('[AssessmentReport] Dual-Process scores:', {
+        raw: scores,
+        system1Score,
+        system2Score
+      });
+      
       return [
         { 
           name: 'Intuitive (System 1)', 
-          value: assessment.score.dualProcess.scores.system1 || 0,
+          value: system1Score,
           color: 'hsl(var(--chart-1))',
           description: 'Fast, automatic, intuitive decisions'
         },
         { 
           name: 'Reflective (System 2)', 
-          value: assessment.score.dualProcess.scores.system2 || 0,
+          value: system2Score,
           color: 'hsl(var(--chart-2))',
           description: 'Slow, deliberate, analytical decisions'
         },
       ];
+    } else if (assessment.score['jhs-thinking'] || assessment.score['shs-thinking'] || assessment.score['children-thinking']) {
+      const scores = assessment.score['jhs-thinking']?.scores || assessment.score['shs-thinking']?.scores || assessment.score['children-thinking']?.scores || {};
+      return [
+        { name: 'Creative', value: scores.creative || 0, color: 'hsl(var(--chart-1))' },
+        { name: 'Analytical', value: scores.analytical || 0, color: 'hsl(var(--chart-2))' },
+        { name: 'Practical', value: scores.practical || 0, color: 'hsl(var(--chart-3))' },
+        { name: 'Reflective', value: scores.reflective || 0, color: 'hsl(var(--chart-4))' }
+      ].filter(item => item.value > 0);
+    } else if (assessment.score['adult-thinking']) {
+      const scores = assessment.score['adult-thinking'].scores || {};
+      return [
+        { name: 'Creative', value: scores.creative || 0, color: 'hsl(var(--chart-1))' },
+        { name: 'Analytical', value: scores.analytical || 0, color: 'hsl(var(--chart-2))' },
+        { name: 'Practical', value: scores.practical || 0, color: 'hsl(var(--chart-3))' },
+        { name: 'Reflective', value: scores.reflective || 0, color: 'hsl(var(--chart-4))' }
+      ].filter(item => item.value > 0);
     }
     return [];
   };
@@ -218,6 +276,10 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
     if (assessment.score.kolb) return assessment.score.kolb.style;
     if (assessment.score.sternberg) return assessment.score.sternberg.style;
     if (assessment.score.dualProcess) return assessment.score.dualProcess.style;
+    if (assessment.score['jhs-thinking']) return assessment.score['jhs-thinking'].personalityType;
+    if (assessment.score['shs-thinking']) return assessment.score['shs-thinking'].personalityType;
+    if (assessment.score['children-thinking']) return assessment.score['children-thinking'].personalityType;
+    if (assessment.score['adult-thinking']) return assessment.score['adult-thinking'].dominantStyle;
     return '';
   };
 
@@ -226,10 +288,15 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
       if (assessment.type === 'kolb') return 'Learning Agility Profile';
       if (assessment.type === 'sternberg') return 'Thinking Diversity Profile';
       if (assessment.type === 'dual-process') return 'Decision Intelligence Profile';
+      if (assessment.type === 'adult-thinking') return 'Professional Thinking Profile';
     } else {
       if (assessment.type === 'kolb') return 'Your Learning Style Profile';
       if (assessment.type === 'sternberg') return 'Your Thinking Style Profile';
       if (assessment.type === 'dual-process') return 'Your Decision Style Profile';
+      if (assessment.type === 'jhs-thinking') return 'JHS Thinking Style Profile';
+      if (assessment.type === 'shs-thinking') return 'SHS Thinking Style Profile';
+      if (assessment.type === 'adult-thinking') return 'Professional Thinking Profile';
+      if (assessment.type === 'children-thinking') return 'Thinking Adventure Profile';
     }
     return 'Assessment Profile';
   };
@@ -250,14 +317,14 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white/95 backdrop-blur-sm p-4 rounded-lg shadow-lg border border-border">
-          <p className="font-semibold text-foreground mb-1">{payload[0].payload.name}</p>
-          <p className="text-sm text-muted-foreground mb-2">{payload[0].payload.description}</p>
+        <div className="bg-gray-800 dark:bg-gray-900 p-4 rounded-lg shadow-lg border border-gray-700">
+          <p className="font-semibold text-white mb-1">{payload[0].payload.name}</p>
+          <p className="text-sm text-gray-300 mb-2">{payload[0].payload.description}</p>
           <p className="text-lg font-bold" style={{ color: payload[0].payload.color }}>
             Score: {payload[0].value}
           </p>
-          <div className="mt-2 pt-2 border-t border-border">
-            <div className="w-full bg-muted rounded-full h-2">
+          <div className="mt-2 pt-2 border-t border-gray-600">
+            <div className="w-full bg-gray-700 rounded-full h-2">
               <div 
                 className="h-2 rounded-full transition-all" 
                 style={{ 
@@ -302,35 +369,37 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 p-4">
-      <div className="max-w-4xl mx-auto py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={onBack}>
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-2 sm:p-4">
+      <div className="max-w-4xl mx-auto py-4 sm:py-8 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard
           </Button>
-          <div className="flex items-center gap-2">
-            <Button onClick={handleDownloadPDF}>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <Button onClick={handleDownloadPDF} className="w-full sm:w-auto">
               <Download className="mr-2 h-4 w-4" />
-              Download PDF
+              <span className="hidden sm:inline">Download PDF</span>
+              <span className="sm:hidden">Download</span>
             </Button>
-            <Button onClick={handleShareResults}>
+            <Button onClick={handleShareResults} className="w-full sm:w-auto">
               <Share2 className="mr-2 h-4 w-4" />
-              Share Results
+              <span className="hidden sm:inline">Share Results</span>
+              <span className="sm:hidden">Share</span>
             </Button>
           </div>
         </div>
 
         <Card>
           <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle>{reportTitle}</CardTitle>
-                <CardDescription>
-                  Assessment completed on {new Date(assessment.completedAt).toLocaleDateString()}
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
+              <div className="flex-1">
+                <CardTitle className="text-lg sm:text-xl">{reportTitle}</CardTitle>
+                <CardDescription className="text-sm">
+                  Assessment completed on {formatDateTime(assessment.completedAt)}
                 </CardDescription>
               </div>
-              <Badge className="text-lg px-4 py-2">{mainStyle}</Badge>
+              <Badge className="text-base sm:text-lg px-3 sm:px-4 py-1.5 sm:py-2 self-start">{mainStyle}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -340,19 +409,19 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
 
             <div>
               <h3 className="flex items-center gap-2 mb-6">
-                <BarChart className="h-5 w-5" />
+                <BarChart3 className="h-5 w-5" />
                 Your Scores
               </h3>
               <div className="space-y-6">
                 {assessment.type === 'kolb' ? (
                   <>
                     {/* Radar Chart */}
-                    <div className="h-80 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 rounded-xl p-4">
+                    <div className="h-64 sm:h-80 md:h-96 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-gray-800/50 dark:to-gray-700/50 rounded-xl p-2 sm:p-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart 
                           data={chartData}
                           layout="vertical"
-                          margin={{ top: 20, right: 40, left: 20, bottom: 20 }}
+                          margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                         >
                           <defs>
                             {chartData.map((item: any, index: number) => (
@@ -371,17 +440,26 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                           <XAxis 
                             type="number"
                             domain={[0, Math.ceil(maxValue * 1.2)]}
-                            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                             stroke="hsl(var(--border))"
                           />
                           <YAxis 
                             type="category"
-                            dataKey="name"
-                            width={180}
-                            tick={{ fill: 'hsl(var(--foreground))' }}
+                            dataKey="shortName"
+                            width={40}
+                            tick={{ fill: 'hsl(var(--foreground))', fontSize: 11 }}
                             stroke="hsl(var(--border))"
+                            className="hidden sm:block"
                           />
-                          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
+                          <YAxis 
+                            type="category"
+                            dataKey="shortName"
+                            width={35}
+                            tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }}
+                            stroke="hsl(var(--border))"
+                            className="block sm:hidden"
+                          />
+                          <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
                           <Bar 
                             dataKey="value" 
                             radius={[0, 8, 8, 0]}
@@ -394,7 +472,7 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                             <LabelList 
                               dataKey="value" 
                               position="right" 
-                              style={{ fill: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                              style={{ fill: 'hsl(var(--foreground))', fontWeight: 'bold', fontSize: 11 }}
                             />
                           </Bar>
                         </BarChart>
@@ -408,8 +486,8 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                         return (
                           <div key={index} className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{item.name}</span>
-                              <span className="text-sm font-bold" style={{ color: item.color }}>
+                              <span className="text-xs sm:text-sm font-medium">{item.name}</span>
+                              <span className="text-xs sm:text-sm font-bold" style={{ color: item.color }}>
                                 {item.value}
                               </span>
                             </div>
@@ -429,16 +507,17 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                   </>
                 ) : (
                   <>
-                    {/* Modern Bar Chart */}
-                    <div className="h-80 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 rounded-xl p-4">
+                    {/* Modern Bar Chart - Improved for mobile with vertical orientation */}
+                    <div className="h-64 sm:h-80 md:h-96 rounded-xl p-2 sm:p-4" style={{ background: colors.gradients.info }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart 
                           data={chartData}
-                          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                          layout="vertical"
+                          margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
                         >
                           <defs>
                             {chartData.map((item: any, index: number) => (
-                              <linearGradient key={index} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                              <linearGradient key={index} id={`gradient-${index}`} x1="0" y1="0" x2="1" y2="0">
                                 <stop offset="0%" stopColor={item.color} stopOpacity={0.9} />
                                 <stop offset="100%" stopColor={item.color} stopOpacity={0.6} />
                               </linearGradient>
@@ -448,24 +527,25 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                             strokeDasharray="3 3" 
                             stroke="hsl(var(--border))"
                             strokeOpacity={0.3}
+                            horizontal={false}
                           />
                           <XAxis 
-                            dataKey="name" 
-                            angle={-15}
-                            textAnchor="end"
-                            height={80}
-                            tick={{ fill: 'hsl(var(--foreground))' }}
+                            type="number"
+                            domain={[0, Math.ceil(maxValue * 1.2)]}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                             stroke="hsl(var(--border))"
                           />
                           <YAxis 
-                            domain={[0, Math.ceil(maxValue * 1.2)]}
-                            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                            type="category"
+                            dataKey="name"
+                            width={110}
+                            tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
                             stroke="hsl(var(--border))"
                           />
-                          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
+                          <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
                           <Bar 
                             dataKey="value" 
-                            radius={[8, 8, 0, 0]}
+                            radius={[0, 12, 12, 0]}
                             animationDuration={1500}
                             animationBegin={0}
                           >
@@ -474,19 +554,19 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                             ))}
                             <LabelList 
                               dataKey="value" 
-                              position="top" 
-                              style={{ fill: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                              position="right" 
+                              style={{ fill: 'hsl(var(--foreground))', fontWeight: 'bold', fontSize: 12 }}
                             />
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                     
-                    {/* Score cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Score cards - Standardized 20px padding */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {chartData.map((item: any, index: number) => (
                         <Card key={index} className="border-2 transition-all hover:shadow-md">
-                          <CardContent className="p-4">
+                          <CardContent style={{ padding: `${componentSpacing.cardPadding}px` }}>
                             <div className="space-y-2">
                               <div 
                                 className="w-12 h-12 rounded-full flex items-center justify-center"
@@ -499,7 +579,7 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                                   {item.value}
                                 </span>
                               </div>
-                              <h4 className="font-semibold">{item.name}</h4>
+                              <h4 className="font-semibold text-sm">{item.name}</h4>
                               <p className="text-xs text-muted-foreground">{item.description}</p>
                               <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                                 <div
@@ -523,17 +603,17 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
         </Card>
 
         {/* Executive Summary */}
-        <Card className="border-2 border-indigo-200 shadow-large bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50">
-          <CardHeader className="pb-4">
+        <Card className="border-2 shadow-lg" style={{ borderColor: colors.info.border, background: colors.gradients.info }}>
+          <CardHeader style={{ paddingBottom: `${componentSpacing.cardPadding}px` }}>
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-lg gradient-purple flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: colors.primary.main }}>
                 <FileText className="h-6 w-6 text-white" />
               </div>
               <div className="flex-1">
-                <CardTitle className="text-2xl mb-2 text-indigo-900">
+                <CardTitle className="text-2xl mb-2" style={{ color: colors.primary.main }}>
                   Executive Summary
                 </CardTitle>
-                <CardDescription className="text-base text-gray-600">
+                <CardDescription className="text-base" style={{ color: colors.neutral.gray600 }}>
                   {isOrganizational 
                     ? 'At-a-glance overview for organizational assessment and talent development'
                     : 'Quick overview of your cognitive profile and key insights'
@@ -542,11 +622,11 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent style={{ padding: `${componentSpacing.cardPadding}px`, display: 'flex', flexDirection: 'column', gap: `${componentSpacing.results.contentGap}px` }}>
             {/* Primary Profile */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-indigo-200">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg p-4 border border-indigo-200 dark:border-indigo-700">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="flex items-center gap-2 text-indigo-900">
+                <h4 className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300">
                   <Target className="h-4 w-4" />
                   Primary Cognitive Profile
                 </h4>
@@ -554,48 +634,60 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                   {mainStyle}
                 </Badge>
               </div>
-              <p className="text-sm text-gray-700 leading-relaxed">
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                 {styleDescription}
               </p>
             </div>
 
-            {/* Key Metrics Grid */}
+            {/* Key Metrics Grid - Standardized colors */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {/* Top Strength */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="rounded-lg" style={{ 
+                background: colors.success.bg, 
+                border: `1px solid ${colors.success.border}`,
+                padding: `${componentSpacing.cardPadding}px`
+              }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: colors.success.main }}>
                     <TrendingUp className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-green-900">Top Strength</span>
+                  <span style={{ color: colors.success.dark }}>Top Strength</span>
                 </div>
-                <p className="text-sm text-green-800">
+                <p className="text-sm" style={{ color: colors.success.dark }}>
                   {insights.strengths[0]}
                 </p>
               </div>
 
               {/* Priority Development */}
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="rounded-lg" style={{ 
+                background: colors.warning.bg, 
+                border: `1px solid ${colors.warning.border}`,
+                padding: `${componentSpacing.cardPadding}px`
+              }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: colors.warning.main }}>
                     <AlertTriangle className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-orange-900">Priority Area</span>
+                  <span style={{ color: colors.warning.dark }}>Priority Area</span>
                 </div>
-                <p className="text-sm text-orange-800">
+                <p className="text-sm" style={{ color: colors.warning.dark }}>
                   {insights.weaknesses[0]}
                 </p>
               </div>
 
               {/* Key Action */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="rounded-lg" style={{ 
+                background: colors.info.bg, 
+                border: `1px solid ${colors.info.border}`,
+                padding: `${componentSpacing.cardPadding}px`
+              }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: colors.info.main }}>
                     <Target className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-blue-900">Key Action</span>
+                  <span style={{ color: colors.info.dark }}>Key Action</span>
                 </div>
-                <p className="text-sm text-blue-800">
+                <p className="text-sm" style={{ color: colors.info.dark }}>
                   {insights.improvements[0]}
                 </p>
               </div>
@@ -604,16 +696,16 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
             {isOrganizational && (
               <>
                 {/* Organizational Fit Summary */}
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="flex items-center gap-2 mb-3 text-purple-900">
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg space-y-2 border border-purple-200 dark:border-purple-700">
+                  <h4 className="flex items-center gap-2 mb-3 text-[rgb(104,36,174)] dark:text-purple-200 text-[16px]">
                     <Users className="h-4 w-4" />
                     Organizational Fit Assessment
                   </h4>
                   <div className="space-y-2">
                     {insights.organizationalFit.slice(0, 2).map((fit, index) => (
                       <div key={index} className="flex items-start gap-2">
-                        <span className="text-purple-600 mt-0.5">•</span>
-                        <p className="text-sm text-purple-800 flex-1">
+                        <span className="text-purple-600 dark:text-purple-400 mt-0.5">•</span>
+                        <p className="text-sm text-[rgb(133,13,242)] dark:text-purple-300 flex-1">
                           {fit}
                         </p>
                       </div>
@@ -650,11 +742,11 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
           </CardContent>
         </Card>
 
-        {/* Insights and Analysis Section */}
+        {/* Insights and Analysis Section - Accordion for Mobile */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+          <CardHeader style={{ padding: `${componentSpacing.cardPadding}px` }}>
+            <CardTitle className="flex items-center gap-2" style={{ color: colors.primary.main }}>
+              <BarChart3 className="h-6 w-6" />
               {isOrganizational ? 'Professional Analysis' : 'Your Profile Analysis'}
             </CardTitle>
             <CardDescription>
@@ -664,124 +756,246 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
               }
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Strengths */}
-            <div>
-              <h4 className="flex items-center gap-2 mb-3">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                <span className="text-green-700">Key Strengths</span>
-              </h4>
-              <ul className="space-y-2">
-                {insights.strengths.map((strength, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-green-600 mt-1">✓</span>
-                    <span className="text-sm">{strength}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Weaknesses */}
-            <div className="pt-4 border-t">
-              <h4 className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
-                <span className="text-orange-700">Areas for Development</span>
-              </h4>
-              <ul className="space-y-2">
-                {insights.weaknesses.map((weakness, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-orange-600 mt-1">!</span>
-                    <span className="text-sm">{weakness}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Improvement Recommendations */}
-            <div className="pt-4 border-t">
-              <h4 className="flex items-center gap-2 mb-3">
-                <Target className="h-4 w-4 text-blue-600" />
-                <span className="text-blue-700">Recommended Actions for Improvement</span>
-              </h4>
-              <ul className="space-y-2">
-                {insights.improvements.map((improvement, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-blue-600 mt-1">→</span>
-                    <span className="text-sm">{improvement}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {isOrganizational && (
-              <>
-                {/* Organizational Fit */}
-                <div className="pt-4 border-t">
-                  <h4 className="flex items-center gap-2 mb-3">
-                    <Users className="h-4 w-4 text-purple-600" />
-                    <span className="text-purple-700">Organizational Fit & Role Alignment</span>
-                  </h4>
-                  <div className="bg-purple-50 p-4 rounded-lg space-y-2">
-                    {insights.organizationalFit.map((fit, index) => (
-                      <p key={index} className="text-sm">
-                        <strong>{fit.split(':')[0]}:</strong>
-                        {fit.split(':')[1]}
-                      </p>
-                    ))}
+          <CardContent style={{ padding: `${componentSpacing.cardPadding}px` }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: `${componentSpacing.spacing['2xl']}px` }}>
+              {/* Key Strengths - Accordion Section */}
+              <div>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'strengths' ? null : 'strengths')}
+                  className="w-full flex items-center justify-between rounded-lg p-4 transition-all hover:shadow-md"
+                  style={{ 
+                    background: colors.success.bg,
+                    border: `2px solid ${colors.success.border}`
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="h-6 w-6" style={{ color: colors.success.main }} />
+                    <span className="font-semibold" style={{ color: colors.success.dark }}>Key Strengths</span>
+                    <Badge variant="secondary" className="ml-2">{insights.strengths.length}</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Use this information to match candidates with appropriate roles or to optimize team composition 
-                    based on cognitive diversity.
-                  </p>
-                </div>
-
-                {/* Continuous Review Points */}
-                <div className="pt-4 border-t">
-                  <h4 className="flex items-center gap-2 mb-3">
-                    <Briefcase className="h-4 w-4 text-indigo-600" />
-                    <span className="text-indigo-700">Continuous Performance Review Indicators</span>
-                  </h4>
-                  <div className="bg-indigo-50 p-4 rounded-lg space-y-2">
-                    {insights.continuousReview.map((review, index) => (
-                      <p key={index} className="text-sm">
-                        <strong>{review.split(':')[0]}:</strong>
-                        {review.split(':')[1]}
-                      </p>
-                    ))}
+                  {expandedSection === 'strengths' ? (
+                    <ChevronUp className="h-5 w-5" style={{ color: colors.success.main }} />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" style={{ color: colors.success.main }} />
+                  )}
+                </button>
+                
+                {expandedSection === 'strengths' && (
+                  <div className="mt-3 rounded-lg p-4" style={{ 
+                    background: colors.neutral.white,
+                    border: `1px solid ${colors.success.border}`
+                  }}>
+                    <ul className="space-y-3">
+                      {insights.strengths.map((strength, index) => (
+                        <li key={index} className="flex items-start gap-3">
+                          <span className="mt-1 flex-shrink-0" style={{ color: colors.success.main, fontSize: '20px' }}>✓</span>
+                          <span className="text-sm" style={{ color: colors.neutral.gray700 }}>{strength}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Regular assessment helps track development progress, identify training needs, and ensure 
-                    continued alignment with organizational goals.
-                  </p>
-                </div>
-              </>
-            )}
-
-            {!isOrganizational && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="h-4 w-4 text-blue-600" />
-                  <span>Personal Development Tip</span>
-                </h4>
-                <p className="text-sm">
-                  Focus on leveraging your strengths while gradually working on your areas for development. 
-                  Remember that cognitive styles aren't fixed – you can develop new capabilities over time through 
-                  deliberate practice and diverse experiences.
-                </p>
+                )}
               </div>
-            )}
+
+              {/* Areas for Development - Accordion Section */}
+              <div>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'development' ? null : 'development')}
+                  className="w-full flex items-center justify-between rounded-lg p-4 transition-all hover:shadow-md"
+                  style={{ 
+                    background: colors.warning.bg,
+                    border: `2px solid ${colors.warning.border}`
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-6 w-6" style={{ color: colors.warning.main }} />
+                    <span className="font-semibold" style={{ color: colors.warning.dark }}>Areas for Development</span>
+                    <Badge variant="secondary" className="ml-2">{insights.weaknesses.length}</Badge>
+                  </div>
+                  {expandedSection === 'development' ? (
+                    <ChevronUp className="h-5 w-5" style={{ color: colors.warning.main }} />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" style={{ color: colors.warning.main }} />
+                  )}
+                </button>
+                
+                {expandedSection === 'development' && (
+                  <div className="mt-3 rounded-lg p-4" style={{ 
+                    background: colors.neutral.white,
+                    border: `1px solid ${colors.warning.border}`
+                  }}>
+                    <ul className="space-y-3">
+                      {insights.weaknesses.map((weakness, index) => (
+                        <li key={index} className="flex items-start gap-3">
+                          <span className="mt-1 flex-shrink-0" style={{ color: colors.warning.main, fontSize: '20px' }}>⚠</span>
+                          <span className="text-sm" style={{ color: colors.neutral.gray700 }}>{weakness}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Recommended Actions - Accordion Section */}
+              <div>
+                <button
+                  onClick={() => setExpandedSection(expandedSection === 'actions' ? null : 'actions')}
+                  className="w-full flex items-center justify-between rounded-lg p-4 transition-all hover:shadow-md"
+                  style={{ 
+                    background: colors.info.bg,
+                    border: `2px solid ${colors.info.border}`
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <Target className="h-6 w-6" style={{ color: colors.info.main }} />
+                    <span className="font-semibold" style={{ color: colors.info.dark }}>Recommended Actions</span>
+                    <Badge variant="secondary" className="ml-2">{insights.improvements.length}</Badge>
+                  </div>
+                  {expandedSection === 'actions' ? (
+                    <ChevronUp className="h-5 w-5" style={{ color: colors.info.main }} />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" style={{ color: colors.info.main }} />
+                  )}
+                </button>
+                
+                {expandedSection === 'actions' && (
+                  <div className="mt-3 rounded-lg p-4" style={{ 
+                    background: colors.neutral.white,
+                    border: `1px solid ${colors.info.border}`
+                  }}>
+                    <ul className="space-y-3">
+                      {insights.improvements.map((improvement, index) => (
+                        <li key={index} className="flex items-start gap-3">
+                          <span className="mt-1 flex-shrink-0" style={{ color: colors.info.main, fontSize: '20px' }}>→</span>
+                          <span className="text-sm" style={{ color: colors.neutral.gray700 }}>{improvement}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {isOrganizational && (
+                <>
+                  {/* Organizational Fit - Improved icons and spacing */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedSection(expandedSection === 'organizational' ? null : 'organizational')}
+                      className="w-full flex items-center justify-between rounded-lg p-4 transition-all hover:shadow-md"
+                      style={{ 
+                        background: '#F5F3FF',
+                        border: `2px solid #C4B5FD`
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Users className="h-6 w-6" style={{ color: '#7C3AED' }} />
+                        <span className="font-semibold" style={{ color: '#6B21A8' }}>Organizational Fit & Role Alignment</span>
+                      </div>
+                      {expandedSection === 'organizational' ? (
+                        <ChevronUp className="h-5 w-5" style={{ color: '#7C3AED' }} />
+                      ) : (
+                        <ChevronDown className="h-5 w-5" style={{ color: '#7C3AED' }} />
+                      )}
+                    </button>
+                    
+                    {expandedSection === 'organizational' && (
+                      <div className="mt-3 rounded-lg space-y-2" style={{ 
+                        background: colors.neutral.white,
+                        border: `1px solid #C4B5FD`,
+                        padding: `${componentSpacing.cardPadding}px`
+                      }}>
+                        {insights.organizationalFit.map((fit, index) => (
+                          <p key={index} className="text-sm" style={{ color: colors.neutral.gray700 }}>
+                            <strong>{fit.split(':')[0]}:</strong>
+                            {fit.split(':')[1]}
+                          </p>
+                        ))}
+                        <p className="text-xs mt-3" style={{ color: colors.neutral.gray500 }}>
+                          Use this information to match candidates with appropriate roles or to optimize team composition 
+                          based on cognitive diversity.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Continuous Review Points - Improved icons and spacing */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedSection(expandedSection === 'review' ? null : 'review')}
+                      className="w-full flex items-center justify-between rounded-lg p-4 transition-all hover:shadow-md"
+                      style={{ 
+                        background: colors.primary.light,
+                        border: `2px solid ${colors.info.border}`
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Briefcase className="h-6 w-6" style={{ color: colors.primary.main }} />
+                        <span className="font-semibold" style={{ color: colors.primary.dark }}>Performance Review Indicators</span>
+                      </div>
+                      {expandedSection === 'review' ? (
+                        <ChevronUp className="h-5 w-5" style={{ color: colors.primary.main }} />
+                      ) : (
+                        <ChevronDown className="h-5 w-5" style={{ color: colors.primary.main }} />
+                      )}
+                    </button>
+                    
+                    {expandedSection === 'review' && (
+                      <div className="mt-3 rounded-lg space-y-2" style={{ 
+                        background: colors.neutral.white,
+                        border: `1px solid ${colors.info.border}`,
+                        padding: `${componentSpacing.cardPadding}px`
+                      }}>
+                        {insights.continuousReview.map((review, index) => (
+                          <p key={index} className="text-sm" style={{ color: colors.neutral.gray700 }}>
+                            <strong>{review.split(':')[0]}:</strong>
+                            {review.split(':')[1]}
+                          </p>
+                        ))}
+                        <p className="text-xs mt-3" style={{ color: colors.neutral.gray500 }}>
+                          Regular assessment helps track development progress, identify training needs, and ensure 
+                          continued alignment with organizational goals.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {!isOrganizational && (
+                <div className="rounded-lg" style={{ 
+                  background: colors.gradients.info,
+                  border: `1px solid ${colors.info.border}`,
+                  padding: `${componentSpacing.cardPadding}px`
+                }}>
+                  <h4 className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="h-6 w-6" style={{ color: colors.info.main }} />
+                    <span style={{ color: colors.neutral.gray700 }}>Personal Development Tip</span>
+                  </h4>
+                  <p className="text-sm" style={{ color: colors.neutral.gray700 }}>
+                    Focus on leveraging your strengths while gradually working on your areas for development. 
+                    Remember that cognitive styles aren't fixed – you can develop new capabilities over time through 
+                    deliberate practice and diverse experiences.
+                  </p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {!isOrganizational && ghanaMapping && (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader style={{ padding: `${componentSpacing.cardPadding}px` }}>
+              <CardTitle className="flex items-center gap-2" style={{ color: colors.primary.main }}>
                 <BookOpen className="h-5 w-5" />
                 Ghana Education Guidance
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent style={{ 
+              padding: `${componentSpacing.cardPadding}px`, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: `${componentSpacing.results.sectionGap}px` 
+            }}>
               <div>
                 <h4 className="mb-2">Recommended SHS Tracks</h4>
                 <div className="flex flex-wrap gap-2">
@@ -816,12 +1030,16 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                 </ul>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="h-4 w-4 text-blue-600" />
-                  Decision-Making Tip
+              <div className="rounded-lg" style={{ 
+                background: colors.info.bg, 
+                border: `1px solid ${colors.info.border}`,
+                padding: `${componentSpacing.cardPadding}px`
+              }}>
+                <h4 className="flex items-center gap-2 mb-2" style={{ color: colors.info.dark }}>
+                  <Lightbulb className="h-4 w-4" style={{ color: colors.info.main }} />
+                  Development Path
                 </h4>
-                <p className="text-sm">{ghanaMapping.decisionTip}</p>
+                <p className="text-sm" style={{ color: colors.info.dark }}>{ghanaMapping.decisionTip}</p>
               </div>
             </CardContent>
           </Card>
@@ -829,13 +1047,18 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
 
         {isOrganizational && (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader style={{ padding: `${componentSpacing.cardPadding}px` }}>
+              <CardTitle className="flex items-center gap-2" style={{ color: colors.primary.main }}>
                 <Briefcase className="h-5 w-5" />
                 Organizational Insights
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent style={{ 
+              padding: `${componentSpacing.cardPadding}px`, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: `${componentSpacing.results.sectionGap}px` 
+            }}>
               <div>
                 <h4 className="mb-2">Learning Agility Applications</h4>
                 <ul className="list-disc list-inside space-y-1 text-sm">
@@ -854,12 +1077,15 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                 </ul>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="h-4 w-4 text-blue-600" />
+              <div className="rounded-lg" style={{ 
+                background: colors.info.bg,
+                padding: `${componentSpacing.cardPadding}px`
+              }}>
+                <h4 className="flex items-center gap-2 mb-2" style={{ color: colors.neutral.gray700 }}>
+                  <Lightbulb className="h-4 w-4" style={{ color: colors.info.main }} />
                   Professional Development Tip
                 </h4>
-                <p className="text-sm">
+                <p className="text-sm" style={{ color: colors.neutral.gray600 }}>
                   Understanding your cognitive profile can help you communicate more effectively with colleagues who think differently, 
                   make better decisions under pressure, and create more innovative solutions to organizational challenges.
                 </p>
@@ -869,31 +1095,54 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
         )}
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader style={{ padding: `${componentSpacing.cardPadding}px` }}>
+            <CardTitle className="flex items-center gap-2" style={{ color: colors.primary.main }}>
               <FileText className="h-5 w-5" />
               Personal Reflection
             </CardTitle>
             <CardDescription>
-              Write down your thoughts about these results. How do they align with your experiences?
+              {getReflectionDescription()}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="reflection">Your Reflection</Label>
+          <CardContent style={{ 
+            padding: `${componentSpacing.cardPadding}px`, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: `${componentSpacing.results.contentGap}px` 
+          }}>
+            <div className="space-y-3">
+              <Label htmlFor="reflection" className="text-sm font-medium" style={{ color: colors.neutral.gray700 }}>
+                Your Reflection
+              </Label>
               <Textarea
                 id="reflection"
                 placeholder={getReflectionPlaceholder()}
                 value={reflection}
                 onChange={(e) => setReflection(e.target.value)}
-                rows={6}
+                className="!resize-y !min-h-[100px] !max-h-[400px]"
+                style={{ 
+                  padding: '16px',
+                  lineHeight: '1.6'
+                }}
               />
+              <p className="text-xs" style={{ color: colors.neutral.gray500 }}>
+                💡 Tip: Start with a few sentences – the text box will expand as you type.
+              </p>
             </div>
-            <Button onClick={handleSaveReflection} disabled={!reflection.trim()}>
-              {reflectionSaved ? 'Saved!' : 'Save Reflection'}
+            <Button 
+              onClick={handleSaveReflection} 
+              disabled={!reflection.trim()}
+              style={{ 
+                backgroundColor: reflection.trim() ? colors.primary.main : colors.neutral.gray300,
+                color: colors.neutral.white
+              }}
+            >
+              {reflectionSaved ? '✓ Saved!' : 'Save Reflection'}
             </Button>
           </CardContent>
         </Card>
+
+        <FeedbackPrompt />
       </div>
     </div>
   );

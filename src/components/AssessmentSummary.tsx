@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { CheckCircle2, AlertCircle, Lightbulb, TrendingUp, ArrowRight } from 'lucide-react';
 import { useAuth } from './AuthContext';
+import { FeedbackPrompt } from './FeedbackPrompt';
 
 interface AssessmentSummaryProps {
   type: 'learning' | 'thinking' | 'decision';
@@ -218,6 +219,11 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
             </p>
           </CardContent>
         </Card>
+
+        {/* Feedback Prompt - Show only when all assessments are completed */}
+        {!nextAssessment && (
+          <FeedbackPrompt className="mb-6" />
+        )}
 
         {/* Actions */}
         <div className="flex justify-center gap-4">

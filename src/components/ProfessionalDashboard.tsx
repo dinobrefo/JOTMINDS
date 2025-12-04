@@ -4,17 +4,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { User, Assessment } from '../types';
 import { getUserAssessments } from '../utils/storage';
-import { getUserAssessmentResults } from '../utils/api';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { Building2, FileText, TrendingUp, LogOut, Eye, GraduationCap, Lightbulb, Brain, BarChart3, MessageSquare, Sparkles } from 'lucide-react';
+import { getAllAssessmentResults, getUserAssessmentResults } from '../utils/api';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { Building2, FileText, TrendingUp, LogOut, Eye, GraduationCap, Lightbulb, Brain, BarChart3, MessageSquare, Sparkles, RefreshCw, Clock } from 'lucide-react';
 import { AssessmentTaking } from './AssessmentTaking';
 import { AssessmentReport } from './AssessmentReport';
+import { toast } from 'sonner@2.0.3';
 import { ProfessionalAssessmentReport } from './ProfessionalAssessmentReport';
+import { ProfessionalCognitiveAssessment, ProfessionalAssessmentResponses } from './ProfessionalCognitiveAssessment';
+import { ProfessionalCognitiveResults } from './ProfessionalCognitiveResults';
+import { calculateProfessionalCognitiveProfile, ProfessionalCognitiveProfile } from '../utils/professionalCognitiveScoring';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { FrameworkInfo } from './FrameworkInfo';
 import { AssessmentHistory } from './AssessmentHistory';
 import { ReflectionsViewer } from './ReflectionsViewer';
 import { useAuth } from './AuthContext';
+import { MobileHeaderMenu } from './MobileHeaderMenu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { formatDate } from '../utils/dateFormat';
 
 interface ProfessionalDashboardProps {
   user: User;
@@ -27,6 +34,10 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
   const [activeAssessment, setActiveAssessment] = useState<'kolb' | 'sternberg' | 'dual-process' | null>(null);
   const [viewingReport, setViewingReport] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [takingProfessionalCognitive, setTakingProfessionalCognitive] = useState(false);
+  const [professionalCognitiveProfile, setProfessionalCognitiveProfile] = useState<ProfessionalCognitiveProfile | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadAssessments();
@@ -34,40 +45,56 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
 
   const loadAssessments = async () => {
     setLoading(true);
+    console.log('[ProfessionalDashboard] Fetching assessments from backend...');
+    
     try {
-      // If viewing as admin (impersonated user), fetch from API
+      // Determine dominant style from scores
+      const getDominantStyle = (scores: any) => {
+        if (!scores || Object.keys(scores).length === 0) return 'Unknown';
+        const entries = Object.entries(scores).sort((a: any, b: any) => b[1] - a[1]);
+        return entries[0]?.[0] || 'Unknown';
+      };
+      
+      // Check if this is an impersonated view (admin viewing someone's data) or regular user
+      let results;
       if (impersonatedUser) {
-        const { results } = await getUserAssessmentResults(user.id);
-        console.log('[ProfessionalDashboard] API results:', results);
+        console.log('[ProfessionalDashboard] Impersonated user detected - using getUserAssessmentResults');
+        const data = await getUserAssessmentResults(user.id);
+        results = data.results;
+      } else {
+        console.log('[ProfessionalDashboard] Regular user - using getAllAssessmentResults');
+        const data = await getAllAssessmentResults();
+        results = data.results;
+      }
+      console.log(`[ProfessionalDashboard] Backend API returned ${results?.length || 0} assessments`);
+      
+      if (results && results.length > 0) {
+        // DEBUG: Log raw results
+        console.log('[ProfessionalDashboard] Raw results from backend:', results);
         
         // Convert API results to Assessment format
-        const convertedAssessments: Assessment[] = (results || []).map((result: any) => {
-          console.log('[ProfessionalDashboard] Converting result:', result);
-          
-          // Determine dominant style from scores
-          const getDominantStyle = (scores: any) => {
-            if (!scores || Object.keys(scores).length === 0) return 'Unknown';
-            const entries = Object.entries(scores).sort((a: any, b: any) => b[1] - a[1]);
-            return entries[0]?.[0] || 'Unknown';
-          };
+        const convertedAssessments: Assessment[] = results.map((result: any) => {
+          console.log('[ProfessionalDashboard] Converting result:', { id: result.id, assessmentType: result.assessmentType });
           
           return {
             id: result.id,
             userId: user.id,
             type: result.assessmentType === 'learning' ? 'kolb' : 
-                  result.assessmentType === 'thinking' ? 'sternberg' : 'dual-process',
+                  result.assessmentType === 'thinking' ? 'sternberg' : 
+                  result.assessmentType === 'decision' ? 'dual-process' :
+                  result.assessmentType, // Use as-is if already in correct format
             score: {
-              kolb: result.assessmentType === 'learning' ? {
+              kolb: result.assessmentType === 'learning' || result.assessmentType === 'kolb' ? {
                 primaryStyle: getDominantStyle(result.results),
                 style: getDominantStyle(result.results),
                 scores: result.results || {}
               } : undefined,
-              sternberg: result.assessmentType === 'thinking' ? {
+              sternberg: result.assessmentType === 'thinking' || result.assessmentType === 'sternberg' ? {
                 primaryStyle: getDominantStyle(result.results),
                 style: getDominantStyle(result.results),
                 scores: result.results || {}
               } : undefined,
-              dualProcess: result.assessmentType === 'decision' ? {
+              dualProcess: result.assessmentType === 'decision' || result.assessmentType === 'dual-process' ? {
                 primaryStyle: getDominantStyle(result.results),
                 style: getDominantStyle(result.results),
                 scores: result.results || {}
@@ -80,17 +107,51 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
         });
         
         console.log('[ProfessionalDashboard] Converted assessments:', convertedAssessments);
+        console.log('[ProfessionalDashboard] Assessment types:', convertedAssessments.map(a => a.type));
+        console.log('[ProfessionalDashboard] Successfully loaded assessments from backend');
         setAssessments(convertedAssessments);
+        setLastUpdated(new Date());
+        
+        // Show success toast only on manual refresh
+        if (isRefreshing) {
+          toast.success(`Loaded ${convertedAssessments.length} assessment${convertedAssessments.length !== 1 ? 's' : ''}`);
+        }
       } else {
-        // Regular user viewing their own data
-        const userAssessments = getUserAssessments(user.id);
-        setAssessments(userAssessments);
+        console.log('[ProfessionalDashboard] No assessments found in backend');
+        setAssessments([]);
+        setLastUpdated(new Date());
+        
+        if (isRefreshing) {
+          toast.info('No assessments found');
+        }
       }
     } catch (error) {
-      console.error('Error loading assessments:', error);
+      console.error('[ProfessionalDashboard] Error loading assessments from backend:', error);
+      toast.error('Failed to load assessments from backend. Using cached data.');
+      
+      // Fallback to localStorage
+      console.log('[ProfessionalDashboard] Attempting localStorage fallback...');
+      try {
+        const userAssessments = getUserAssessments(user.id);
+        console.log(`[ProfessionalDashboard] Loaded ${userAssessments.length} assessments from localStorage`);
+        setAssessments(userAssessments);
+        
+        if (userAssessments.length > 0 && isRefreshing) {
+          toast.info(`Showing ${userAssessments.length} cached assessment${userAssessments.length !== 1 ? 's' : ''}`);
+        }
+      } catch (fallbackError) {
+        console.error('[ProfessionalDashboard] localStorage fallback failed:', fallbackError);
+        setAssessments([]);
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadAssessments();
   };
 
   const hasCompletedAssessment = (type: 'kolb' | 'sternberg' | 'dual-process') => {
@@ -107,6 +168,12 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
     loadAssessments();
     setActiveAssessment(null);
     setViewingReport(assessment);
+  };
+
+  const handleProfessionalCognitiveComplete = (responses: ProfessionalAssessmentResponses) => {
+    const profile = calculateProfessionalCognitiveProfile(responses);
+    setProfessionalCognitiveProfile(profile);
+    setTakingProfessionalCognitive(false);
   };
 
   const getRadarData = () => {
@@ -221,9 +288,33 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
       <AssessmentTaking
         userId={user.id}
         assessmentType={activeAssessment}
+        userAge={user.age} // Pass user's age for age-appropriate questions (15-18 uses teen bank)
         onComplete={handleAssessmentComplete}
         onCancel={() => setActiveAssessment(null)}
         isOrganizational={true}
+      />
+    );
+  }
+
+  // Show Professional Cognitive Assessment if taking
+  if (takingProfessionalCognitive) {
+    return (
+      <ProfessionalCognitiveAssessment
+        onComplete={handleProfessionalCognitiveComplete}
+        onBack={() => setTakingProfessionalCognitive(false)}
+      />
+    );
+  }
+
+  // Show Professional Cognitive Results if profile exists
+  if (professionalCognitiveProfile) {
+    return (
+      <ProfessionalCognitiveResults
+        profile={professionalCognitiveProfile}
+        userName={user.name}
+        userPosition={user.position}
+        userLocation={user.organizationName}
+        onBack={() => setProfessionalCognitiveProfile(null)}
       />
     );
   }
@@ -290,36 +381,93 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
     hasCompletedAssessment('dual-process');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-1">JotMinds</h1>
-              <p className="text-muted-foreground">{user.name} - {user.position}</p>
-              <p className="text-sm text-muted-foreground">{user.organizationName}</p>
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="border-b bg-white/80 backdrop-blur-sm shadow-sm dark:bg-gray-950/80 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+          <TooltipProvider>
+            <div className="flex items-center gap-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-12 h-12 rounded-full gradient-aqua-violet flex items-center justify-center text-white text-xl font-bold cursor-pointer hover:opacity-90 transition-opacity">
+                    {user.name.charAt(0)}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="p-4 max-w-xs bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{user.name}</p>
+                        <p className="text-xs text-muted-foreground">{user.position}</p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                      <p className="text-sm text-gray-800 dark:text-gray-200"><span className="text-muted-foreground">Organization:</span> {user.organizationName}</p>
+                      <p className="text-sm text-gray-800 dark:text-gray-200"><span className="text-muted-foreground">Type:</span> {user.organizationType}</p>
+                      <p className="text-sm text-gray-800 dark:text-gray-200"><span className="text-muted-foreground">Account:</span> Professional</p>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">JotMinds</h1>
+                <p className="text-sm text-muted-foreground">{user.name} - {user.position}</p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <FrameworkInfo userRole="professional" />
-              <Button variant="outline" onClick={onLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
+          </TooltipProvider>
+          
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center gap-2">
+            {/* Last Updated & Refresh */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mr-2">
+              {lastUpdated && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  <span>Updated {Math.floor((Date.now() - lastUpdated.getTime()) / 1000)}s ago</span>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="h-8 px-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
             </div>
+            <FrameworkInfo userRole="professional" />
+            <Button variant="outline" onClick={onLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
           </div>
+
+          {/* Mobile Menu */}
+          <MobileHeaderMenu onLogout={onLogout} userRole="professional" />
         </div>
-      </header>
+      </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 max-w-5xl mx-auto">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="assessments">Assessments</TabsTrigger>
-            <TabsTrigger value="track-record">Track Record</TabsTrigger>
-            <TabsTrigger value="reflections">Reflections</TabsTrigger>
-            <TabsTrigger value="feedback" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Feedback
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 max-w-5xl mx-auto gap-1">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+            <TabsTrigger value="assessments" className="text-xs sm:text-sm">
+              <span className="hidden sm:inline">Assessments</span>
+              <span className="sm:hidden">Tests</span>
+            </TabsTrigger>
+            <TabsTrigger value="track-record" className="text-xs sm:text-sm">
+              <span className="hidden md:inline">Track Record</span>
+              <span className="md:hidden">Track</span>
+            </TabsTrigger>
+            <TabsTrigger value="reflections" className="text-xs sm:text-sm">
+              <span className="hidden md:inline">Reflections</span>
+              <span className="md:hidden">Notes</span>
+            </TabsTrigger>
+            <TabsTrigger value="feedback" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
+              <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Feedback</span>
+              <span className="sm:hidden">Feed</span>
             </TabsTrigger>
           </TabsList>
 
@@ -570,10 +718,11 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                         <XAxis type="number" domain={[0, 48]} stroke="#6B7280" />
                         <YAxis type="category" dataKey="dimension" stroke="#6B7280" width={140} />
-                        <Tooltip 
+                        <RechartsTooltip 
                           contentStyle={{ 
-                            backgroundColor: 'white', 
-                            border: '1px solid #E5E7EB', 
+                            backgroundColor: '#374151',
+                            color: '#ffffff',
+                            border: '1px solid #4B5563', 
                             borderRadius: '8px',
                             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                           }}
@@ -628,7 +777,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                             fillOpacity={0.5}
                             strokeWidth={2}
                           />
-                          <Tooltip />
+                          <RechartsTooltip />
                         </RadarChart>
                       </ResponsiveContainer>
                     </CardContent>
@@ -679,6 +828,103 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Optional: Professional Cognitive Assessment Invitation */}
+                <Card className="border-2 border-gradient-to-r from-emerald-200 to-teal-200 dark:from-emerald-700 dark:to-teal-700 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/20 dark:via-teal-900/20 dark:to-cyan-900/20 overflow-hidden relative shadow-xl">
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-emerald-400/20 to-teal-400/20 rounded-full blur-3xl" />
+                  <CardHeader className="relative">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-14 w-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center animate-pulse">
+                        <Sparkles className="h-7 w-7 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <CardTitle className="text-xl sm:text-2xl">Unlock Your Professional Cognitive Profile</CardTitle>
+                          <Badge className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-0 text-xs">✨ Optional</Badge>
+                        </div>
+                        <CardDescription className="text-sm sm:text-base">
+                          Take our streamlined 16-question assessment for a unified cognitive report
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative space-y-6">
+                    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-lg p-5 border-2 border-emerald-200 dark:border-emerald-700">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                            <Brain className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1 text-sm">Streamlined Experience</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Just 16 questions covering Learning, Thinking & Decision-Making</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center flex-shrink-0">
+                            <BarChart3 className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1 text-sm">Unified Report</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Get a single cohesive professional cognitive profile</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center flex-shrink-0">
+                            <Lightbulb className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1 text-sm">Career Insights</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Ideal roles, competency fit, and development tips</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                            <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1 text-sm">5-10 Minutes</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Quick completion time with immediate results</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20 rounded-lg p-4 border border-emerald-300 dark:border-emerald-600">
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-bold text-sm">✓</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1 text-sm">Why Take This?</p>
+                          <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+                            You've completed all 3 core assessments! This optional assessment provides an alternative, streamlined way to view your cognitive strengths through a professional lens—perfect for sharing with employers or career planning.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
+                      <Button
+                        onClick={() => setTakingProfessionalCognitive(true)}
+                        size="lg"
+                        className="w-full sm:flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all"
+                      >
+                        <Sparkles className="mr-2 h-5 w-5" />
+                        Start Professional Cognitive Assessment
+                        <Brain className="ml-2 h-5 w-5" />
+                      </Button>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                        <span className="hidden sm:inline">•</span>
+                        <span>5-10 min</span>
+                        <span>•</span>
+                        <span>16 questions</span>
+                        <span>•</span>
+                        <span>Optional</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </>
             )}
 
@@ -773,7 +1019,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm">Your Learning Style: <strong>{getLatestAssessment('kolb')?.score.kolb?.style}</strong></p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Last assessed: {new Date(getLatestAssessment('kolb')?.completedAt || '').toLocaleDateString()}
+                          Last assessed: {formatDate(getLatestAssessment('kolb')?.completedAt || '')}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -820,7 +1066,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm">Your Thinking Style: <strong>{getLatestAssessment('sternberg')?.score.sternberg?.style}</strong></p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Last assessed: {new Date(getLatestAssessment('sternberg')?.completedAt || '').toLocaleDateString()}
+                          Last assessed: {formatDate(getLatestAssessment('sternberg')?.completedAt || '')}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -867,7 +1113,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm">Your Decision Style: <strong>{getLatestAssessment('dual-process')?.score.dualProcess?.style}</strong></p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Last assessed: {new Date(getLatestAssessment('dual-process')?.completedAt || '').toLocaleDateString()}
+                          Last assessed: {formatDate(getLatestAssessment('dual-process')?.completedAt || '')}
                         </p>
                       </div>
                       <div className="flex gap-2">

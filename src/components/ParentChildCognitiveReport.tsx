@@ -5,6 +5,8 @@ import { User, Assessment } from '../types';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { ArrowLeft, Heart, Lightbulb, Brain, Target, BookOpen, MessageCircle, Users, Download, Sparkles, ExternalLink } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { calculateAge } from '../utils/dateUtils';
+import { formatDate } from '../utils/dateFormat';
 
 interface ParentChildCognitiveReportProps {
   child: User;
@@ -25,7 +27,12 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
     .filter(a => a.type === 'dual-process' && a.completedAt)
     .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
 
-  const hasAllAssessments = learningAssessment && thinkingAssessment && decisionAssessment;
+  // Specialized assessments
+  const specializedAssessment = assessments
+    .filter(a => ['jhs-thinking', 'shs-thinking', 'children-thinking', 'adult-thinking'].includes(a.type) && a.completedAt)
+    .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
+
+  const hasAllAssessments = (learningAssessment && thinkingAssessment && decisionAssessment) || specializedAssessment;
 
   if (!hasAllAssessments) {
     return (
@@ -38,10 +45,10 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground">
-                {child.name} needs to complete all three cognitive assessments before viewing the full parent report.
+                {child.name} needs to complete at least one cognitive assessment before viewing the full parent report.
               </p>
               <p className="text-sm text-muted-foreground mt-2">
-                Completed: {assessments.filter(a => a.completedAt).length} of 3
+                No completed assessments found.
               </p>
             </CardContent>
           </Card>
@@ -50,11 +57,32 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
     );
   }
 
-  const learningStyle = learningAssessment.score.kolb?.style || '';
-  const thinkingStyle = thinkingAssessment.score.sternberg?.style || '';
-  const decisionStyle = decisionAssessment.score.dualProcess?.style || '';
+  const learningStyle = learningAssessment?.score.kolb?.style || '';
+  const thinkingStyle = thinkingAssessment?.score.sternberg?.style || '';
+  const decisionStyle = decisionAssessment?.score.dualProcess?.style || '';
+
+  // Extract style from specialized assessment if available
+  let specializedStyle = '';
+  let specializedType = '';
+  let specializedScores: Record<string, number> = {};
+  
+  if (specializedAssessment) {
+    specializedType = specializedAssessment.type;
+    const score = specializedAssessment.score[specializedAssessment.type as keyof typeof specializedAssessment.score];
+    
+    if (score) {
+      if ('personalityType' in score) specializedStyle = score.personalityType as string;
+      else if ('dominantStyle' in score) specializedStyle = score.dominantStyle as string;
+      
+      if ('scores' in score) specializedScores = score.scores as Record<string, number>;
+    }
+  }
 
   const getChildSummary = () => {
+    if (specializedAssessment) {
+       return `Your child has completed the ${specializedType.replace(/-/g, ' ')} assessment. Their dominant thinking style is ${specializedStyle}. This suggests specific preferences in how they learn, solve problems, and approach new challenges.`;
+    }
+    
     const learningDesc = learningStyle.includes('Diverging') ? 'learning through experience and reflection' :
                         learningStyle.includes('Assimilating') ? 'learning through observation and organizing information' :
                         learningStyle.includes('Converging') ? 'learning through problem-solving and practical application' :
@@ -72,6 +100,15 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
   };
 
   const getLearningStyleDescription = () => {
+    if (specializedAssessment && !learningAssessment) {
+      // Provide generic learning style info based on specialized assessment if standard one is missing
+      return {
+          title: 'Learning Preferences',
+          description: `Based on the ${specializedType.replace(/-/g, ' ')} assessment, your child likely has learning preferences aligned with their ${specializedStyle} thinking style.`,
+          icon: BookOpen
+      };
+    }
+  
     switch (learningStyle) {
       case 'Diverging':
         return {
@@ -107,6 +144,14 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
   };
 
   const getThinkingStyleDescription = () => {
+    if (specializedAssessment && !thinkingAssessment) {
+       return {
+          title: `${specializedStyle} Thinker`,
+          description: `Your child's dominant thinking style is ${specializedStyle}. This influences how they solve problems and process information.`,
+          icon: Lightbulb
+       };
+    }
+
     switch (thinkingStyle) {
       case 'Analytical':
         return {
@@ -142,6 +187,14 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
   };
 
   const getDecisionStyleDescription = () => {
+    if (specializedAssessment && !decisionAssessment) {
+       return {
+          title: 'Decision Making Approach',
+          description: `Your child's ${specializedStyle} thinking style also shapes how they make decisions in various situations.`,
+          icon: Brain
+       };
+    }
+
     switch (decisionStyle) {
       case 'Intuitive-Dominant':
         return {
@@ -173,43 +226,77 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
   const getKeyTakeaways = () => {
     const takeaways: string[] = [];
     
+    if (specializedAssessment) {
+      takeaways.push(`Support your child's ${specializedStyle} strengths by providing opportunities to use them.`);
+      if (specializedStyle.toLowerCase().includes('creative')) {
+         takeaways.push('Encourage imagination and novel problem solving.');
+      } else if (specializedStyle.toLowerCase().includes('analytical')) {
+         takeaways.push('Provide logic puzzles and deep questions to explore.');
+      } else if (specializedStyle.toLowerCase().includes('practical')) {
+         takeaways.push('Connect learning to real-world examples and hands-on activities.');
+      }
+    }
+
     // Learning-based takeaways
-    if (learningStyle.includes('Diverging')) {
-      takeaways.push('Encourage your child to learn through real-world experiences (experiments, crafts, projects).');
-      takeaways.push('Ask questions like "What did you learn from that?" or "How could we do it differently next time?"');
-    } else if (learningStyle.includes('Assimilating')) {
-      takeaways.push('Provide quiet time for reading, studying, and organizing their thoughts.');
-      takeaways.push('Help them connect new information to what they already know.');
-    } else if (learningStyle.includes('Converging')) {
-      takeaways.push('Give them problems to solve and practical challenges to work through.');
-      takeaways.push('Encourage them to test their ideas and find the best solutions.');
-    } else {
-      takeaways.push('Let them learn by doing—provide hands-on activities and experiences.');
-      takeaways.push('Give them freedom to explore and try new things.');
+    if (learningStyle) {
+      if (learningStyle.includes('Diverging')) {
+        takeaways.push('Encourage your child to learn through real-world experiences (experiments, crafts, projects).');
+        takeaways.push('Ask questions like "What did you learn from that?" or "How could we do it differently next time?"');
+      } else if (learningStyle.includes('Assimilating')) {
+        takeaways.push('Provide quiet time for reading, studying, and organizing their thoughts.');
+        takeaways.push('Help them connect new information to what they already know.');
+      } else if (learningStyle.includes('Converging')) {
+        takeaways.push('Give them problems to solve and practical challenges to work through.');
+        takeaways.push('Encourage them to test their ideas and find the best solutions.');
+      } else {
+        takeaways.push('Let them learn by doing—provide hands-on activities and experiences.');
+        takeaways.push('Give them freedom to explore and try new things.');
+      }
     }
 
     // Thinking-based takeaways
-    if (thinkingStyle.includes('Creative')) {
-      takeaways.push('Celebrate creative ideas—even small ones—and encourage imagination.');
-    } else if (thinkingStyle.includes('Analytical')) {
-      takeaways.push('Support their curiosity with "why" and "how" questions that develop critical thinking.');
-    } else {
-      takeaways.push('Show them how learning applies to real life and everyday situations.');
+    if (thinkingStyle) {
+      if (thinkingStyle.includes('Creative')) {
+        takeaways.push('Celebrate creative ideas—even small ones—and encourage imagination.');
+      } else if (thinkingStyle.includes('Analytical')) {
+        takeaways.push('Support their curiosity with "why" and "how" questions that develop critical thinking.');
+      } else {
+        takeaways.push('Show them how learning applies to real life and everyday situations.');
+      }
     }
 
     // Decision-based takeaways
-    if (decisionStyle.includes('Intuitive')) {
-      takeaways.push('Gently guide them to pause and think before big decisions.');
-    } else if (decisionStyle.includes('Analytical')) {
-      takeaways.push('Encourage them to trust their instincts when quick decisions are needed.');
-    } else {
-      takeaways.push('Talk through important decisions together, balancing instinct with reasoning.');
+    if (decisionStyle) {
+      if (decisionStyle.includes('Intuitive')) {
+        takeaways.push('Gently guide them to pause and think before big decisions.');
+      } else if (decisionStyle.includes('Analytical')) {
+        takeaways.push('Encourage them to trust their instincts when quick decisions are needed.');
+      } else {
+        takeaways.push('Talk through important decisions together, balancing instinct with reasoning.');
+      }
     }
 
     return takeaways;
   };
 
   const getParentingTips = () => {
+    if (specializedAssessment && !learningStyle) {
+       // Provide generic or mapped parenting tips for specialized assessments
+       const tips = [
+        {
+            area: 'Thinking',
+            tip: 'Support their dominant style',
+            example: specializedStyle.toLowerCase().includes('creative') ? 'Encourage brainstorming' : 'Help them analyze the situation'
+        },
+        {
+            area: 'Support',
+            tip: 'Celebrate their strengths',
+            example: `Point out when they use their ${specializedStyle} thinking well.`
+        }
+       ];
+       return tips;
+    }
+  
     return [
       {
         area: 'Learning',
@@ -243,34 +330,44 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
   };
 
   const getRadarData = () => {
+    // If specialized assessment scores are available, use them
+    if (Object.keys(specializedScores).length > 0) {
+       return [
+        { dimension: 'Creative', score: specializedScores.creative || 0 },
+        { dimension: 'Analytical', score: specializedScores.analytical || 0 },
+        { dimension: 'Practical', score: specializedScores.practical || 0 },
+        { dimension: 'Reflective', score: specializedScores.reflective || 0 },
+       ];
+    }
+  
     return [
       {
         dimension: 'Concrete Experience',
-        score: learningAssessment.score.kolb?.scores.CE || 0,
+        score: learningAssessment?.score.kolb?.scores.CE || 0,
       },
       {
         dimension: 'Reflective Observation',
-        score: learningAssessment.score.kolb?.scores.RO || 0,
+        score: learningAssessment?.score.kolb?.scores.RO || 0,
       },
       {
         dimension: 'Abstract Conceptualization',
-        score: learningAssessment.score.kolb?.scores.AC || 0,
+        score: learningAssessment?.score.kolb?.scores.AC || 0,
       },
       {
         dimension: 'Active Experimentation',
-        score: learningAssessment.score.kolb?.scores.AE || 0,
+        score: learningAssessment?.score.kolb?.scores.AE || 0,
       },
       {
         dimension: 'Analytical Thinking',
-        score: thinkingAssessment.score.sternberg?.scores.analytical || 0,
+        score: thinkingAssessment?.score.sternberg?.scores.analytical || 0,
       },
       {
         dimension: 'Creative Thinking',
-        score: thinkingAssessment.score.sternberg?.scores.creative || 0,
+        score: thinkingAssessment?.score.sternberg?.scores.creative || 0,
       },
       {
         dimension: 'Practical Thinking',
-        score: thinkingAssessment.score.sternberg?.scores.practical || 0,
+        score: thinkingAssessment?.score.sternberg?.scores.practical || 0,
       },
     ];
   };
@@ -284,11 +381,14 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
 
   const mostRecentDate = new Date(
     Math.max(
-      new Date(learningAssessment.completedAt!).getTime(),
-      new Date(thinkingAssessment.completedAt!).getTime(),
-      new Date(decisionAssessment.completedAt!).getTime()
+      learningAssessment?.completedAt ? new Date(learningAssessment.completedAt).getTime() : 0,
+      thinkingAssessment?.completedAt ? new Date(thinkingAssessment.completedAt).getTime() : 0,
+      decisionAssessment?.completedAt ? new Date(decisionAssessment.completedAt).getTime() : 0,
+      specializedAssessment?.completedAt ? new Date(specializedAssessment.completedAt).getTime() : 0
     )
   );
+
+  const displayAge = child.age ?? (child.dateOfBirth ? calculateAge(child.dateOfBirth) : 'N/A');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-6">
@@ -318,9 +418,9 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
                   Understanding how your child learns, thinks, and makes decisions
                 </CardDescription>
                 <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  <span>Age: {child.age || 'N/A'}</span>
+                  <span>Age: {displayAge}</span>
                   <span>•</span>
-                  <span>Last Assessment: {mostRecentDate.toLocaleDateString()}</span>
+                  <span>Last Assessment: {formatDate(mostRecentDate)}</span>
                 </div>
               </div>
             </div>
@@ -341,13 +441,14 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
         {/* Cognitive Profile Grid */}
         <div className="grid md:grid-cols-3 gap-6">
           {/* Learning Style */}
+          {(learningStyle || specializedAssessment) && (
           <Card className="border-blue-200 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center mb-3">
                 <learningDesc.icon className="h-6 w-6 text-blue-600" />
               </div>
-              <CardTitle className="text-xl">Learning Style</CardTitle>
-              <Badge variant="outline" className="w-fit mt-2">{learningStyle}</Badge>
+              <CardTitle className="text-xl">{learningDesc.title === 'Learning Preferences' ? 'Learning Style' : 'Learning Style'}</CardTitle>
+              <Badge variant="outline" className="w-fit mt-2">{learningStyle || specializedStyle}</Badge>
             </CardHeader>
             <CardContent>
               <h4 className="font-semibold mb-2">{learningDesc.title}</h4>
@@ -356,15 +457,17 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
               </p>
             </CardContent>
           </Card>
+          )}
 
           {/* Thinking Style */}
+          {(thinkingStyle || specializedAssessment) && (
           <Card className="border-purple-200 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center mb-3">
                 <thinkingDesc.icon className="h-6 w-6 text-purple-600" />
               </div>
               <CardTitle className="text-xl">Thinking Style</CardTitle>
-              <Badge variant="outline" className="w-fit mt-2">{thinkingStyle}</Badge>
+              <Badge variant="outline" className="w-fit mt-2">{thinkingStyle || specializedStyle}</Badge>
             </CardHeader>
             <CardContent>
               <h4 className="font-semibold mb-2">{thinkingDesc.title}</h4>
@@ -373,15 +476,17 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
               </p>
             </CardContent>
           </Card>
+          )}
 
           {/* Decision-Making Style */}
+          {(decisionStyle || specializedAssessment) && (
           <Card className="border-orange-200 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center mb-3">
                 <decisionDesc.icon className="h-6 w-6 text-orange-600" />
               </div>
               <CardTitle className="text-xl">Decision-Making Style</CardTitle>
-              <Badge variant="outline" className="w-fit mt-2">{decisionStyle}</Badge>
+              <Badge variant="outline" className="w-fit mt-2">{decisionStyle || specializedStyle}</Badge>
             </CardHeader>
             <CardContent>
               <h4 className="font-semibold mb-2">{decisionDesc.title}</h4>
@@ -390,6 +495,7 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
               </p>
             </CardContent>
           </Card>
+          )}
         </div>
 
         {/* Key Takeaways */}
@@ -502,12 +608,18 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700 leading-relaxed">
-              {child.name} is {learningDesc.title.toLowerCase()} who {thinkingDesc.title.toLowerCase()}. 
-              They {decisionDesc.description.split('.')[0].toLowerCase()} and learn best when you engage 
-              with their ideas and experiences. By understanding their unique cognitive profile, you can 
-              provide more targeted support that aligns with how they naturally think and learn.
-            </p>
+            {specializedAssessment && !learningStyle ? (
+                <p className="text-gray-700 leading-relaxed">
+                   {child.name} has a dominant thinking style of {specializedStyle}. This influences how they learn and make decisions. By understanding this, you can provide more targeted support that aligns with how they naturally process information.
+                </p>
+            ) : (
+                <p className="text-gray-700 leading-relaxed">
+                  {child.name} is {learningDesc.title.toLowerCase()} who {thinkingDesc.title.toLowerCase()}. 
+                  They {decisionDesc.description.split('.')[0].toLowerCase()} and learn best when you engage 
+                  with their ideas and experiences. By understanding their unique cognitive profile, you can 
+                  provide more targeted support that aligns with how they naturally think and learn.
+                </p>
+            )}
             <div className="mt-6 p-4 bg-indigo-100 rounded-lg border border-indigo-200">
               <p className="text-sm text-indigo-900">
                 <strong>Remember:</strong> Every child is unique, and these insights are meant to guide—not limit—

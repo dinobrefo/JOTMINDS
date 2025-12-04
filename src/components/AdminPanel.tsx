@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { ArrowLeft, Search, Users, ClipboardList, TrendingUp, Eye, Wrench, X } from 'lucide-react';
+import { ArrowLeft, Search, Users, ClipboardList, TrendingUp, Eye, Wrench, X, Filter } from 'lucide-react';
 import { getAllUsers, getAdminStats, getUserData, getAuthToken } from '../utils/api';
 import { useAuth } from './AuthContext';
 import { AdminDiagnostic } from './AdminDiagnostic';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { IndustrySector } from '../types';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -23,6 +25,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [selectedSector, setSelectedSector] = useState<string>('all');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,11 +71,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
     fetchData();
   }, []);
 
-  const filteredUsers = users.filter(user =>
-    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.role?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter(user => {
+    // Text search filter
+    const matchesSearch = user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.role?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Role filter
+    const matchesRole = selectedRole === 'all' || user.role?.toLowerCase() === selectedRole.toLowerCase();
+    
+    // Industry sector filter (only for organizations)
+    const matchesSector = selectedSector === 'all' || 
+      (user.industrySector && user.industrySector === selectedSector) ||
+      (selectedSector !== 'all' && !user.industrySector && user.role?.toLowerCase() !== 'organization');
+    
+    return matchesSearch && matchesRole && matchesSector;
+  });
 
   if (loading) {
     return (
@@ -137,54 +152,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
     'Organization': '#8B5CF6'
   };
 
+  const getRoleColor = (role: string) => {
+    if (!role) return '#6B7280';
+    const normalized = role.toLowerCase();
+    
+    if (normalized === 'student') return roleColors['Student'];
+    if (normalized === 'teacher') return roleColors['Teacher'];
+    if (normalized === 'parent') return roleColors['Parent'];
+    if (normalized === 'professional' || normalized.includes('professional')) return roleColors['Professional'];
+    if (normalized === 'organization' || normalized === 'supervisor') return roleColors['Organization'];
+    
+    // Fallback try to match capitalized key directly
+    return roleColors[role] || '#6B7280';
+  };
+
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'linear-gradient(to bottom, #F8F9FA 0%, #FFFFFF 100%)' }}>
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          {impersonatedUser ? (
-            <Button
-              variant="ghost"
-              onClick={onBack}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Admin Panel
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={onLogout}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <div className="border-b bg-white/80 backdrop-blur-sm shadow-sm dark:bg-gray-950/80 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-pink-600 flex items-center justify-center text-white text-xl font-bold">
+              A
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">Admin Panel</h1>
+              <p className="text-sm text-muted-foreground">Manage platform users and statistics</p>
+            </div>
+          </div>
           
-          {impersonatedUser && (
-            <Badge variant="outline" className="px-4 py-2" style={{ borderColor: '#FF715B', color: '#FF715B' }}>
-              Viewing: {impersonatedUser.name}
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {impersonatedUser && (
+              <Badge variant="outline" className="px-3 py-1.5 border-[#FF715B] text-[#FF715B] hidden md:flex">
+                Viewing: {impersonatedUser.name}
+              </Badge>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={impersonatedUser ? onBack : onLogout}
+              size="sm"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {impersonatedUser ? 'Back' : 'Logout'}
+            </Button>
+          </div>
         </div>
+      </div>
 
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl mb-2" style={{ color: '#2C2E83' }}>Admin Panel</h1>
-          <p className="text-lg" style={{ color: '#6B7280' }}>
-            Manage users and view platform statistics
-          </p>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="shadow-md">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Total Users</CardDescription>
-                <Users className="w-5 h-5" style={{ color: '#2C2E83' }} />
+                <Users className="w-5 h-5 text-[#2C2E83] dark:text-[#1FC8E1]" />
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl" style={{ color: '#2C2E83' }}>{stats?.totalUsers || 0}</p>
+              <p className="text-3xl font-bold text-[#2C2E83] dark:text-[#1FC8E1]">{stats?.totalUsers || 0}</p>
             </CardContent>
           </Card>
 
@@ -192,11 +218,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Total Assessments</CardDescription>
-                <ClipboardList className="w-5 h-5" style={{ color: '#1FC8E1' }} />
+                <ClipboardList className="w-5 h-5 text-[#1FC8E1]" />
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl" style={{ color: '#1FC8E1' }}>{stats?.totalAssessments || 0}</p>
+              <p className="text-3xl font-bold text-[#1FC8E1]">{stats?.totalAssessments || 0}</p>
             </CardContent>
           </Card>
 
@@ -204,11 +230,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Students</CardDescription>
-                <Users className="w-5 h-5" style={{ color: '#10B981' }} />
+                <Users className="w-5 h-5 text-[#10B981]" />
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl" style={{ color: '#10B981' }}>
+              <p className="text-3xl font-bold text-[#10B981]">
                 {stats?.usersByRole?.Student || 0}
               </p>
             </CardContent>
@@ -218,12 +244,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Organizations</CardDescription>
-                <TrendingUp className="w-5 h-5" style={{ color: '#FF715B' }} />
+                <TrendingUp className="w-5 h-5 text-[#8B5CF6]" />
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl" style={{ color: '#FF715B' }}>
-                {stats?.usersByRole?.['Professional/Organization'] || 0}
+              <p className="text-3xl font-bold text-[#8B5CF6]">
+                {stats?.usersByRole?.['Organization'] || 0}
               </p>
             </CardContent>
           </Card>
@@ -263,21 +289,83 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
         {/* User Directory */}
         <Card className="shadow-md">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>User Directory</CardTitle>
-                <CardDescription>Search and view all platform users</CardDescription>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>User Directory</CardTitle>
+                  <CardDescription>Search and filter platform users</CardDescription>
+                </div>
+                <div className="w-64">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search users..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="w-64">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search users..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
+              
+              {/* Filters */}
+              <div className="flex gap-4 items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Filters:</span>
+                </div>
+                
+                <div className="flex gap-3 flex-1">
+                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="student">Student</SelectItem>
+                      <SelectItem value="teacher">Teacher</SelectItem>
+                      <SelectItem value="parent">Parent</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="organization">Organization</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={selectedSector} onValueChange={setSelectedSector}>
+                    <SelectTrigger className="w-56">
+                      <SelectValue placeholder="All Industries" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Industries</SelectItem>
+                      <SelectItem value="Healthcare">Healthcare</SelectItem>
+                      <SelectItem value="Educational Institutions">Educational Institutions</SelectItem>
+                      <SelectItem value="Agriculture">Agriculture</SelectItem>
+                      <SelectItem value="Manufacturing">Manufacturing</SelectItem>
+                      <SelectItem value="Financial Services">Financial Services</SelectItem>
+                      <SelectItem value="Technology">Technology</SelectItem>
+                      <SelectItem value="Telecommunications">Telecommunications</SelectItem>
+                      <SelectItem value="Retail & Distribution">Retail & Distribution</SelectItem>
+                      <SelectItem value="Logistics & Transport">Logistics & Transport</SelectItem>
+                      <SelectItem value="Hospitality & Tourism">Hospitality & Tourism</SelectItem>
+                      <SelectItem value="Energy & Utilities">Energy & Utilities</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {(selectedRole !== 'all' || selectedSector !== 'all') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedRole('all');
+                        setSelectedSector('all');
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -292,13 +380,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
                     <TableHead>Role</TableHead>
                     <TableHead>Assessments</TableHead>
                     <TableHead>Organization</TableHead>
+                    <TableHead>Industry Sector</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                      <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -311,8 +400,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
                           <Badge
                             variant="secondary"
                             style={{
-                              backgroundColor: `${roleColors[user.role]}20`,
-                              color: roleColors[user.role]
+                              backgroundColor: `${getRoleColor(user.role)}20`,
+                              color: getRoleColor(user.role)
                             }}
                           >
                             {user.role}
@@ -323,6 +412,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {user.organizationName || '-'}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {user.industrySector || '-'}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

@@ -1,4 +1,7 @@
 import { User, Assessment, Reflection, AssessmentProgress, SupervisorReviewData, ParentObservationAssessment, ChildSharingConsent } from '../types';
+import { createClient } from './supabase/client';
+import { projectId } from './supabase/info';
+import { calculateAge } from './dateUtils';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'ts_current_user',
@@ -9,6 +12,9 @@ const STORAGE_KEYS = {
   SUPERVISOR_REVIEWS: 'ts_supervisor_reviews',
   PARENT_OBSERVATIONS: 'ts_parent_observations',
   SHARING_CONSENTS: 'ts_sharing_consents',
+  JHS_RESULTS: 'ts_jhs_results',
+  SHS_RESULTS: 'ts_shs_results',
+  ADULT_RESULTS: 'ts_adult_results',
 };
 
 // User management
@@ -380,6 +386,18 @@ export function getSharingConsentForChild(childId: string, parentId: string): Ch
 }
 
 export function hasChildGrantedAccess(childId: string, parentId: string): boolean {
+  // Get child user to check age
+  const users = getAllUsers();
+  const child = users.find(u => u.id === childId);
+  
+  // If child is 10 or younger, parents automatically have access
+  const age = child?.age ?? (child?.dateOfBirth ? calculateAge(child.dateOfBirth) : undefined);
+  
+  if (age !== undefined && age <= 10) {
+    return true;
+  }
+  
+  // For children 11 and older, check explicit consent
   const consent = getSharingConsentForChild(childId, parentId);
   return consent?.consentGiven === true;
 }
@@ -387,4 +405,219 @@ export function hasChildGrantedAccess(childId: string, parentId: string): boolea
 // Helper to generate unique IDs
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// JHS/SHS/Adult Result Management
+export function getJHSResults(userId: string): any[] {
+  const data = localStorage.getItem(STORAGE_KEYS.JHS_RESULTS);
+  const results = data ? JSON.parse(data) : [];
+  return results.filter((r: any) => r.userId === userId);
+}
+
+export function saveJHSResult(result: any) {
+  const data = localStorage.getItem(STORAGE_KEYS.JHS_RESULTS);
+  const results = data ? JSON.parse(data) : [];
+  const index = results.findIndex((r: any) => r.id === result.id || (r.completedAt === result.completedAt && r.userId === result.userId));
+  if (index >= 0) {
+    results[index] = result;
+  } else {
+    results.push(result);
+  }
+  localStorage.setItem(STORAGE_KEYS.JHS_RESULTS, JSON.stringify(results));
+}
+
+export function getSHSResults(userId: string): any[] {
+  const data = localStorage.getItem(STORAGE_KEYS.SHS_RESULTS);
+  const results = data ? JSON.parse(data) : [];
+  return results.filter((r: any) => r.userId === userId);
+}
+
+export function saveSHSResult(result: any) {
+  const data = localStorage.getItem(STORAGE_KEYS.SHS_RESULTS);
+  const results = data ? JSON.parse(data) : [];
+  const index = results.findIndex((r: any) => r.id === result.id || (r.completedAt === result.completedAt && r.userId === result.userId));
+  if (index >= 0) {
+    results[index] = result;
+  } else {
+    results.push(result);
+  }
+  localStorage.setItem(STORAGE_KEYS.SHS_RESULTS, JSON.stringify(results));
+}
+
+export function getAdultResults(userId: string): any[] {
+  const data = localStorage.getItem(STORAGE_KEYS.ADULT_RESULTS);
+  const results = data ? JSON.parse(data) : [];
+  return results.filter((r: any) => r.userId === userId);
+}
+
+export function saveAdultResult(result: any) {
+  const data = localStorage.getItem(STORAGE_KEYS.ADULT_RESULTS);
+  const results = data ? JSON.parse(data) : [];
+  const index = results.findIndex((r: any) => r.id === result.id || (r.completedAt === result.completedAt && r.userId === result.userId));
+  if (index >= 0) {
+    results[index] = result;
+  } else {
+    results.push(result);
+  }
+  localStorage.setItem(STORAGE_KEYS.ADULT_RESULTS, JSON.stringify(results));
+}
+
+// Synchronization with Supabase
+export async function syncDataWithServer() {
+  try {
+    console.log('Starting sync with server...');
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      console.log('No active session, skipping sync');
+      return;
+    }
+
+    const token = session.access_token;
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+    
+    const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-fc8eb847`;
+    const user = session.user;
+
+    // 1. Sync User Profile
+    try {
+        const response = await fetch(`${baseUrl}/session`, { headers });
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+                // Preserve local students/teacher mapping if needed, but server should be source of truth
+                const localUser = getCurrentUser();
+                const mergedUser = { ...localUser, ...data.user };
+                saveCurrentUser(mergedUser);
+                saveUser(mergedUser);
+            }
+        }
+    } catch (e) {
+        console.error('Error syncing user profile:', e);
+    }
+
+    // 2. Sync Reflections
+    try {
+        const response = await fetch(`${baseUrl}/reflection`, { headers });
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && Array.isArray(data.reflections)) {
+                const serverReflections = data.reflections;
+                const localReflections = getAllReflections();
+                let hasChanges = false;
+                const mergedReflections = [...localReflections];
+                
+                serverReflections.forEach((srvRef: Reflection) => {
+                    if (!localReflections.some(locRef => locRef.id === srvRef.id)) {
+                        mergedReflections.push(srvRef);
+                        hasChanges = true;
+                    }
+                });
+                
+                if (hasChanges) {
+                    localStorage.setItem(STORAGE_KEYS.REFLECTIONS, JSON.stringify(mergedReflections));
+                    console.log('Synced reflections from server');
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error syncing reflections:', e);
+    }
+
+    // 3. Sync Assessment Results (Kolb, Sternberg, Dual-Process)
+    try {
+        const response = await fetch(`${baseUrl}/assessment/results`, { headers });
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && Array.isArray(data.results)) {
+                const serverResults = data.results;
+                const localAssessments = getAllAssessments();
+                let hasChanges = false;
+                const mergedAssessments = [...localAssessments];
+                
+                serverResults.forEach((srvRes: any) => {
+                    // Check if this assessment already exists locally by comparing ID or (type + completedAt)
+                    const exists = localAssessments.some(local => 
+                        local.id === srvRes.id || 
+                        (local.type === srvRes.assessmentType && local.completedAt === srvRes.completedAt)
+                    );
+                    
+                    if (!exists) {
+                        const newAssessment: Assessment = {
+                            id: srvRes.id || srvRes.key || generateId(),
+                            userId: srvRes.userId || user.id,
+                            type: srvRes.assessmentType,
+                            responses: srvRes.answers || [],
+                            score: srvRes.results,
+                            completedAt: srvRes.completedAt || new Date().toISOString()
+                        };
+                        
+                        if (['kolb', 'sternberg', 'dual-process'].includes(newAssessment.type)) {
+                             mergedAssessments.push(newAssessment);
+                             hasChanges = true;
+                        }
+                    }
+                });
+                
+                if (hasChanges) {
+                    localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(mergedAssessments));
+                    console.log('Synced assessments from server');
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error syncing assessments:', e);
+    }
+
+    // 4. Sync JHS Thinking Results
+    try {
+        const response = await fetch(`${baseUrl}/jhs-thinking/results`, { headers });
+        if (response.ok) {
+            const data = await response.json();
+            // The API might return a single object (latest) or null
+             if (data && data.success && data.results) {
+                saveJHSResult(data.results);
+                console.log('Synced JHS results from server');
+            } else if (data && !data.error && !data.success) {
+                 // If it returns the result object directly
+                 saveJHSResult(data);
+                 console.log('Synced JHS results from server (direct)');
+            }
+        }
+    } catch (e) {
+        // Ignore 404 or fetch errors
+    }
+
+    // 5. Sync SHS Thinking Results
+    try {
+        const response = await fetch(`${baseUrl}/shs-thinking/results`, { headers });
+        if (response.ok) {
+            const data = await response.json();
+            if (data && !data.error) {
+                saveSHSResult(data);
+                console.log('Synced SHS results from server');
+            }
+        }
+    } catch (e) {}
+
+    // 6. Sync Adult Thinking Results
+    try {
+        const response = await fetch(`${baseUrl}/adult-thinking/results`, { headers });
+        if (response.ok) {
+            const data = await response.json();
+            if (data && !data.error) {
+                saveAdultResult(data);
+                console.log('Synced Adult results from server');
+            }
+        }
+    } catch (e) {}
+
+    console.log('Sync completed successfully');
+  } catch (error) {
+    console.error('Global sync failed:', error);
+  }
 }

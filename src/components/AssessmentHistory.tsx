@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Assessment } from '../types';
 import { Calendar, TrendingUp, Eye, BarChart3 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { formatDateTime, formatMonthYear, formatChartDate } from '../utils/dateFormat';
 
 interface AssessmentHistoryProps {
   assessments: Assessment[];
@@ -63,7 +64,7 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
     return assessmentList.slice().reverse().map((assessment, index) => {
       const dataPoint: any = {
         attempt: `#${index + 1}`,
-        date: new Date(assessment.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        date: formatChartDate(assessment.completedAt)
       };
 
       if (type === 'kolb' && assessment.score.kolb) {
@@ -129,23 +130,23 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
                   />
                   {type === 'kolb' && (
                     <>
-                      <Line type="monotone" dataKey="CE" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="RO" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="AC" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="AE" stroke="hsl(var(--chart-4))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="CE" type="monotone" dataKey="CE" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="RO" type="monotone" dataKey="RO" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="AC" type="monotone" dataKey="AC" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="AE" type="monotone" dataKey="AE" stroke="hsl(var(--chart-4))" strokeWidth={2} dot={{ r: 4 }} />
                     </>
                   )}
                   {type === 'sternberg' && (
                     <>
-                      <Line type="monotone" dataKey="Analytical" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="Creative" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="Practical" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="Analytical" type="monotone" dataKey="Analytical" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="Creative" type="monotone" dataKey="Creative" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="Practical" type="monotone" dataKey="Practical" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} />
                     </>
                   )}
                   {type === 'dual-process' && (
                     <>
-                      <Line type="monotone" dataKey="Intuitive" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="Reflective" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="Intuitive" type="monotone" dataKey="Intuitive" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line key="Reflective" type="monotone" dataKey="Reflective" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
                     </>
                   )}
                 </LineChart>
@@ -154,7 +155,7 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
           </div>
         )}
 
-        {/* Assessment List */}
+        {/* Assessment List - Standardized 16px padding (p-4) */}
         <div className="space-y-2">
           {assessmentList.map((assessment, index) => (
             <div 
@@ -170,15 +171,10 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
                     <Badge variant="secondary" className="text-xs">Latest</Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-3 w-3" />
-                  {new Date(assessment.completedAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                {/* Icon aligned with text baseline */}
+                <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 inline-block align-text-bottom" />
+                  <span className="inline-block align-baseline">{formatDateTime(assessment.completedAt)}</span>
                 </p>
               </div>
               <Button
@@ -209,9 +205,10 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Statistics Cards - Standardized 16px padding (pt-6 for top, which is already p-4 in CardContent) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-blue-600">{assessments.length}</p>
                   <p className="text-sm text-muted-foreground mt-1">Total Assessments</p>
@@ -219,7 +216,7 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="p-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-green-600">
                     {new Set(assessments.map(a => a.type)).size}
@@ -229,11 +226,12 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="p-4">
                 <div className="text-center">
+                  {/* Consistent date format: Dec 2025 */}
                   <p className="text-3xl font-bold text-purple-600">
                     {assessments.length > 0 
-                      ? new Date(assessments[assessments.length - 1].completedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                      ? formatMonthYear(assessments[assessments.length - 1].completedAt)
                       : 'N/A'
                     }
                   </p>
@@ -247,7 +245,7 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
 
       {kolbAssessments.length > 0 && (
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4">
             {renderAssessmentList(kolbAssessments, 'Learning Style Assessments', 'kolb')}
           </CardContent>
         </Card>
@@ -255,7 +253,7 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
 
       {sternbergAssessments.length > 0 && (
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4">
             {renderAssessmentList(sternbergAssessments, 'Thinking Style Assessments', 'sternberg')}
           </CardContent>
         </Card>
@@ -263,7 +261,7 @@ export function AssessmentHistory({ assessments, onViewReport }: AssessmentHisto
 
       {dualProcessAssessments.length > 0 && (
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-4">
             {renderAssessmentList(dualProcessAssessments, 'Decision Style Assessments', 'dual-process')}
           </CardContent>
         </Card>

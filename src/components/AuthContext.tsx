@@ -8,8 +8,11 @@ interface User {
   name: string;
   role: string;
   organizationName?: string;
-  assessmentsCompleted?: string[];
+  assessmentsCompleted?: string[]; // Array of completed assessment types (e.g., ['kolb', 'sternberg'])
+  assessments?: any[]; // Legacy full assessment objects
   cognitiveProfile?: any;
+  dateOfBirth?: string;
+  age?: number;
 }
 
 interface AuthContextType {
@@ -22,6 +25,27 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Helper function to calculate age from date of birth
+const calculateAge = (dateOfBirth: string): number => {
+  if (!dateOfBirth) return 0;
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+// Helper to enrich user data with calculated age
+const enrichUserWithAge = (userData: any): User => {
+  if (userData.dateOfBirth && !userData.age) {
+    userData.age = calculateAge(userData.dateOfBirth);
+  }
+  return userData;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -40,9 +64,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[AuthContext] Admin token in localStorage:', adminToken ? adminToken.substring(0, 30) + '...' : 'NOT FOUND');
       
       if (adminUser && adminToken) {
-        const user = JSON.parse(adminUser);
-        console.log('[AuthContext] ✓ Setting admin user:', user);
-        setUser(user);
+        const parsedUser = JSON.parse(adminUser);
+        const enrichedUser = enrichUserWithAge(parsedUser);
+        console.log('[AuthContext] ✓ Setting admin user:', enrichedUser);
+        setUser(enrichedUser);
         
         console.log('[AuthContext] Calling setAuthToken with admin token...');
         setAuthToken(adminToken);
@@ -66,17 +91,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[AuthContext] Fetching user data from backend...');
           const userData = await getSession();
           console.log('[AuthContext] User data received:', userData.user);
-          setUser(userData.user);
+          const enrichedUser = enrichUserWithAge(userData.user);
+          console.log('[AuthContext] User data enriched with age:', enrichedUser.age);
+          setUser(enrichedUser);
         } catch (sessionError: any) {
-          // 401 errors are expected when the user is not authenticated - not a real error
-          if (sessionError.message === 'Unauthorized') {
+          // Handle all errors gracefully - could be network issues, 401, or server not ready
+          console.log('[AuthContext] Could not fetch session from backend:', sessionError.message);
+          
+          // If it's just unauthorized, that's expected
+          if (sessionError.message === 'Unauthorized' || sessionError.message?.includes('401')) {
             console.log('[AuthContext] Session fetch returned 401 - no active session (expected for logged out users)');
+          } else if (sessionError.message === 'Failed to fetch' || sessionError.message?.includes('fetch')) {
+            // Network error - server might not be ready yet, but don't sign out
+            console.log('[AuthContext] Network error connecting to server - will retry later');
+            // Don't sign out, just set user to null and keep trying
+            setUser(null);
+            setLoading(false);
+            return;
           } else {
             console.error('[AuthContext] ✗ Error fetching session from backend:', sessionError);
           }
-          // If backend session fetch fails, sign out to clear invalid state
-          console.log('[AuthContext] Clearing invalid session...');
-          await supabase.auth.signOut();
+          
+          // Only sign out for auth errors, not network errors
+          if (!sessionError.message?.includes('fetch')) {
+            console.log('[AuthContext] Clearing invalid session...');
+            await supabase.auth.signOut();
+          }
+          
           setUser(null);
           setAuthToken(null);
         }

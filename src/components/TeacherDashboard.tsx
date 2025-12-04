@@ -1,18 +1,22 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { User } from '../types';
-import { getAllUsers, getAllAssessments, getStudentsBySchool } from '../utils/storage';
-import { getAllAssessmentResults, getUserAssessmentResults } from '../utils/api';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Users, LogOut, TrendingUp, BookOpen, UserCheck, GraduationCap, Brain, Target, Lightbulb, FileText, AlertCircle, MessageSquare, Sparkles } from 'lucide-react';
+import { Users, LogOut, TrendingUp, BookOpen, UserCheck, GraduationCap, Brain, Target, Lightbulb, FileText, AlertCircle, MessageSquare, Sparkles, RefreshCw, Clock } from 'lucide-react';
 import { FrameworkInfo } from './FrameworkInfo';
 import { StudentDetailView } from './StudentDetailView';
+import { KidsCognitiveProfile } from './kids/KidsCognitiveProfile';
 import { EducationalResources } from './EducationalResources';
 import { useAuth } from './AuthContext';
 import { useState, useEffect } from 'react';
+import { MobileHeaderMenu } from './MobileHeaderMenu';
+import { toast } from 'sonner';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Alert, AlertTitle, AlertDescription } from './ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Badge } from './ui/badge';
+import { User } from '../types';
+import { getUserAssessmentResults, getStudentsForTeacher } from '../utils/api';
+import { getStudentsBySchool, getAllUsers, getAllAssessments } from '../utils/storage';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { formatDate, formatTime } from '../utils/dateFormat';
 
 interface TeacherDashboardProps {
   user: User;
@@ -29,6 +33,8 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
   const [allAssessments, setAllAssessments] = useState<any[]>([]);
   const [activeStudentTab, setActiveStudentTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadClassData();
@@ -36,13 +42,14 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
 
   const loadClassData = async () => {
     setLoading(true);
-    let studentUsers: User[] = []; // Declare at function scope
+    let studentUsers: User[] = [];
+    let assessmentsForStats: any[] = [];
     
     try {
       // If viewing as admin (impersonated user), fetch from API
       if (impersonatedUser) {
         const { results: assessmentResults } = await getUserAssessmentResults(user.id);
-        setAllAssessments(assessmentResults || []);
+        assessmentsForStats = assessmentResults || [];
         
         // For teachers viewed by admin, we'd need to fetch their students from API
         // For now, use localStorage fallback
@@ -52,31 +59,50 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
           const allUsers = getAllUsers();
           studentUsers = allUsers.filter(u => u.role === 'student');
         }
-        setStudents(studentUsers);
       } else {
         // Regular teacher viewing their own data
-        const assessments = getAllAssessments();
-        
-        if (user.school) {
-          studentUsers = getStudentsBySchool(user.school);
-        } else {
-          const allUsers = getAllUsers();
-          studentUsers = allUsers.filter(u => u.role === 'student');
+        try {
+          const response = await getStudentsForTeacher();
+          if (response.success && response.students) {
+            studentUsers = response.students;
+            assessmentsForStats = studentUsers.flatMap((s: any) => s.assessments || []);
+            
+            // Show success toast only on manual refresh
+            if (isRefreshing) {
+              toast.success('Class data refreshed successfully');
+            }
+          } else {
+            throw new Error('API unsuccessful');
+          }
+        } catch (err) {
+          console.log('Falling back to local storage for students', err);
+          
+          // Show warning toast only on manual refresh
+          if (isRefreshing) {
+            toast.warning('Using offline data - backend unavailable');
+          }
+          
+          assessmentsForStats = getAllAssessments();
+          
+          if (user.school) {
+            studentUsers = getStudentsBySchool(user.school);
+          } else {
+            const allUsers = getAllUsers();
+            studentUsers = allUsers.filter(u => u.role === 'student');
+          }
         }
-        
-        setStudents(studentUsers);
-        setAllAssessments(assessments);
       }
 
-      // Calculate statistics (keeping existing logic)
-      const assessments = impersonatedUser ? await getUserAssessmentResults(user.id).then(r => r.results) : getAllAssessments();
-      
+      setStudents(studentUsers);
+      setAllAssessments(assessmentsForStats);
+
+      // Calculate statistics
       const kolbDistribution: Record<string, number> = {};
       const sternbergDistribution: Record<string, number> = {};
       const levelDistribution: Record<string, number> = {};
 
       studentUsers.forEach(student => {
-        const studentAssessments = assessments.filter(a => a.userId === student.id);
+        const studentAssessments = assessmentsForStats.filter(a => a.userId === student.id);
         
         const latestKolb = studentAssessments.filter(a => a.type === 'kolb').sort((a, b) => 
           new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
@@ -87,13 +113,33 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
           kolbDistribution[style] = (kolbDistribution[style] || 0) + 1;
         }
 
-        const latestSternberg = studentAssessments.filter(a => a.type === 'sternberg').sort((a, b) => 
+        const latestSternberg = studentAssessments.filter(a => 
+          ['sternberg', 'jhs-thinking', 'shs-thinking', 'adult-thinking', 'child-thinking'].includes(a.type)
+        ).sort((a, b) => 
           new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
         )[0];
         
-        if (latestSternberg?.score.sternberg) {
-          const style = latestSternberg.score.sternberg.style;
-          sternbergDistribution[style] = (sternbergDistribution[style] || 0) + 1;
+        if (latestSternberg) {
+          let style = '';
+          if (latestSternberg.type === 'sternberg') {
+            style = latestSternberg.score.sternberg?.style;
+          } else if (latestSternberg.type === 'jhs-thinking') {
+            // JHS results structure: score['jhs-thinking'].primaryStyle (key like 'creative')
+            const primaryKey = latestSternberg.score['jhs-thinking']?.primaryStyle;
+            // Capitalize first letter for display if it's a simple string key
+            style = primaryKey ? primaryKey.charAt(0).toUpperCase() + primaryKey.slice(1) : 'Unknown';
+          } else if (latestSternberg.type === 'shs-thinking') {
+             // Assuming similar structure or extracting directly
+             style = latestSternberg.score['shs-thinking']?.primaryStyle || 'Assessed';
+          } else if (latestSternberg.type === 'adult-thinking') {
+             style = latestSternberg.score['adult-thinking']?.dominantStyle || 'Assessed';
+          } else if (latestSternberg.type === 'child-thinking') {
+             style = latestSternberg.score['child-thinking']?.primaryStyle || 'Assessed';
+          }
+
+          if (style) {
+            sternbergDistribution[style] = (sternbergDistribution[style] || 0) + 1;
+          }
         }
 
         if (student.educationLevel) {
@@ -106,7 +152,7 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
         sternbergDistribution: Object.entries(sternbergDistribution).map(([name, value]) => ({ name, value })),
         levelDistribution: Object.entries(levelDistribution).map(([name, value]) => ({ name, value })),
         totalStudents: studentUsers.length,
-        assessmentsCompleted: assessments.filter(a => 
+        assessmentsCompleted: assessmentsForStats.filter(a => 
           studentUsers.some(s => s.id === a.userId)
         ).length,
       });
@@ -114,6 +160,8 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
       console.error('Error loading class data:', error);
     } finally {
       setLoading(false);
+      setLastUpdated(new Date());
+      setIsRefreshing(false);
     }
   };
 
@@ -126,7 +174,7 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
       .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
     
     const latestThinking = studentAssessments
-      .filter(a => a.type === 'sternberg')
+      .filter(a => ['sternberg', 'jhs-thinking', 'shs-thinking', 'adult-thinking', 'child-thinking'].includes(a.type))
       .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
     
     const latestDecision = studentAssessments
@@ -158,16 +206,36 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
     }
 
     if (latestThinking) {
-      const style = latestThinking.score.sternberg?.style;
+      let style = '';
+      if (latestThinking.type === 'sternberg') {
+        style = latestThinking.score.sternberg?.style;
+      } else if (latestThinking.type === 'jhs-thinking') {
+        const primaryKey = latestThinking.score['jhs-thinking']?.primaryStyle;
+        style = primaryKey ? primaryKey.charAt(0).toUpperCase() + primaryKey.slice(1) : '';
+      } else if (latestThinking.type === 'shs-thinking') {
+        style = latestThinking.score['shs-thinking']?.primaryStyle || '';
+      } else if (latestThinking.type === 'adult-thinking') {
+        style = latestThinking.score['adult-thinking']?.dominantStyle || '';
+      } else if (latestThinking.type === 'child-thinking') {
+        style = latestThinking.score['child-thinking']?.primaryStyle || '';
+      }
+
       switch (style) {
         case 'Analytical':
+        case 'analytical':
           insights.push('🔍 Strong critical thinking and analysis skills');
           break;
         case 'Creative':
+        case 'creative':
           insights.push('🎨 Innovative thinker with imaginative solutions');
           break;
         case 'Practical':
+        case 'practical':
           insights.push('🛠️ Applies knowledge to real-world situations effectively');
+          break;
+        case 'Reflective':
+        case 'reflective':
+          insights.push('💭 Deep thinker who considers all angles before acting');
           break;
       }
     }
@@ -206,43 +274,82 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
     return strategies.slice(0, 3);
   };
 
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadClassData();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50">
-      <div className="border-b bg-white">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-1">JotMinds</h1>
-            <p className="text-sm text-muted-foreground">
-              Welcome, {user.name}
-            </p>
-            {user.school && (
-              <div className="mt-1">
-                <Badge variant="secondary" className="text-xs">
-                  {user.school}
-                </Badge>
-                <span className="text-xs text-muted-foreground ml-2">
-                  {students.length} {students.length === 1 ? 'student' : 'students'}
-                </span>
-              </div>
-            )}
+      <div className="border-b bg-white/80 backdrop-blur-sm shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full gradient-aqua-violet flex items-center justify-center text-white text-xl font-bold">
+              {user.name.charAt(0)}
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">JotMinds</h1>
+              <p className="text-sm text-muted-foreground">Welcome, {user.name}!</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            {lastUpdated && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Updated {formatTime(lastUpdated)}
+              </span>
+            )}
             <FrameworkInfo userRole="teacher" />
             <Button variant="outline" onClick={onLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>
           </div>
+
+          {/* Mobile Menu */}
+          <MobileHeaderMenu onLogout={onLogout} userRole="teacher" />
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 space-y-6">
         {selectedStudent ? (
-          <StudentDetailView
-            student={selectedStudent}
-            assessments={allAssessments}
-            onBack={() => setSelectedStudent(null)}
-          />
+          (() => {
+            const studentAge = selectedStudent.age;
+            const isKidsMode = studentAge && studentAge >= 6 && studentAge <= 10;
+            
+            // Use Kids Cognitive Profile for ages 6-10
+            if (isKidsMode) {
+              return (
+                <KidsCognitiveProfile
+                  user={selectedStudent}
+                  onClose={() => setSelectedStudent(null)}
+                  isParentView={true}
+                />
+              );
+            }
+            
+            // Use regular detail view for older students
+            return (
+              <StudentDetailView
+                student={selectedStudent}
+                assessments={allAssessments}
+                onBack={() => setSelectedStudent(null)}
+              />
+            );
+          })()
         ) : (
           <>
         {/* Onboarding Info for Teachers */}
@@ -258,13 +365,14 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
         )}
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4">
-            <TabsTrigger value="overview">Class Overview</TabsTrigger>
-            <TabsTrigger value="students">Individual Students</TabsTrigger>
-            <TabsTrigger value="resources">Resources</TabsTrigger>
-            <TabsTrigger value="feedback" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Feedback
+          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-2 sm:grid-cols-4 gap-1">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Class Overview</TabsTrigger>
+            <TabsTrigger value="students" className="text-xs sm:text-sm">Individual Students</TabsTrigger>
+            <TabsTrigger value="resources" className="text-xs sm:text-sm">Resources</TabsTrigger>
+            <TabsTrigger value="feedback" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Feedback</span>
+              <span className="sm:hidden">Feed</span>
             </TabsTrigger>
           </TabsList>
 
@@ -334,7 +442,7 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
                     .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
                   
                   const latestThinking = studentAssessments
-                    .filter(a => a.type === 'sternberg')
+                    .filter(a => ['sternberg', 'jhs-thinking', 'shs-thinking', 'adult-thinking', 'child-thinking'].includes(a.type))
                     .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
                   
                   const latestDecision = studentAssessments
@@ -405,7 +513,7 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
                                       {latestLearning.score.kolb?.style}
                                     </Badge>
                                     <p className="text-xs text-muted-foreground mt-2">
-                                      Assessed {new Date(latestLearning.completedAt!).toLocaleDateString()}
+                                      Assessed {formatDate(latestLearning.completedAt!)}
                                     </p>
                                   </div>
                                 ) : (
@@ -425,10 +533,33 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
                                 {latestThinking ? (
                                   <div>
                                     <Badge className="text-base px-3 py-1 bg-purple-600">
-                                      {latestThinking.score.sternberg?.style}
+                                      {(() => {
+                                        if (latestThinking.type === 'sternberg') return latestThinking.score.sternberg?.style;
+                                        if (latestThinking.type === 'jhs-thinking') {
+                                          const s = latestThinking.score['jhs-thinking']?.primaryStyle;
+                                          return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Assessed';
+                                        }
+                                        if (latestThinking.type === 'shs-thinking') return latestThinking.score['shs-thinking']?.primaryStyle || 'Assessed';
+                                        if (latestThinking.type === 'adult-thinking') {
+                                           const s = latestThinking.score['adult-thinking']?.dominantStyle;
+                                           return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Assessed';
+                                        }
+                                        if (latestThinking.type === 'child-thinking') return latestThinking.score['child-thinking']?.primaryStyle || 'Assessed';
+                                        return 'Unknown';
+                                      })()}
                                     </Badge>
                                     <p className="text-xs text-muted-foreground mt-2">
-                                      Assessed {new Date(latestThinking.completedAt!).toLocaleDateString()}
+                                      {(() => {
+                                        if (latestThinking.type === 'sternberg') return 'Sternberg Thinking Style';
+                                        if (latestThinking.type === 'jhs-thinking') return 'JHS Thinking Style';
+                                        if (latestThinking.type === 'shs-thinking') return 'SHS Thinking Style';
+                                        if (latestThinking.type === 'adult-thinking') return 'Professional Thinking Style';
+                                        if (latestThinking.type === 'child-thinking') return 'Child Thinking Style';
+                                        return 'Thinking Style';
+                                      })()}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Assessed {formatDate(latestThinking.completedAt!)}
                                     </p>
                                   </div>
                                 ) : (
@@ -451,7 +582,7 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
                                       {latestDecision.score.dualProcess?.style}
                                     </Badge>
                                     <p className="text-xs text-muted-foreground mt-2">
-                                      Assessed {new Date(latestDecision.completedAt!).toLocaleDateString()}
+                                      Assessed {formatDate(latestDecision.completedAt!)}
                                     </p>
                                   </div>
                                 ) : (
@@ -476,8 +607,8 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
                               <CardContent>
                                 <div className="grid md:grid-cols-2 gap-3">
                                   {insights.map((insight, index) => (
-                                    <div key={index} className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-                                      <span className="text-sm">{insight}</span>
+                                    <div key={index} className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                      <span className="text-sm text-blue-900">{insight}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -506,7 +637,9 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
                                           {index + 1}
                                         </div>
                                       </div>
-                                      <p className="text-sm font-medium">{strategy}</p>
+                                      <div className="flex-1">
+                                        <p className="text-sm text-green-900">{strategy}</p>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -630,9 +763,9 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
 
             <Card>
               <CardHeader>
-                <CardTitle>Sternberg Thinking Styles</CardTitle>
+                <CardTitle>Thinking Styles Distribution</CardTitle>
                 <CardDescription>
-                  Student thinking style preferences
+                  Student thinking style preferences (JHS, SHS, Adult, Children assessments)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -643,7 +776,12 @@ export function TeacherDashboard({ user, onLogout }: TeacherDashboardProps) {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis />
-                        <Tooltip />
+                        <Tooltip contentStyle={{ 
+                          backgroundColor: '#374151',
+                          color: '#ffffff',
+                          border: '1px solid #4B5563',
+                          borderRadius: '8px'
+                        }} />
                         <Bar dataKey="value" fill="#3b82f6" />
                       </BarChart>
                     </ResponsiveContainer>

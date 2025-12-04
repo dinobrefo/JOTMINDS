@@ -6,6 +6,7 @@ import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Responsi
 import { Brain, TrendingUp, Target, Lightbulb, BookOpen, Zap, ArrowLeft, Download, Sparkles } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 import { FeedbackPrompt } from './FeedbackPrompt';
+import { formatDate } from '../utils/dateFormat';
 
 interface CombinedCognitiveProfileProps {
   assessments: Assessment[];
@@ -14,6 +15,12 @@ interface CombinedCognitiveProfileProps {
 }
 
 export function CombinedCognitiveProfile({ assessments, userName, onBack }: CombinedCognitiveProfileProps) {
+  console.log('🎨 CombinedCognitiveProfile rendered with:', {
+    assessmentsCount: assessments.length,
+    assessmentTypes: assessments.map(a => a.type),
+    userName
+  });
+
   // Get latest assessment of each type
   const latestKolb = assessments.filter(a => a.type === 'kolb').sort((a, b) => 
     new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
@@ -26,6 +33,12 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
   const latestDualProcess = assessments.filter(a => a.type === 'dual-process').sort((a, b) => 
     new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
   )[0];
+
+  console.log('📊 Assessment availability:', {
+    hasKolb: !!latestKolb,
+    hasSternberg: !!latestSternberg,
+    hasDualProcess: !!latestDualProcess
+  });
 
   if (!latestKolb || !latestSternberg || !latestDualProcess) {
     return (
@@ -44,6 +57,49 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
       </div>
     );
   }
+
+  console.log('📈 Assessment Scores:', {
+    kolbScore: latestKolb.score,
+    sternbergScore: latestSternberg.score,
+    dualProcessScore: latestDualProcess.score
+  });
+
+  // NORMALIZE DUAL-PROCESS DATA: Handle both server format (Intuitive/Reflective) and frontend format (system1/system2)
+  // The scores might be at score.dualProcess directly OR at score.dualProcess.scores
+  const dualProcessScores = latestDualProcess.score.dualProcess?.scores || latestDualProcess.score.dualProcess || {};
+  const normalizedDualProcessScores = {
+    system1: dualProcessScores.system1 ?? dualProcessScores.Intuitive ?? 0,
+    system2: dualProcessScores.system2 ?? dualProcessScores.Reflective ?? 0,
+  };
+  
+  console.log('🔧 Dual-Process Score Normalization:', {
+    fullScore: latestDualProcess.score,
+    dualProcessObject: latestDualProcess.score.dualProcess,
+    scoresSubObject: latestDualProcess.score.dualProcess?.scores,
+    extractedScores: dualProcessScores,
+    normalized: normalizedDualProcessScores
+  });
+
+  console.log('📈 Detailed Score Breakdown:', {
+    kolb: {
+      full: latestKolb.score.kolb,
+      CE: latestKolb.score.kolb?.scores?.CE,
+      RO: latestKolb.score.kolb?.scores?.RO,
+      AC: latestKolb.score.kolb?.scores?.AC,
+      AE: latestKolb.score.kolb?.scores?.AE,
+    },
+    sternberg: {
+      full: latestSternberg.score.sternberg,
+      analytical: latestSternberg.score.sternberg?.scores?.analytical,
+      creative: latestSternberg.score.sternberg?.scores?.creative,
+      practical: latestSternberg.score.sternberg?.scores?.practical,
+    },
+    dualProcess: {
+      full: latestDualProcess.score.dualProcess,
+      system1: normalizedDualProcessScores.system1,
+      system2: normalizedDualProcessScores.system2,
+    }
+  });
 
   const kolbStyle = latestKolb.score.kolb?.style || '';
   const sternbergStyle = latestSternberg.score.sternberg?.style || '';
@@ -110,15 +166,17 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
     },
     {
       dimension: 'Intuitive Processing',
-      value: latestDualProcess.score.dualProcess?.scores.system1 || 0,
+      value: normalizedDualProcessScores.system1 || 0,
       fullMark: 25,
     },
     {
       dimension: 'Analytical Processing',
-      value: latestDualProcess.score.dualProcess?.scores.system2 || 0,
+      value: normalizedDualProcessScores.system2 || 0,
       fullMark: 25,
     },
   ];
+
+  console.log('🔍 Radar Data:', radarData);
 
   // Prepare comparison bar chart
   const comparisonData = [
@@ -137,8 +195,8 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
     },
     {
       framework: 'Decision',
-      Intuitive: latestDualProcess.score['dual-process']?.scores.System1 || 0,
-      Analytical: latestDualProcess.score['dual-process']?.scores.System2 || 0,
+      Intuitive: normalizedDualProcessScores.system1 || 0,
+      Analytical: normalizedDualProcessScores.system2 || 0,
     },
   ];
 
@@ -156,8 +214,8 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
     },
     {
       name: 'Decision Balance',
-      analytical: latestDualProcess.score.dualProcess?.scores.system2 || 0,
-      intuitive: latestDualProcess.score.dualProcess?.scores.system1 || 0,
+      analytical: normalizedDualProcessScores.system2 || 0,
+      intuitive: normalizedDualProcessScores.system1 || 0,
     },
   ];
 
@@ -232,7 +290,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
     }
 
     // Analyze Decision Style
-    const dualProcessScores = latestDualProcess.score.dualProcess?.scores;
+    const dualProcessScores = normalizedDualProcessScores;
     if (dualProcessScores) {
       if (dualProcessScores.system1 > dualProcessScores.system2) {
         insights.strengths.push('You make quick, intuitive decisions based on patterns and experience');
@@ -271,24 +329,29 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50">
       {/* Header */}
       <div className="border-b bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-1">
-                Your Complete Cognitive Profile
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {userName} • Comprehensive Assessment Results
-              </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] flex items-center justify-center">
+                <Brain className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+                  Complete Cognitive Profile
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {userName}'s Comprehensive Assessment Results
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" onClick={handleDownloadPDF} className="flex-1 sm:flex-none">
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
-              <Button variant="outline" size="sm" onClick={onBack}>
+              <Button variant="outline" onClick={onBack} className="flex-1 sm:flex-none">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                Back
               </Button>
             </div>
           </div>
@@ -317,7 +380,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                 {getStyleDescription(kolbStyle)}
               </p>
               <div className="text-xs text-muted-foreground">
-                Completed: {new Date(latestKolb.completedAt).toLocaleDateString()}
+                Completed: {formatDate(latestKolb.completedAt)}
               </div>
             </CardContent>
           </Card>
@@ -341,7 +404,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                 {getStyleDescription(sternbergStyle)}
               </p>
               <div className="text-xs text-muted-foreground">
-                Completed: {new Date(latestSternberg.completedAt).toLocaleDateString()}
+                Completed: {formatDate(latestSternberg.completedAt)}
               </div>
             </CardContent>
           </Card>
@@ -365,7 +428,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                 {getStyleDescription(dualProcessStyle)}
               </p>
               <div className="text-xs text-muted-foreground">
-                Completed: {new Date(latestDualProcess.completedAt).toLocaleDateString()}
+                Completed: {formatDate(latestDualProcess.completedAt)}
               </div>
             </CardContent>
           </Card>
@@ -525,27 +588,83 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
               {/* Decision Style Scores */}
               <div>
                 <h4 className="font-semibold mb-3 text-orange-900">Decision Style Dimensions</h4>
-                <div className="space-y-3">
-                  {[
-                    { name: 'Intuitive Processing', value: latestDualProcess.score.dualProcess?.scores.system1 || 0, max: 25, color: '#ec4899' },
-                    { name: 'Analytical Processing', value: latestDualProcess.score.dualProcess?.scores.system2 || 0, max: 25, color: '#06b6d4' },
-                  ].map((item) => (
-                    <div key={item.name}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>{item.name}</span>
-                        <span className="font-semibold">{item.value}/{item.max}</span>
-                      </div>
-                      <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ 
-                            width: `${(item.value / item.max) * 100}%`,
-                            backgroundColor: item.color
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      data={[
+                        { 
+                          name: 'Intuitive\nProcessing', 
+                          value: normalizedDualProcessScores.system1 || 0,
+                          fullName: 'Intuitive Processing (System 1)',
+                          description: 'Quick, automatic, and emotional decision-making based on patterns and experience'
+                        },
+                        { 
+                          name: 'Analytical\nProcessing', 
+                          value: normalizedDualProcessScores.system2 || 0,
+                          fullName: 'Analytical Processing (System 2)',
+                          description: 'Slow, deliberate, and logical decision-making through careful analysis'
+                        },
+                      ]}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{ fill: '#78716c', fontSize: 14, fontWeight: 500 }}
+                        height={60}
+                        interval={0}
+                      />
+                      <YAxis 
+                        domain={[0, 25]}
+                        tick={{ fill: '#78716c', fontSize: 14 }}
+                        label={{ value: 'Score', angle: -90, position: 'insideLeft', style: { fontSize: 14, fill: '#78716c' } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '2px solid #f97316',
+                          borderRadius: '12px',
+                          padding: '12px',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                        }}
+                        labelStyle={{ 
+                          fontSize: 14, 
+                          fontWeight: 600,
+                          color: '#1f2937',
+                          marginBottom: '8px'
+                        }}
+                        formatter={(value: number, name: string, props: any) => {
+                          return [
+                            <div key="tooltip-content" className="space-y-2">
+                              <div className="font-semibold text-orange-600">Score: {value}/25</div>
+                              <div className="text-sm text-gray-600 max-w-[250px]">{props.payload.description}</div>
+                            </div>,
+                            ''
+                          ];
+                        }}
+                        labelFormatter={(label) => {
+                          const item = [
+                            { name: 'Intuitive\nProcessing', fullName: 'Intuitive Processing (System 1)' },
+                            { name: 'Analytical\nProcessing', fullName: 'Analytical Processing (System 2)' }
+                          ].find(i => i.name === label);
+                          return item?.fullName || label;
+                        }}
+                      />
+                      <Bar 
+                        dataKey="value" 
+                        fill="#f97316" 
+                        radius={[8, 8, 0, 0]}
+                        maxBarSize={120}
+                      >
+                        {[
+                          { value: normalizedDualProcessScores.system1 || 0 },
+                          { value: normalizedDualProcessScores.system2 || 0 }
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={index === 0 ? '#ec4899' : '#06b6d4'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>

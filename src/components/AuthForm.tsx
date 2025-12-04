@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, GraduationCap, Users, School, Briefcase, Mail, Lock, User, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { authenticateAdmin, createAdminUser } from '../utils/storage';
@@ -10,25 +11,26 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { ArrowLeft, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PasswordStrengthIndicator, checkPasswordStrength } from './PasswordStrengthIndicator';
 import { Checkbox } from './ui/checkbox';
 
 interface AuthFormProps {
   onLogin: () => void;
   onBack?: () => void;
+  onForgotPassword?: () => void;
 }
 
-export function AuthForm({ onLogin, onBack }: AuthFormProps) {
+export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
   const [isLogin, setIsLogin] = useState(true);
+  const [registrationStep, setRegistrationStep] = useState(1); // Step 1-4 for multi-step registration
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [school, setSchool] = useState('');
-  const [role, setRole] = useState('Student');
+  const [role, setRole] = useState('student');
   const [educationLevel, setEducationLevel] = useState('JHS');
-  const [dateOfBirth, setDateOfBirth] = useState(''); // Changed from age to dateOfBirth
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [organizationName, setOrganizationName] = useState('');
   const [organizationType, setOrganizationType] = useState('Corporate');
   const [position, setPosition] = useState('');
@@ -91,6 +93,70 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
     } finally {
       setVerifyingCode(false);
     }
+  };
+
+  // Step validation functions
+  const validateStep1 = (): boolean => {
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return false;
+    }
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    const passwordCheck = checkPasswordStrength(password);
+    if (!passwordCheck.isValid) {
+      setError('Please create a stronger password. Meet at least 4 out of 5 password requirements.');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = (): boolean => {
+    if (!name || !phone) {
+      setError('Please fill in all fields');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep3 = (): boolean => {
+    if (role === 'student' || role === 'teacher') {
+      if (!school) {
+        setError('Please enter your school name');
+        return false;
+      }
+    }
+    if (role === 'professional') {
+      if (!organizationName || !position) {
+        setError('Please fill in all organization fields');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Handle step navigation
+  const handleNextStep = () => {
+    setError('');
+    
+    if (registrationStep === 1 && !validateStep1()) {
+      return;
+    }
+    if (registrationStep === 2 && !validateStep2()) {
+      return;
+    }
+    if (registrationStep === 3 && !validateStep3()) {
+      return;
+    }
+    
+    setRegistrationStep(registrationStep + 1);
+  };
+
+  const handlePreviousStep = () => {
+    setError('');
+    setRegistrationStep(registrationStep - 1);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -229,7 +295,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
           email,
           password,
           name,
-          role: role, // Use lowercase role directly
+          role: role,
           organizationName: role === 'professional' ? organizationName : undefined,
           organizationType: role === 'professional' ? organizationType : undefined,
           position: role === 'professional' ? position : undefined,
@@ -294,174 +360,324 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
     }
   };
 
+  // Reset to step 1 when switching between login and registration
+  const toggleAuthMode = () => {
+    setIsLogin(!isLogin);
+    setRegistrationStep(1);
+    setError('');
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="w-full max-w-md">
         {onBack && (
           <Button
             variant="ghost"
             onClick={onBack}
             className="mb-4"
+            aria-label="Return to home page"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Home
           </Button>
         )}
         <Card className="w-full border-2 shadow-large">
-          <CardHeader className="space-y-3 text-center pb-6">
+          <CardHeader className="space-y-3 text-center pb-8">
             <div className="mx-auto">
               <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-2">
                 JotMinds
               </h1>
               <p className="text-sm text-muted-foreground">Discover How You Think</p>
             </div>
-            <CardDescription className="text-center text-base">
-              {isLogin ? 'Welcome back to your cognitive journey' : 'Begin understanding how your mind works'}
+            <CardDescription className="text-center text-base text-foreground/80 dark:text-foreground/90">
+              {isLogin ? 'Welcome back to your cognitive journey' : 'Your self-discovery begins here'}
             </CardDescription>
-          </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className="sr-only">
-                    {showPassword ? "Hide password" : "Show password"}
-                  </span>
-                </Button>
-              </div>
-              {/* Only show password strength indicator during registration */}
-              {!isLogin && <PasswordStrengthIndicator password={password} />}
-            </div>
-
+            
+            {/* Progress Indicator - Only show during registration */}
             {!isLogin && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+233 XX XXX XXXX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role">I am a...</Label>
-                  <Select value={role} onValueChange={(val) => {
-                    setRole(val);
-                    // Reset consent when role changes as consent text may change
-                    setHasConsented(false);
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="teacher">Teacher</SelectItem>
-                      <SelectItem value="parent">Parent</SelectItem>
-                      <SelectItem value="professional">Professional</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {(role === 'student' || role === 'teacher') && (
-                  <div className="space-y-2">
-                    <Label htmlFor="school">School Name</Label>
-                    <Input
-                      id="school"
-                      type="text"
-                      placeholder="Name of your school"
-                      value={school}
-                      onChange={(e) => setSchool(e.target.value)}
-                      required
+              <div className="pt-4">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  {[1, 2, 3, 4].map((step) => (
+                    <div
+                      key={step}
+                      className={`h-2 rounded-full transition-all ${
+                        step === registrationStep
+                          ? 'w-8 bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83]'
+                          : step < registrationStep
+                          ? 'w-2 bg-[#7B61FF]'
+                          : 'w-2 bg-gray-300 dark:bg-gray-600'
+                      }`}
                     />
-                  </div>
-                )}
-
-                {role === 'student' && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="level">Education Level</Label>
-                      <Select value={educationLevel} onValueChange={(val) => setEducationLevel(val)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Elementary">Elementary (Primary School)</SelectItem>
-                          <SelectItem value="JHS">JHS (Junior High School)</SelectItem>
-                          <SelectItem value="SHS">SHS (Senior High School)</SelectItem>
-                          <SelectItem value="Tertiary">Tertiary</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Step {registrationStep} of 4
+                </p>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* LOGIN FORM */}
+              {isLogin && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">
+                      Email <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="dateOfBirth"
-                        type="date"
-                        placeholder="Your date of birth"
-                        value={dateOfBirth}
-                        onChange={(e) => {
-                          setDateOfBirth(e.target.value);
-                          // Reset consent when date of birth changes as it may affect consent type (parental vs individual)
-                          setHasConsented(false);
-                        }}
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="pl-10 shadow-sm"
                       />
                     </div>
-                  </>
-                )}
+                  </div>
 
-                {(role === 'professional' || role === 'supervisor') && (
-                  <>
-                    {role === 'professional' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">
+                      Password <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="pl-10 pr-10 shadow-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span className="sr-only">
+                          {showPassword ? "Hide password" : "Show password"}
+                        </span>
+                      </Button>
+                    </div>
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        className="text-sm text-[#7B61FF] hover:text-[#2C2E83] underline transition-colors"
+                        onClick={onForgotPassword}
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* REGISTRATION FORM - STEP 1: Email + Password */}
+              {!isLogin && registrationStep === 1 && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">
+                      Email <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="pl-10 shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">
+                      Password <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="pl-10 pr-10 shadow-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span className="sr-only">
+                          {showPassword ? "Hide password" : "Show password"}
+                        </span>
+                      </Button>
+                    </div>
+                    <PasswordStrengthIndicator password={password} />
+                  </div>
+                </>
+              )}
+
+              {/* REGISTRATION FORM - STEP 2: Full Name + Phone */}
+              {!isLogin && registrationStep === 2 && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">
+                      Full Name <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="name"
+                        type="text"
+                        placeholder="Your name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        className="pl-10 shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pb-2">
+                    <Label htmlFor="phone">
+                      Phone Number <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="+1 (XXX) XXX-XXXX"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                        className="pl-10 shadow-sm"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Include country code (e.g., +1 for US, +233 for Ghana, +44 for UK)
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* REGISTRATION FORM - STEP 3: Role Selection + Role-specific fields */}
+              {!isLogin && registrationStep === 3 && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">I am a...</Label>
+                    <Select value={role} onValueChange={(val) => {
+                      setRole(val);
+                      setHasConsented(false);
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="student">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4" />
+                            <span>Student</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="parent">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            <span>Parent / Guardian</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="teacher">
+                          <div className="flex items-center gap-2">
+                            <School className="h-4 w-4" />
+                            <span>Teacher / Educator</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="professional">
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="h-4 w-4" />
+                            <span>Professional</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(role === 'student' || role === 'teacher') && (
+                    <div className="space-y-2">
+                      <Label htmlFor="school">School Name</Label>
+                      <Input
+                        id="school"
+                        type="text"
+                        placeholder="Name of your school"
+                        value={school}
+                        onChange={(e) => setSchool(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {role === 'student' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="level">Education Level</Label>
+                        <Select value={educationLevel} onValueChange={(val) => setEducationLevel(val)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Elementary">Elementary (Primary School)</SelectItem>
+                            <SelectItem value="JHS">JHS (Junior High School)</SelectItem>
+                            <SelectItem value="SHS">SHS (Senior High School)</SelectItem>
+                            <SelectItem value="Tertiary">Tertiary</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                        <Input
+                          id="dateOfBirth"
+                          type="date"
+                          placeholder="Your date of birth"
+                          value={dateOfBirth}
+                          onChange={(e) => {
+                            setDateOfBirth(e.target.value);
+                            setHasConsented(false);
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {role === 'professional' && (
+                    <>
                       <div className="space-y-2">
                         <Label htmlFor="organizationCode">Organization Code (Optional)</Label>
                         <div className="flex gap-2">
@@ -472,7 +688,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                             value={organizationCode}
                             onChange={(e) => {
                               setOrganizationCode(e.target.value.toUpperCase());
-                              setVerifiedOrgName(''); // Clear verification when code changes
+                              setVerifiedOrgName('');
                             }}
                             disabled={!!verifiedOrgName}
                           />
@@ -481,6 +697,7 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                             onClick={validateOrgCode}
                             disabled={verifyingCode || !!verifiedOrgName || !organizationCode}
                             className="whitespace-nowrap"
+                            aria-label="Verify organization code"
                           >
                             {verifyingCode ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -503,129 +720,176 @@ export function AuthForm({ onLogin, onBack }: AuthFormProps) {
                           If you have an organization code from your supervisor, enter it here. Otherwise, you can skip this field.
                         </p>
                       </div>
-                    )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationName">Organization Name</Label>
-                      <Input
-                        id="organizationName"
-                        type="text"
-                        placeholder="Your organization"
-                        value={organizationName}
-                        onChange={(e) => setOrganizationName(e.target.value)}
-                        disabled={role === 'professional' && !!verifiedOrgName}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationType">Organization Type</Label>
-                      <Select value={organizationType} onValueChange={(val) => setOrganizationType(val)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Corporate">Corporate</SelectItem>
-                          <SelectItem value="NGO">NGO</SelectItem>
-                          <SelectItem value="Government">Government</SelectItem>
-                          <SelectItem value="Startup">Startup</SelectItem>
-                          <SelectItem value="Educational Institution">Educational Institution</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="position">Position/Role</Label>
-                      <Input
-                        id="position"
-                        type="text"
-                        placeholder="Your position"
-                        value={position}
-                        onChange={(e) => setPosition(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-
-            {/* Consent Section - Only show during registration */}
-            {!isLogin && (
-              <div className="space-y-3 pt-2">
-                <Alert className="border-purple-200 bg-purple-50">
-                  <AlertCircle className="h-4 w-4" style={{ color: '#7B61FF' }} />
-                  <AlertDescription className="text-sm">
-                    {isMinor ? (
                       <div className="space-y-2">
-                        <p className="font-semibold" style={{ color: '#2C2E83' }}>Parental Consent Required</p>
-                        <p className="text-gray-700">
-                          As you are under 18 years old, a parent or legal guardian must provide consent for you to use JotMinds. 
-                          By checking the box below, your parent/guardian confirms they have read and agree to our terms.
-                        </p>
+                        <Label htmlFor="organizationName">Organization Name</Label>
+                        <Input
+                          id="organizationName"
+                          type="text"
+                          placeholder="Your organization"
+                          value={organizationName}
+                          onChange={(e) => setOrganizationName(e.target.value)}
+                          disabled={!!verifiedOrgName}
+                          required
+                        />
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <p className="font-semibold" style={{ color: '#2C2E83' }}>Terms and Consent</p>
-                        <p className="text-gray-700">
-                          By registering, you agree to the collection and use of your assessment data to provide personalized insights 
-                          and recommendations. Your data will be stored securely and used only for improving your learning experience.
-                        </p>
-                      </div>
-                    )}
-                  </AlertDescription>
-                </Alert>
 
-                <div className="flex items-start gap-3 p-3 border-2 border-purple-200 rounded-lg bg-white">
-                  <Checkbox 
-                    id="consent" 
-                    checked={hasConsented}
-                    onCheckedChange={(checked) => setHasConsented(checked as boolean)}
-                    className="mt-1"
-                  />
-                  <label 
-                    htmlFor="consent" 
-                    className="text-sm cursor-pointer leading-relaxed"
-                  >
-                    {isMinor ? (
-                      <>
-                        I am a parent/legal guardian and I consent to my child's participation in JotMinds assessments. 
-                        I understand that assessment data will be collected and used to provide educational insights.
-                      </>
-                    ) : (
-                      <>
-                        I agree to participate in JotMinds assessments and consent to the collection and use of my assessment data 
-                        for the purpose of providing personalized learning insights and recommendations.
-                      </>
-                    )}
-                  </label>
+                      <div className="space-y-2">
+                        <Label htmlFor="organizationType">Organization Type</Label>
+                        <Select value={organizationType} onValueChange={(val) => setOrganizationType(val)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Corporate">Corporate</SelectItem>
+                            <SelectItem value="NGO">NGO</SelectItem>
+                            <SelectItem value="Government">Government</SelectItem>
+                            <SelectItem value="Startup">Startup</SelectItem>
+                            <SelectItem value="Educational Institution">Educational Institution</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="position">Position/Role</Label>
+                        <Input
+                          id="position"
+                          type="text"
+                          placeholder="Your position"
+                          value={position}
+                          onChange={(e) => setPosition(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* REGISTRATION FORM - STEP 4: Terms & Consent */}
+              {!isLogin && registrationStep === 4 && (
+                <div className="space-y-4">
+                  {/* Purple Box: Summary */}
+                  <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-800">
+                    <AlertCircle className="h-4 w-4 text-[#7B61FF]" />
+                    <AlertDescription className="text-sm">
+                      <p className="font-semibold text-[#2C2E83] dark:text-[#7B61FF] mb-2">
+                        {isMinor ? 'Parental Consent Required' : 'Terms and Consent'}
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        {isMinor 
+                          ? 'A parent or legal guardian must provide consent for users under 18. We collect assessment data to provide personalized educational insights.'
+                          : 'We collect and use your assessment data to provide personalized insights and recommendations. Your data is stored securely and used only to improve your learning experience.'
+                        }
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Simple Checkbox */}
+                  <div className="flex items-start gap-3">
+                    <Checkbox 
+                      id="consent" 
+                      checked={hasConsented}
+                      onCheckedChange={(checked) => setHasConsented(checked as boolean)}
+                      className="mt-1"
+                    />
+                    <label 
+                      htmlFor="consent" 
+                      className="text-sm cursor-pointer leading-relaxed dark:text-gray-300"
+                    >
+                      {isMinor 
+                        ? 'I am a parent/guardian and I consent to the Terms and Privacy Policy.'
+                        : 'I agree to the Terms and Privacy Policy.'
+                      }
+                    </label>
+                  </div>
+
+                  {/* Link to full terms */}
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      className="text-sm text-[#7B61FF] hover:text-[#2C2E83] underline transition-colors"
+                      onClick={() => window.open('https://jotminds.com/terms', '_blank')}
+                    >
+                      View full Terms & Privacy Policy
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {isLogin ? 'Login' : 'Register'}
-            </Button>
+              {/* Navigation Buttons */}
+              {!isLogin && registrationStep < 4 && (
+                <div className="flex gap-2">
+                  {registrationStep > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePreviousStep}
+                      className="flex-1"
+                      aria-label="Go back to previous step"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    onClick={handleNextStep}
+                    className="flex-1"
+                    aria-label="Continue to next step"
+                  >
+                    Next
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
 
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => setIsLogin(!isLogin)}
-            >
-              {isLogin ? 'Need an account? Register' : 'Have an account? Login'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              {/* Submit Buttons */}
+              {(isLogin || registrationStep === 4) && (
+                <>
+                  {!isLogin && registrationStep === 4 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePreviousStep}
+                      className="w-full mb-2"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                  )}
+                  <Button type="submit" className="w-full py-6" disabled={loading || (!isLogin && !hasConsented)}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {isLogin ? 'Logging in...' : 'Creating account...'}
+                      </>
+                    ) : (
+                      isLogin ? 'Login' : 'Complete Registration'
+                    )}
+                  </Button>
+                </>
+              )}
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={toggleAuthMode}
+              >
+                {isLogin ? 'Need an account? Register' : 'Have an account? Login'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -21,6 +21,18 @@ export function AdultThinkingAssessment({ userId, onComplete, onCancel }: AdultT
   const progress = ((responses.length / adultQuestions.length) * 100);
   const currentQuestionData = adultQuestions[currentQuestion];
 
+  // Safety check - return loading if no question data
+  if (!showIntro && !currentQuestionData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-slate-700 mx-auto mb-4"></div>
+          <p className="text-slate-700">Loading questions...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Professional Likert scale options
   const likertOptions = [
     { value: 1, label: 'Strongly Disagree', color: 'bg-red-50 hover:bg-red-100 border-red-200 text-red-900', icon: '⊖' },
@@ -47,9 +59,14 @@ export function AdultThinkingAssessment({ userId, onComplete, onCancel }: AdultT
 
     setResponses(updatedResponses);
 
+    console.log('[AdultThinking] Response recorded:', { questionId: currentQuestionData.id, value, totalResponses: updatedResponses.length });
+
     // Auto-advance to next question
     if (currentQuestion < adultQuestions.length - 1) {
+      console.log('[AdultThinking] Auto-advancing to next question');
       setTimeout(() => setCurrentQuestion(prev => prev + 1), 250);
+    } else {
+      console.log('[AdultThinking] Last question - no auto-advance');
     }
   };
 
@@ -59,12 +76,26 @@ export function AdultThinkingAssessment({ userId, onComplete, onCancel }: AdultT
     }
   };
 
+  const handleNext = () => {
+    console.log('[AdultThinking] Next button clicked', { 
+      currentQuestion, 
+      totalQuestions: adultQuestions.length,
+      hasResponse: !!getCurrentResponse()
+    });
+    if (currentQuestion < adultQuestions.length - 1) {
+      setCurrentQuestion(prev => prev + 1);
+      console.log('[AdultThinking] Moving to question', currentQuestion + 1);
+    }
+  };
+
   const handleSubmit = () => {
+    console.log('[AdultThinking] Submit clicked with responses:', responses.length);
     const results = calculateAdultScores(responses);
     onComplete(results);
   };
 
   const getCurrentResponse = () => {
+    if (!currentQuestionData) return undefined;
     return responses.find(r => r.questionId === currentQuestionData.id)?.value;
   };
 
@@ -91,12 +122,12 @@ export function AdultThinkingAssessment({ userId, onComplete, onCancel }: AdultT
               Discover your professional thinking profile and unlock personalized career development insights
             </CardDescription>
             <Badge className="mx-auto mt-3 bg-gradient-to-r from-slate-700 to-slate-900 text-white px-4 py-1">
-              For Professionals & Career Developers (Ages 19+)
+              For Professionals & Young Adults (Ages 19-25)
             </Badge>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="bg-white rounded-xl p-6 border-2 border-slate-200 shadow-sm">
-              <h3 className="font-semibold text-lg mb-4 text-slate-900">Assess Your Professional Thinking Across Four Dimensions:</h3>
+              <h3 className="font-semibold text-lg mb-4 text-slate-900">Assess Your Thinking Style for Career Success:</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-start gap-3 p-3 bg-rose-50 rounded-lg border border-rose-200">
                   <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
@@ -140,31 +171,31 @@ export function AdultThinkingAssessment({ userId, onComplete, onCancel }: AdultT
             <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-6 border-2 border-amber-200 shadow-sm">
               <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                 <Target className="h-5 w-5 text-amber-700" />
-                Unlock Your Career Development Roadmap
+                Unlock Your Career Roadmap (19-25)
               </h3>
               <p className="text-sm text-slate-700 mb-3">
-                Based on your professional thinking profile, you'll receive:
+                Designed for young adults exploring career pathways:
               </p>
               <ul className="text-sm text-slate-700 space-y-2">
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 mt-0.5 font-bold">✓</span>
-                  <span><strong>Top 3 career paths</strong> aligned with your thinking style</span>
+                  <span><strong>Explore career pathways</strong> that match your cognitive profile</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 mt-0.5 font-bold">✓</span>
-                  <span><strong>Industry recommendations</strong> and growth opportunities</span>
+                  <span><strong>Practice professional skills</strong> through daily challenges</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 mt-0.5 font-bold">✓</span>
-                  <span><strong>Key skills to develop</strong> for career advancement</span>
+                  <span><strong>Boost self-awareness</strong> for interviews and leadership roles</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 mt-0.5 font-bold">✓</span>
-                  <span><strong>Career progression pathways</strong> and salary insights</span>
+                  <span><strong>Identify growth areas</strong> for professional development</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-amber-600 mt-0.5 font-bold">✓</span>
-                  <span><strong>Professional development recommendations</strong> tailored to you</span>
+                  <span><strong>Improve problem-solving</strong> and decision-making skills</span>
                 </li>
               </ul>
             </div>
@@ -294,7 +325,7 @@ export function AdultThinkingAssessment({ userId, onComplete, onCancel }: AdultT
             </Button>
           ) : (
             <Button
-              onClick={() => setCurrentQuestion(prev => Math.min(prev + 1, adultQuestions.length - 1))}
+              onClick={handleNext}
               disabled={!getCurrentResponse()}
               className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black text-white"
             >

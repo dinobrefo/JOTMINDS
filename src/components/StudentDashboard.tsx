@@ -8,16 +8,23 @@ import { ChildrenThinkingContainer } from './ChildrenThinkingContainer';
 import { JHSThinkingContainer } from './JHSThinkingContainer';
 import { SHSThinkingContainer } from './SHSThinkingContainer';
 import { AdultThinkingContainer } from './AdultThinkingContainer';
+import { BrainGym, DailyChallengeResults } from './BrainGym';
+import { BrainGymResults } from './BrainGymResults';
+import { getBrainGymProgress, saveBrainGymResults, getTodayProgress } from '../utils/brainGymStorage';
 import { calculateAge } from '../utils/dateUtils';
 import { useState, useEffect } from 'react';
 import { User, Assessment } from '../types';
 import { getUserAssessments, getUserReflections } from '../utils/storage';
-import { getUserAssessmentResults } from '../utils/api';
+import { getUserAssessmentResults, getAllAssessmentResults } from '../utils/api';
 import { useAuth } from './AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { CardV2, CardV2Grid, StatBadge } from './ui/card-v2';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { toast } from 'sonner@2.0.3';
+import { formatMonthYear, formatDate, formatChartDate } from '../utils/dateFormat';
 import { 
   BookOpen, 
   Eye, 
@@ -29,7 +36,16 @@ import {
   Home,
   BarChart3,
   UserPlus,
-  MessageSquare
+  MessageSquare,
+  Brain,
+  Flame,
+  Zap,
+  Target,
+  RefreshCw,
+  Clock,
+  User,
+  Settings,
+  ChevronDown
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { AssessmentTaking } from './AssessmentTaking';
@@ -38,7 +54,8 @@ import { CombinedCognitiveProfile } from './CombinedCognitiveProfile';
 import { FrameworkInfo } from './FrameworkInfo';
 import { AssessmentHistory } from './AssessmentHistory';
 import { ReflectionsViewer } from './ReflectionsViewer';
-import { AssessmentExecutiveSummary } from './AssessmentExecutiveSummary';
+import { MobileHeaderMenu } from './MobileHeaderMenu';
+import { GamificationDashboard } from './GamificationDashboard';
 
 interface StudentDashboardProps {
   user: User;
@@ -59,61 +76,201 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [challengeKey, setChallengeKey] = useState(0);
   const [moodMeterKey, setMoodMeterKey] = useState(0);
+  const [showingBrainGym, setShowingBrainGym] = useState(false);
+  const [brainGymResults, setBrainGymResults] = useState<DailyChallengeResults | null>(null);
+  const [brainGymProgress, setBrainGymProgress] = useState(() => getBrainGymProgress(user.id));
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadAssessments();
   }, [user.id, impersonatedUser]);
 
+  // Helper function to safely calculate dominant style from scores
+  const calculateDominantStyle = (scores: Record<string, number> | undefined): string => {
+    if (!scores || typeof scores !== 'object') return 'Unknown';
+    
+    const scoreKeys = Object.keys(scores);
+    if (scoreKeys.length === 0) return 'Unknown';
+    
+    // Find the key with the highest score
+    // Use a safe initial value to avoid "reduce of empty array" errors
+    return scoreKeys.reduce((a, b) => 
+      (scores[a] || 0) > (scores[b] || 0) ? a : b
+    ); // reduce() with at least one element doesn't need initial value
+  };
+
   const loadAssessments = async () => {
     setLoading(true);
     try {
-      // If viewing as admin (impersonated user), fetch from API
+      // ALWAYS fetch from backend (for both regular users and impersonated users)
+      console.log('[StudentDashboard] Fetching assessments from backend for user:', user.id);
+      
+      let results;
       if (impersonatedUser) {
-        const { results } = await getUserAssessmentResults(user.id);
-        // Convert API results to Assessment format
-        const convertedAssessments: Assessment[] = (results || []).map((result: any) => ({
-          id: result.id,
-          userId: user.id,
-          type: result.assessmentType === 'learning' ? 'kolb' : 
-                result.assessmentType === 'thinking' ? 'sternberg' : 'dual-process',
-          score: {
-            kolb: result.assessmentType === 'learning' ? {
-              primaryStyle: Object.keys(result.results).reduce((a, b) => 
-                result.results[a] > result.results[b] ? a : b
-              ),
-              scores: result.results
-            } : undefined,
-            sternberg: result.assessmentType === 'thinking' ? {
-              primaryStyle: Object.keys(result.results).reduce((a, b) => 
-                result.results[a] > result.results[b] ? a : b
-              ),
-              scores: result.results
-            } : undefined,
-            dualProcess: result.assessmentType === 'decision' ? {
-              primaryStyle: Object.keys(result.results).reduce((a, b) => 
-                result.results[a] > result.results[b] ? a : b
-              ),
-              scores: result.results
-            } : undefined
-          },
-          completedAt: result.completedAt || new Date().toISOString(),
-          responses: []
-        }));
-        setAssessments(convertedAssessments);
+        // If viewing as admin, use the admin endpoint
+        const data = await getUserAssessmentResults(user.id);
+        results = data.results;
       } else {
-        // Regular user viewing their own data - use localStorage for now
-        const userAssessments = getUserAssessments(user.id);
-        setAssessments(userAssessments);
+        // Regular user viewing their own data - use their own endpoint
+        const data = await getAllAssessmentResults();
+        results = data.results;
+      }
+      
+      console.log('[StudentDashboard] Received results from backend:', results);
+      
+      // Convert API results to Assessment format
+      const convertedAssessments: Assessment[] = (results || []).map((result: any) => {
+        try {
+          console.log('🔄 Converting result:', {
+            id: result.id,
+            type: result.assessmentType,
+            resultsKeys: Object.keys(result.results || {}),
+            results: result.results
+          });
+          
+          let type: any = result.assessmentType;
+          if (result.assessmentType === 'learning') type = 'kolb';
+          else if (result.assessmentType === 'thinking') type = 'sternberg';
+          else if (result.assessmentType === 'decision') type = 'dual-process';
+          
+          // Extract scores - handle both new format (with scores sub-object) and old format
+          const extractedScores = result.results?.scores || result.results || {};
+          
+          // DETAILED DEBUG LOGGING
+          console.log('🔍 FULL RESULT OBJECT:', JSON.stringify(result, null, 2));
+          console.log('🔍 result.results:', result.results);
+          console.log('🔍 result.results.scores:', result.results?.scores);
+          console.log('🔍 extractedScores:', extractedScores);
+          console.log('🔍 extractedScores keys:', Object.keys(extractedScores));
+          
+          // For assessments where results are nested under framework name, extract the actual scores
+          let actualScores = extractedScores;
+          let dominantStyle;
+          
+          if (type === 'dual-process' && extractedScores.dualProcess?.scores) {
+            actualScores = extractedScores.dualProcess.scores;
+            dominantStyle = extractedScores.dualProcess.style;
+            console.log('🔧 Dual-Process: Extracted nested scores:', actualScores, 'style:', dominantStyle);
+          } else if (type === 'kolb' && extractedScores.kolb?.scores) {
+            actualScores = extractedScores.kolb.scores;
+            dominantStyle = extractedScores.kolb.style;
+          } else if (type === 'sternberg' && extractedScores.sternberg?.scores) {
+            actualScores = extractedScores.sternberg.scores;
+            dominantStyle = extractedScores.sternberg.style;
+          } else {
+            // Fallback: try to calculate dominant style
+            try {
+              dominantStyle = result.results?.dominantStyle || calculateDominantStyle(actualScores);
+            } catch (styleError) {
+              console.warn('⚠️ Could not calculate dominant style:', styleError);
+              const scoreKeys = Object.keys(actualScores);
+              dominantStyle = scoreKeys.length > 0 ? scoreKeys[0] : 'Unknown';
+            }
+          }
+          
+          console.log('🎯 Extracted data:', {
+            type,
+            extractedScores,
+            actualScores,
+            dominantStyle,
+            hasScoresSubObject: !!result.results?.scores,
+            scoreKeys: Object.keys(actualScores)
+          });
+          
+          // Ensure we have valid scores before creating assessment
+          if (!actualScores || Object.keys(actualScores).length === 0) {
+            console.warn('⚠️ No scores found for assessment:', result.id);
+            throw new Error('No scores data available');
+          }
+          
+          return {
+            id: result.id,
+            userId: user.id,
+            type,
+            score: {
+              kolb: type === 'kolb' ? {
+                style: dominantStyle as any,
+                scores: actualScores
+              } : undefined,
+              sternberg: type === 'sternberg' ? {
+                style: dominantStyle as any,
+                scores: actualScores
+              } : undefined,
+              dualProcess: type === 'dual-process' ? {
+                style: dominantStyle as any,
+                scores: actualScores
+              } : undefined,
+              'jhs-thinking': type === 'jhs-thinking' ? {
+                 personalityType: result.results?.personalityType || dominantStyle || 'Unknown',
+                 scores: extractedScores
+              } : undefined,
+              'shs-thinking': type === 'shs-thinking' ? {
+                 personalityType: result.results?.personalityType || dominantStyle || 'Unknown',
+                 scores: extractedScores
+              } : undefined,
+              'adult-thinking': type === 'adult-thinking' ? {
+                 dominantStyle: dominantStyle || 'Unknown',
+                 scores: extractedScores
+              } : undefined,
+              'children-thinking': type === 'children-thinking' ? {
+                 personalityType: result.results?.personalityType || dominantStyle || 'Unknown',
+                 scores: extractedScores
+              } : undefined,
+            },
+            completedAt: result.completedAt || new Date().toISOString(),
+            responses: []
+          };
+        } catch (conversionError) {
+          console.error('❌ Error converting assessment result:', {
+            error: conversionError,
+            result,
+            message: conversionError instanceof Error ? conversionError.message : 'Unknown error'
+          });
+          // Return a minimal valid assessment object to prevent complete failure
+          return {
+            id: result.id || 'unknown',
+            userId: user.id,
+            type: result.assessmentType || 'unknown' as any,
+            score: {},
+            completedAt: result.completedAt || new Date().toISOString(),
+            responses: []
+          };
+        }
+      }).filter(assessment => assessment.type !== 'unknown' as any); // Filter out failed conversions
+      
+      setAssessments(convertedAssessments);
+      setLastUpdated(new Date());
+      console.log('[StudentDashboard] Converted and set assessments:', convertedAssessments.length, 'assessments');
+      
+      // Show success toast only on manual refresh (not on initial load)
+      if (!loading && isRefreshing) {
+        toast.success(`Assessment data updated (${convertedAssessments.length} assessments loaded)`);
       }
     } catch (error) {
-      console.error('Error loading assessments:', error);
-      setAssessments([]);
+      console.error('[StudentDashboard] Error loading assessments:', error);
+      toast.error('Failed to load assessment data. Please check your connection and try again.');
+      
+      // Fallback to localStorage if backend fails
+      console.log('[StudentDashboard] Falling back to localStorage');
+      const localAssessments = getUserAssessments(user.id);
+      setAssessments(localAssessments);
+      
+      if (localAssessments.length > 0) {
+        toast.info(`Showing ${localAssessments.length} assessments from local cache`);
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  const hasCompletedAssessment = (type: 'kolb' | 'sternberg' | 'dual-process') => {
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadAssessments();
+  };
+
+  const hasCompletedAssessment = (type: Assessment['type']) => {
     return assessments.some(a => a.type === type);
   };
 
@@ -122,21 +279,40 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   };
 
   const hasCompletedAllThree = () => {
-    return hasCompletedAssessment('kolb') && 
-           hasCompletedAssessment('sternberg') && 
-           hasCompletedAssessment('dual-process');
+    const hasKolb = hasCompletedAssessment('kolb');
+    const hasSternberg = hasCompletedAssessment('sternberg');
+    const hasDualProcess = hasCompletedAssessment('dual-process');
+    
+    console.log('🔍 Complete Cognitive Profile Debug:', {
+      hasKolb,
+      hasSternberg,
+      hasDualProcess,
+      allThree: hasKolb && hasSternberg && hasDualProcess,
+      totalAssessments: assessments.length,
+      assessmentTypes: assessments.map(a => a.type)
+    });
+    
+    return hasKolb && hasSternberg && hasDualProcess;
   };
 
-  const getLatestAssessment = (type: 'kolb' | 'sternberg' | 'dual-process') => {
+  const getLatestAssessment = (type: Assessment['type']) => {
     return assessments.filter(a => a.type === type).sort((a, b) => 
       new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
     )[0];
   };
 
-  const handleAssessmentComplete = (assessment: Assessment) => {
-    loadAssessments();
-    setActiveAssessment(null);
-    setViewingReport(assessment);
+  const handleAssessmentComplete = async (assessment: Assessment) => {
+    try {
+      console.log('Assessment completed:', assessment);
+      await loadAssessments();
+      setActiveAssessment(null);
+      setViewingReport(assessment);
+    } catch (error) {
+      console.error('Error handling assessment completion:', error);
+      // Still show the report even if loading assessments fails
+      setActiveAssessment(null);
+      setViewingReport(assessment);
+    }
   };
 
   const getTrendData = () => {
@@ -145,7 +321,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     );
 
     return kolbAssessments.map(a => ({
-      date: new Date(a.completedAt).toLocaleDateString(),
+      date: formatChartDate(a.completedAt),
       CE: a.score.kolb?.scores.CE || 0,
       RO: a.score.kolb?.scores.RO || 0,
       AC: a.score.kolb?.scores.AC || 0,
@@ -198,11 +374,48 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     return user.educationLevel === 'Elementary' || thinkingStylesAssessment === 'Children';
   };
 
+  // Handle Brain Gym completion
+  const handleBrainGymComplete = (results: DailyChallengeResults) => {
+    const updatedProgress = saveBrainGymResults(user.id, results);
+    setBrainGymProgress(updatedProgress);
+    setBrainGymResults(results);
+    setShowingBrainGym(false);
+  };
+
+  // Show Brain Gym
+  if (showingBrainGym) {
+    return (
+      <BrainGym
+        userId={user.id}
+        onComplete={handleBrainGymComplete}
+        onBack={() => setShowingBrainGym(false)}
+      />
+    );
+  }
+
+  // Show Brain Gym Results
+  if (brainGymResults) {
+    return (
+      <BrainGymResults
+        results={brainGymResults}
+        onBack={() => {
+          setBrainGymResults(null);
+          setBrainGymProgress(getBrainGymProgress(user.id));
+        }}
+        onRetry={() => {
+          setBrainGymResults(null);
+          setShowingBrainGym(true);
+        }}
+      />
+    );
+  }
+
   if (activeAssessment) {
     return (
       <AssessmentTaking
         userId={user.id}
         assessmentType={activeAssessment}
+        userAge={user.age} // Pass user's age for age-appropriate questions (15-18 uses teen bank)
         onComplete={handleAssessmentComplete}
         onCancel={() => setActiveAssessment(null)}
       />
@@ -277,12 +490,12 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   }
 
   if (viewingCombinedProfile) {
+    console.log('✅ Rendering CombinedCognitiveProfile with assessments:', assessments);
     return (
       <CombinedCognitiveProfile
-        userId={user.id}
+        assessments={assessments}
         userName={user.name}
         onBack={() => setViewingCombinedProfile(false)}
-        userRole={user.role}
       />
     );
   }
@@ -291,42 +504,140 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const reflections = getUserReflections(user.id);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50">
-      <div className="border-b bg-white/80 backdrop-blur-sm shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="border-b bg-white/80 backdrop-blur-sm shadow-sm dark:bg-gray-950/80 dark:border-gray-800 relative z-50">
         <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-2">JotMinds</h1>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full gradient-aqua-violet flex items-center justify-center text-white text-xl font-bold">
+          <div className="flex items-center gap-3">
+            {/* Avatar with Hover Tooltip */}
+            <div className="relative group">
+              <div className="w-12 h-12 rounded-full gradient-aqua-violet flex items-center justify-center text-white text-xl font-bold cursor-pointer transition-transform group-hover:scale-105">
                 {user.name.charAt(0)}
               </div>
-              <div>
-                <h2 className="text-xl text-gray-900">Welcome, {user.name}!</h2>
-                <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {user.educationLevel} Student
-                  </Badge>
-                  {user.school && (
-                    <Badge variant="secondary" className="text-xs">
-                      {user.school}
-                    </Badge>
-                  )}
-                </p>
+              
+              {/* Tooltip */}
+              <div className="absolute left-0 top-full mt-2 w-64 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-[#1FC8E1]/20 dark:border-[#1FC8E1]/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                    <div className="w-10 h-10 rounded-full gradient-aqua-violet flex items-center justify-center text-white font-bold">
+                      {user.name.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 dark:text-white">{user.name}</p>
+                      <Badge variant="secondary" className="text-xs mt-1">Student</Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-start gap-2">
+                      <span className="text-muted-foreground min-w-16">Email:</span>
+                      <span className="text-gray-900 dark:text-white break-all">{user.email}</span>
+                    </div>
+                    
+                    {user.school && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground min-w-16">School:</span>
+                        <span className="text-gray-900 dark:text-white">{user.school}</span>
+                      </div>
+                    )}
+                    
+                    {user.educationLevel && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground min-w-16">Level:</span>
+                        <span className="text-gray-900 dark:text-white">{user.educationLevel}</span>
+                      </div>
+                    )}
+                    
+                    {user.dateOfBirth && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground min-w-16">Age:</span>
+                        <span className="text-gray-900 dark:text-white">{calculateAge(user.dateOfBirth)} years</span>
+                      </div>
+                    )}
+                    
+                    {user.createdAt && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground min-w-16">Member:</span>
+                        <span className="text-gray-900 dark:text-white">
+                          Since {formatMonthYear(user.createdAt)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Tooltip Arrow */}
+                <div className="absolute -top-2 left-6 w-4 h-4 bg-white dark:bg-gray-800 border-l-2 border-t-2 border-[#1FC8E1]/20 dark:border-[#1FC8E1]/40 transform rotate-45"></div>
               </div>
             </div>
+            
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">JotMinds</h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">Welcome, {user.name}!</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center gap-2">
+            {/* Last Updated & Refresh */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mr-2">
+              {lastUpdated && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  <span>Updated {Math.floor((Date.now() - lastUpdated.getTime()) / 1000)}s ago</span>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="h-8 px-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
             <FrameworkInfo userRole="student" />
-            <Button variant="outline" onClick={onLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
+            
+            {/* User Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  <span className="hidden lg:inline">{user.name}</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-sm">
+                  <p className="font-semibold">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setActiveTab('parent-access')}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Parent Access Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onLogout} className="text-red-600">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+
+          {/* Mobile Menu */}
+          <MobileHeaderMenu onLogout={onLogout} userRole="student" />
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 space-y-6">
         <Tabs 
+          value={activeTab}
           defaultValue="dashboard" 
           className="w-full"
           onValueChange={(value) => {
@@ -342,205 +653,360 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
         >
           {/* Different tabs based on education level (primary) or age (secondary) */}
           {isChildrenUser() ? (
-            <TabsList className="grid w-full max-w-5xl mx-auto grid-cols-6 mb-6">
-              <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Dashboard
+            <TabsList className="flex flex-wrap justify-center w-full max-w-5xl mx-auto gap-1 mb-6 h-auto">
+              <TabsTrigger value="dashboard" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Home className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+                <span className="sm:hidden">Home</span>
               </TabsTrigger>
-              <TabsTrigger value="daily-challenges" className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                Mind Play
+              <TabsTrigger value="daily-challenges" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Mind Play</span>
+                <span className="sm:hidden">Play</span>
               </TabsTrigger>
-              <TabsTrigger value="mood-meter" className="flex items-center gap-2">
+              <TabsTrigger value="mood-meter" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                 🌞
-                Mood Meter
+                <span className="hidden sm:inline">Mood Meter</span>
+                <span className="sm:hidden">Mood</span>
               </TabsTrigger>
-              <TabsTrigger value="discoveries" className="flex items-center gap-2">
+              <TabsTrigger value="discoveries" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                 💡
-                Discoveries
+                <span className="hidden sm:inline">Discoveries</span>
+                <span className="sm:hidden">Ideas</span>
               </TabsTrigger>
-              <TabsTrigger value="parent-guide" className="flex items-center gap-2">
-                📘
-                Parent Guide
-              </TabsTrigger>
-              <TabsTrigger value="track-record" className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                My Progress
+              <TabsTrigger value="track-record" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">My Progress</span>
+                <span className="sm:hidden">Stats</span>
               </TabsTrigger>
             </TabsList>
           ) : (
-            <TabsList className="grid w-full max-w-5xl mx-auto grid-cols-6 mb-6">
-              <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Dashboard
+            <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto gap-2 mb-6 h-auto p-2 bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm">
+              <TabsTrigger value="dashboard" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+                <Home className="h-5 w-5" />
+                <span className="text-sm font-semibold">Home</span>
               </TabsTrigger>
-              <TabsTrigger value="daily-challenges" className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                Mind Booster
+              <TabsTrigger value="daily-challenges" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+                <Sparkles className="h-5 w-5" />
+                <span className="text-sm font-semibold">Boost</span>
               </TabsTrigger>
-              <TabsTrigger value="track-record" className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Track Record
+              <TabsTrigger value="track-record" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+                <BarChart3 className="h-5 w-5" />
+                <span className="text-sm font-semibold">Assess</span>
               </TabsTrigger>
-              <TabsTrigger value="reflections" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Reflections
-              </TabsTrigger>
-              <TabsTrigger value="parent-access" className="flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                Parent Access
-              </TabsTrigger>
-              <TabsTrigger value="feedback" className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Feedback
+              <TabsTrigger value="profile" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+                <User className="h-5 w-5" />
+                <span className="text-sm font-semibold">Profile</span>
               </TabsTrigger>
             </TabsList>
           )}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Executive Summary Section */}
-            <AssessmentExecutiveSummary 
-              userId={user.id}
-            />
+            {/* Loading State */}
+            {loading && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <div>
+                      <CardTitle>Loading your assessments...</CardTitle>
+                      <CardDescription>Fetching your latest data from the server</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="h-20 bg-muted animate-pulse rounded-lg"></div>
+                  <div className="h-20 bg-muted animate-pulse rounded-lg"></div>
+                  <div className="h-20 bg-muted animate-pulse rounded-lg"></div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Full Cognitive Profile - Shows when all 3 assessments are complete */}
+            {!loading && hasCompletedAllThree() && (
+              <Card className="border-2 border-gradient-primary bg-gradient-to-br from-[#1FC8E1]/10 via-[#7B61FF]/10 to-[#2C2E83]/10">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-2xl bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+                        🎉 Your Complete Cognitive Profile
+                      </CardTitle>
+                      <CardDescription className="mt-2">
+                        You've completed all three core assessments! View your comprehensive profile to see how your learning, thinking, and decision styles work together.
+                      </CardDescription>
+                    </div>
+                    <Sparkles className="h-8 w-8 text-[#7B61FF]" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    className="w-full gradient-primary text-white shadow-lg hover:shadow-xl text-lg py-6"
+                    onClick={() => {
+                      console.log('🎯 Viewing Complete Cognitive Profile button clicked');
+                      setViewingCombinedProfile(true);
+                    }}
+                  >
+                    <GraduationCap className="mr-2 h-5 w-5" />
+                    View Your Full Cognitive Profile
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
-            <div className="grid gap-6 md:grid-cols-3">
-          <Card className="border-2 border-blue-200 hover:shadow-large transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-blue-50">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <BookOpen className="h-5 w-5 text-blue-600" />
+            {/* Brain Gym - Daily Cognitive Training */}
+            <Card className="border-2 border-gradient-to-r from-purple-200 to-pink-200 dark:from-purple-700 dark:to-pink-700 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-orange-900/20 overflow-hidden relative shadow-xl">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl" />
+              <CardHeader className="relative">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-14 w-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center animate-pulse">
+                    <Brain className="h-7 w-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <CardTitle className="text-xl sm:text-2xl">🧠 Brain Gym - Daily Challenges</CardTitle>
+                      {brainGymProgress.currentStreak > 0 && (
+                        <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 flex items-center gap-1">
+                          <Flame className="h-3 w-3" />
+                          {brainGymProgress.currentStreak} Day Streak
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="text-sm sm:text-base">
+                      Train your cognitive skills daily with fun challenges!
+                    </CardDescription>
+                  </div>
                 </div>
-                <CardTitle className="text-blue-900">Your Learning Style</CardTitle>
-              </div>
-              <CardDescription>
-                Discover how you learn best
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {hasCompletedAssessment('kolb') ? (
-                <>
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    ✓ Completed
-                  </Badge>
-                  <div className="space-y-2">
-                    <Button 
-                      className="w-full gradient-primary text-white shadow-md hover:shadow-lg" 
-                      onClick={() => setViewingReport(getLatestAssessment('kolb'))}
+              </CardHeader>
+              <CardContent className="relative space-y-4">
+                {/* Today's Progress */}
+                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-lg p-4 border-2 border-purple-200 dark:border-purple-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Today's Challenges</h3>
+                    <Badge variant="secondary">{getTodayProgress(user.id).total}/3 Complete</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => setShowingBrainGym(true)}
+                      disabled={getTodayProgress(user.id).learning}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        getTodayProgress(user.id).learning
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-600'
+                          : 'bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-md cursor-pointer'
+                      }`}
                     >
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Report
-                    </Button>
+                      <div className="flex flex-col items-center gap-2">
+                        <Brain className={`h-6 w-6 ${getTodayProgress(user.id).learning ? 'text-green-600' : 'text-purple-600'}`} />
+                        <span className="text-xs font-medium text-center">Learning</span>
+                        {getTodayProgress(user.id).learning && <span className="text-xs text-green-600">✓</span>}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setShowingBrainGym(true)}
+                      disabled={getTodayProgress(user.id).thinking}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        getTodayProgress(user.id).thinking
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-600'
+                          : 'bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-md cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Zap className={`h-6 w-6 ${getTodayProgress(user.id).thinking ? 'text-green-600' : 'text-purple-600'}`} />
+                        <span className="text-xs font-medium text-center">Thinking</span>
+                        {getTodayProgress(user.id).thinking && <span className="text-xs text-green-600">✓</span>}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setShowingBrainGym(true)}
+                      disabled={getTodayProgress(user.id).decision}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        getTodayProgress(user.id).decision
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-600'
+                          : 'bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-md cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Target className={`h-6 w-6 ${getTodayProgress(user.id).decision ? 'text-green-600' : 'text-purple-600'}`} />
+                        <span className="text-xs font-medium text-center">Decision</span>
+                        {getTodayProgress(user.id).decision && <span className="text-xs text-green-600">✓</span>}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 border border-orange-200 dark:border-orange-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <Flame className="h-6 w-6 text-orange-500" />
+                      <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">{brainGymProgress.currentStreak}</div>
+                      <p className="text-xs text-orange-600 dark:text-orange-400 text-center">Streak</p>
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <Sparkles className="h-6 w-6 text-purple-500" />
+                      <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">{brainGymProgress.totalPoints}</div>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 text-center">Points</p>
+                    </div>
+                  </div>
+                  <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-3 border border-pink-200 dark:border-pink-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <TrendingUp className="h-6 w-6 text-pink-500" />
+                      <div className="text-2xl font-bold text-pink-700 dark:text-pink-300">
+                        {brainGymProgress.completedChallenges.length}
+                      </div>
+                      <p className="text-xs text-pink-600 dark:text-pink-400 text-center">Total</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Start Button */}
+                <Button
+                  onClick={() => setShowingBrainGym(true)}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl transition-all"
+                  size="lg"
+                >
+                  <Brain className="mr-2 h-5 w-5" />
+                  Start Daily Challenge
+                  <Sparkles className="ml-2 h-5 w-5" />
+                </Button>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  🎯 Build mental agility • Train daily • Level up your brain!
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Core Assessments - Using Card v2 */}
+            <CardV2Grid columns={3}>
+              <CardV2
+                icon={BookOpen}
+                iconColor="text-blue-600"
+                iconBgColor="bg-blue-100"
+                title="Learning Style"
+                subtitle="Discover how you learn best"
+                stats={hasCompletedAssessment('kolb') ? [
+                  { label: 'Status', value: '✓ Done' }
+                ] : [
+                  { label: 'Status', value: 'Not started' }
+                ]}
+                cta={
+                  hasCompletedAssessment('kolb') ? (
+                    <div className="flex gap-2 w-full">
+                      <Button 
+                        size="sm"
+                        className="flex-1 gradient-primary text-white" 
+                        onClick={() => setViewingReport(getLatestAssessment('kolb'))}
+                      >
+                        <Eye className="mr-1 h-3 w-3" />
+                        View
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setActiveAssessment('kolb')}
+                      >
+                        Retake
+                      </Button>
+                    </div>
+                  ) : (
                     <Button 
-                      className="w-full"
-                      variant="outline"
+                      size="sm"
+                      className="w-full gradient-primary text-white"
                       onClick={() => setActiveAssessment('kolb')}
                     >
-                      Retake Assessment
+                      Start →
                     </Button>
-                  </div>
-                </>
-              ) : (
-                <Button 
-                  className="w-full gradient-primary text-white shadow-md hover:shadow-lg"
-                  onClick={() => setActiveAssessment('kolb')}
-                >
-                  Start Assessment →
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+                  )
+                }
+                variant="gradient"
+              />
 
-          <Card className="border-2 border-purple-200 hover:shadow-large transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-purple-50">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <BookOpen className="h-5 w-5 text-purple-600" />
-                </div>
-                <CardTitle className="text-purple-900">Your Thinking Style</CardTitle>
-              </div>
-              <CardDescription>
-                Understand how you think
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {hasCompletedAssessment('sternberg') ? (
-                <>
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    ✓ Completed
-                  </Badge>
-                  <div className="space-y-2">
+              <CardV2
+                icon={Brain}
+                iconColor="text-purple-600"
+                iconBgColor="bg-purple-100"
+                title="Thinking Style"
+                subtitle="Understand how you think"
+                stats={hasCompletedAssessment('sternberg') ? [
+                  { label: 'Status', value: '✓ Done' }
+                ] : [
+                  { label: 'Status', value: 'Not started' }
+                ]}
+                cta={
+                  hasCompletedAssessment('sternberg') ? (
+                    <div className="flex gap-2 w-full">
+                      <Button 
+                        size="sm"
+                        className="flex-1 gradient-purple text-white" 
+                        onClick={() => setViewingReport(getLatestAssessment('sternberg'))}
+                      >
+                        <Eye className="mr-1 h-3 w-3" />
+                        View
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setActiveAssessment('sternberg')}
+                      >
+                        Retake
+                      </Button>
+                    </div>
+                  ) : (
                     <Button 
-                      className="w-full gradient-purple text-white shadow-md hover:shadow-lg" 
-                      onClick={() => setViewingReport(getLatestAssessment('sternberg'))}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Report
-                    </Button>
-                    <Button 
-                      className="w-full"
-                      variant="outline"
+                      size="sm"
+                      className="w-full gradient-purple text-white"
                       onClick={() => setActiveAssessment('sternberg')}
                     >
-                      Retake Assessment
+                      Start →
                     </Button>
-                  </div>
-                </>
-              ) : (
-                <Button 
-                  className="w-full gradient-purple text-white shadow-md hover:shadow-lg"
-                  onClick={() => setActiveAssessment('sternberg')}
-                >
-                  Start Assessment →
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+                  )
+                }
+                variant="gradient"
+              />
 
-          <Card className="border-2 border-orange-200 hover:shadow-large transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-orange-50">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <BookOpen className="h-5 w-5 text-orange-600" />
-                </div>
-                <CardTitle className="text-orange-900">Your Decision Style</CardTitle>
-              </div>
-              <CardDescription>
-                Learn how you make decisions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {hasCompletedAssessment('dual-process') ? (
-                <>
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    ✓ Completed
-                  </Badge>
-                  <div className="space-y-2">
+              <CardV2
+                icon={Target}
+                iconColor="text-orange-600"
+                iconBgColor="bg-orange-100"
+                title="Decision Style"
+                subtitle="Learn how you make decisions"
+                stats={hasCompletedAssessment('dual-process') ? [
+                  { label: 'Status', value: '✓ Done' }
+                ] : [
+                  { label: 'Status', value: 'Not started' }
+                ]}
+                cta={
+                  hasCompletedAssessment('dual-process') ? (
+                    <div className="flex gap-2 w-full">
+                      <Button 
+                        size="sm"
+                        className="flex-1 gradient-warning text-white" 
+                        onClick={() => setViewingReport(getLatestAssessment('dual-process'))}
+                      >
+                        <Eye className="mr-1 h-3 w-3" />
+                        View
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setActiveAssessment('dual-process')}
+                      >
+                        Retake
+                      </Button>
+                    </div>
+                  ) : (
                     <Button 
-                      className="w-full gradient-warning text-white shadow-md hover:shadow-lg" 
-                      onClick={() => setViewingReport(getLatestAssessment('dual-process'))}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Report
-                    </Button>
-                    <Button 
-                      className="w-full"
-                      variant="outline"
+                      size="sm"
+                      className="w-full gradient-warning text-white"
                       onClick={() => setActiveAssessment('dual-process')}
                     >
-                      Retake Assessment
+                      Start →
                     </Button>
-                  </div>
-                </>
-              ) : (
-                <Button 
-                  className="w-full gradient-warning text-white shadow-md hover:shadow-lg"
-                  onClick={() => setActiveAssessment('dual-process')}
-                >
-                  Start Assessment →
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-            </div>
+                  )
+                }
+                variant="gradient"
+              />
+            </CardV2Grid>
 
             {/* NEW: Thinking Styles Adventure - Show ONLY after completing ALL THREE core assessments */}
             {hasCompletedAllThree() && (
@@ -639,14 +1105,28 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                   </p>
                 </div>
 
-                <Button 
-                  onClick={() => setShowJHSAssessment(true)}
-                  className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
-                  size="lg"
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Start Your Thinking Adventure! 🚀
-                </Button>
+                {hasCompletedAssessment('jhs-thinking') ? (
+                  <Button 
+                    onClick={() => {
+                        const assessment = getLatestAssessment('jhs-thinking');
+                        if (assessment) setViewingReport(assessment);
+                    }}
+                    className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <FileText className="mr-2 h-5 w-5" />
+                    View Your Thinking Adventure Report
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => setShowJHSAssessment(true)}
+                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Start Your Thinking Adventure! 🚀
+                  </Button>
+                )}
 
                 <p className="text-xs text-center text-gray-500">
                   ⏱️ Takes about 5-7 minutes • 24 fun questions with emoji responses 😕😐🙂😃🤩
@@ -718,14 +1198,28 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                   </p>
                 </div>
 
-                <Button 
-                  onClick={() => setShowSHSAssessment(true)}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
-                  size="lg"
-                >
-                  <GraduationCap className="mr-2 h-5 w-5" />
-                  Begin Assessment →
-                </Button>
+                {hasCompletedAssessment('shs-thinking') ? (
+                  <Button 
+                    onClick={() => {
+                        const assessment = getLatestAssessment('shs-thinking');
+                        if (assessment) setViewingReport(assessment);
+                    }}
+                    className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <FileText className="mr-2 h-5 w-5" />
+                    View Your SHS Thinking Report
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => setShowSHSAssessment(true)}
+                    className="w-full bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <GraduationCap className="mr-2 h-5 w-5" />
+                    Begin Assessment →
+                  </Button>
+                )}
 
                 <p className="text-xs text-center text-gray-500">
                   ⏱️ Takes 6-8 minutes • 24 questions with 5-point rating scale
@@ -797,14 +1291,28 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                   </p>
                 </div>
 
-                <Button 
-                  onClick={() => setShowAdultAssessment(true)}
-                  className="w-full bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
-                  size="lg"
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Begin Professional Assessment →
-                </Button>
+                {hasCompletedAssessment('adult-thinking') ? (
+                  <Button 
+                    onClick={() => {
+                        const assessment = getLatestAssessment('adult-thinking');
+                        if (assessment) setViewingReport(assessment);
+                    }}
+                    className="w-full bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <FileText className="mr-2 h-5 w-5" />
+                    View Your Professional Report
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => setShowAdultAssessment(true)}
+                    className="w-full bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Begin Professional Assessment →
+                  </Button>
+                )}
 
                 <p className="text-xs text-center text-gray-500">
                   ⏱️ Takes 8-10 minutes • 24 questions with professional Likert scale
@@ -876,14 +1384,28 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                   </p>
                 </div>
 
-                <Button 
-                  onClick={() => setShowChildrenAssessment(true)}
-                  className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
-                  size="lg"
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Start Your Thinking Adventure! 🚀
-                </Button>
+                {hasCompletedAssessment('children-thinking') ? (
+                  <Button 
+                    onClick={() => {
+                        const assessment = getLatestAssessment('children-thinking');
+                        if (assessment) setViewingReport(assessment);
+                    }}
+                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <FileText className="mr-2 h-5 w-5" />
+                    View Your Thinking Adventure Report
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => setShowChildrenAssessment(true)}
+                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    size="lg"
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Start Your Thinking Adventure! 🚀
+                  </Button>
+                )}
 
                 <p className="text-xs text-center text-gray-500">
                   ⏱️ Takes about 5-7 minutes • 24 fun questions with emoji responses 😕😐🙂😃🤩
@@ -1081,7 +1603,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 {reflections.slice(0, 3).map(reflection => (
                   <div key={reflection.id} className="p-4 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground mb-2">
-                      {new Date(reflection.createdAt).toLocaleDateString()}
+                      {formatDate(reflection.createdAt)}
                     </p>
                     <p className="text-sm">{reflection.content}</p>
                   </div>
@@ -1100,12 +1622,18 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 userName={user.name}
               />
             ) : (
-              <DailyChallengeTab 
-                key={challengeKey}
-                userId={user.id}
-                userName={user.name}
-                userAge={user.age || 18}
-              />
+              <>
+                {/* Gamification Dashboard for ages 11-14+ */}
+                <GamificationDashboard userId={user.id} />
+                
+                {/* Original Daily Challenges */}
+                <DailyChallengeTab 
+                  key={challengeKey}
+                  userId={user.id}
+                  userName={user.name}
+                  userAge={user.age || 18}
+                />
+              </>
             )}
           </TabsContent>
 
@@ -1124,12 +1652,6 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 <DiscoveryOfTheDay 
                   userId={user.id}
                   userName={user.name}
-                />
-              </TabsContent>
-
-              <TabsContent value="parent-guide" className="space-y-6">
-                <ParentTeacherGuide 
-                  childName={user.name}
                 />
               </TabsContent>
             </>
@@ -1245,6 +1767,115 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="profile" className="space-y-6">
+            {/* User Profile Header */}
+            <Card className="border-2 border-gradient-primary bg-gradient-to-br from-[#1FC8E1]/10 via-[#7B61FF]/10 to-[#2C2E83]/10">
+              <CardHeader>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-full gradient-aqua-violet flex items-center justify-center text-white text-3xl font-bold">
+                    {user.name.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-2xl">{user.name}</CardTitle>
+                    <div className="space-y-1 mt-2">
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      {user.school && <p className="text-sm text-muted-foreground font-semibold">{user.school}</p>}
+                      {user.educationLevel && <Badge variant="secondary" className="mt-2">{user.educationLevel}</Badge>}
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Profile Sections - Secondary Navigation using Card v2 */}
+            <CardV2Grid columns={2}>
+              <CardV2
+                icon={FileText}
+                iconColor="text-purple-600"
+                iconBgColor="bg-purple-100"
+                title="My Reflections"
+                subtitle="View and manage your assessment reflections"
+                stats={[
+                  { label: 'Saved', value: reflections.length }
+                ]}
+                cta={
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setActiveTab('reflections')}
+                  >
+                    View All →
+                  </Button>
+                }
+                onClick={() => setActiveTab('reflections')}
+                variant="gradient"
+              />
+
+              <CardV2
+                icon={MessageSquare}
+                iconColor="text-green-600"
+                iconBgColor="bg-green-100"
+                title="Give Feedback"
+                subtitle="Share your experience with JotMinds"
+                cta={
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open('https://forms.gle/SXPFj29PxUbmYVQq7', '_blank');
+                    }}
+                  >
+                    Open Form →
+                  </Button>
+                }
+                onClick={() => setActiveTab('feedback')}
+                variant="gradient"
+              />
+            </CardV2Grid>
+
+            {/* Account Settings */}
+            <Card className="border-2 border-gray-200 dark:border-gray-700">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Account Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid md:grid-cols-2 gap-4">
+                  {user.dateOfBirth && (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Age</p>
+                      <p className="font-semibold">{calculateAge(user.dateOfBirth)} years</p>
+                    </div>
+                  )}
+                  {user.createdAt && (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Member Since</p>
+                      <p className="font-semibold">
+                        {formatMonthYear(user.createdAt)}
+                      </p>
+                    </div>
+                  )}
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Assessments Completed</p>
+                    <p className="font-semibold">{assessments.length} total</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Brain Gym Streak</p>
+                    <p className="font-semibold flex items-center gap-1">
+                      <Flame className="h-4 w-4 text-orange-500" />
+                      {brainGymProgress.currentStreak} days
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

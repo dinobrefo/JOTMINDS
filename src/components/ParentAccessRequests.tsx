@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { AccessRequest } from '../types';
 import { getPendingAccessRequests, getAllAccessRequests, approveAccessRequest, denyAccessRequest, revokeParentAccess } from '../utils/api';
 import { UserCheck, UserX, Clock, CheckCircle2, XCircle, Shield, AlertCircle } from 'lucide-react';
+import { formatDateTime, formatDate } from '../utils/dateFormat';
 
 interface ParentAccessRequestsProps {
   userId: string;
@@ -139,7 +140,7 @@ export function ParentAccessRequests({ userId }: ParentAccessRequestsProps) {
                     </div>
                     <p className="text-sm text-muted-foreground mb-1">{request.parentEmail}</p>
                     <p className="text-xs text-muted-foreground">
-                      Requested on {new Date(request.requestedAt).toLocaleDateString()} at {new Date(request.requestedAt).toLocaleTimeString()}
+                      Requested on {formatDateTime(request.requestedAt)}
                     </p>
                     <div className="mt-3 p-3 bg-white rounded border border-amber-100">
                       <div className="flex items-start gap-2">
@@ -217,7 +218,7 @@ export function ParentAccessRequests({ userId }: ParentAccessRequestsProps) {
                   </div>
                   <p className="text-sm text-muted-foreground">{request.parentEmail}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Approved on {new Date(request.respondedAt || request.requestedAt).toLocaleDateString()}
+                    Approved on {formatDate(request.respondedAt || request.requestedAt)}
                   </p>
                 </div>
                 <Button
@@ -261,7 +262,7 @@ export function ParentAccessRequests({ userId }: ParentAccessRequestsProps) {
                     <span className="text-muted-foreground ml-2">• {request.parentEmail}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Denied on {new Date(request.respondedAt || request.requestedAt).toLocaleDateString()}
+                    Denied on {formatDate(request.respondedAt || request.requestedAt)}
                   </span>
                 </div>
               ))}

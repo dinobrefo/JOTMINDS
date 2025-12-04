@@ -4,6 +4,20 @@ export type EducationLevel = 'Elementary' | 'JHS' | 'SHS' | 'Tertiary';
 
 export type OrganizationType = 'Corporate' | 'NGO' | 'Government' | 'Startup' | 'Educational Institution' | 'Other';
 
+export type IndustrySector = 
+  | 'Healthcare'
+  | 'Educational Institutions'
+  | 'Agriculture'
+  | 'Manufacturing'
+  | 'Financial Services'
+  | 'Technology'
+  | 'Telecommunications'
+  | 'Retail & Distribution'
+  | 'Logistics & Transport'
+  | 'Hospitality & Tourism'
+  | 'Energy & Utilities'
+  | 'Other';
+
 export type KolbStyle = 'Diverging' | 'Assimilating' | 'Converging' | 'Accommodating';
 export type SternbergStyle = 'Analytical' | 'Creative' | 'Practical';
 export type DualProcessStyle = 'Intuitive' | 'Reflective' | 'Balanced';
@@ -23,14 +37,19 @@ export interface User {
   students?: string[]; // For teachers and parents
   organizationName?: string; // For professionals and supervisors
   organizationType?: OrganizationType; // For professionals and supervisors
+  industrySector?: IndustrySector; // For organizations/supervisors only
   position?: string; // For professionals and supervisors
+  parentPin?: string; // PIN for Kids Mode parental controls (hashed)
   createdAt: string;
+  assessments?: Assessment[]; // Full assessment objects (legacy)
+  assessmentsCompleted?: string[]; // Array of completed assessment types (backend standard)
+  reviews?: SupervisorReviewData[];
 }
 
 export interface Assessment {
   id: string;
   userId: string;
-  type: 'kolb' | 'sternberg' | 'dual-process';
+  type: 'kolb' | 'sternberg' | 'dual-process' | 'jhs-thinking' | 'shs-thinking' | 'adult-thinking' | 'children-thinking';
   responses: number[];
   questions?: Question[]; // Store the specific questions used for this assessment
   score: AssessmentScore;
@@ -61,6 +80,22 @@ export interface AssessmentScore {
       system1: number; // Intuitive/Fast
       system2: number; // Reflective/Slow
     };
+  };
+  'jhs-thinking'?: {
+    personalityType: string;
+    scores: Record<string, number>;
+  };
+  'shs-thinking'?: {
+    personalityType: string;
+    scores: Record<string, number>;
+  };
+  'adult-thinking'?: {
+    dominantStyle: string;
+    scores: Record<string, number>;
+  };
+  'children-thinking'?: {
+    personalityType: string;
+    scores: Record<string, number>;
   };
 }
 

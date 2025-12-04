@@ -159,11 +159,11 @@ export const AdminDiagnostic: React.FC<AdminDiagnosticProps> = ({ onClose }) => 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pass':
-        return 'bg-green-50 border-green-200';
+        return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700';
       case 'fail':
-        return 'bg-red-50 border-red-200';
+        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700';
       default:
-        return 'bg-yellow-50 border-yellow-200';
+        return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700';
     }
   };
 
@@ -200,12 +200,16 @@ export const AdminDiagnostic: React.FC<AdminDiagnosticProps> = ({ onClose }) => 
             {/* Summary */}
             <div className={`p-4 rounded-lg border-2 ${
               results.summary.status === 'healthy' 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-red-50 border-red-200'
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold">
-                  {results.summary.status === 'healthy' ? '✅ All Checks Passed' : '⚠️ Issues Detected'}
+                <h3 className={`text-lg font-semibold ${
+                  results.summary.status === 'healthy' 
+                    ? 'text-green-900 dark:text-green-200' 
+                    : 'text-red-900 dark:text-red-200'
+                }`}>
+                  {results.summary.status === 'healthy' ? '✓ System Healthy' : '✗ Issues Detected'}
                 </h3>
                 <Badge variant={results.summary.status === 'healthy' ? 'default' : 'destructive'}>
                   {results.summary.passed} / {results.summary.total} Passed

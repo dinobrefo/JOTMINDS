@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, SupervisorReviewData } from '../types';
 import { getAllUsers, getAssessmentsByUserId, saveReview, getReviewsByProfessional, getReviewsBySupervisor } from '../utils/storage';
+import { getAuthToken, getSupervisedEmployees } from '../utils/api';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { createClient } from '../utils/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -27,7 +28,9 @@ import {
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
+import { formatDate } from '../utils/dateFormat';
 import { toast } from 'sonner';
+import { MobileHeaderMenu } from './MobileHeaderMenu';
 
 interface SupervisorDashboardProps {
   user: User;
@@ -48,35 +51,14 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
 
   const loadProfessionals = async () => {
     try {
-      // Get the current Supabase session
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        console.error('[SupervisorDashboard] No active session');
-        toast.error('Session expired. Please log in again.');
-        return;
-      }
-
-      const token = session.access_token;
-      
       console.log('[SupervisorDashboard] Loading professionals and organization code...');
-      console.log('[SupervisorDashboard] Using token:', token ? token.substring(0, 30) + '...' : 'NO TOKEN');
       
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc8eb847/supervisor/employees`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      console.log('[SupervisorDashboard] Response status:', response.status);
+      // Use getSupervisedEmployees which handles auth headers correctly (including admin tokens)
+      const data = await getSupervisedEmployees(user.id);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[SupervisorDashboard] Received data:', data);
+      console.log('[SupervisorDashboard] Received data:', data);
+      
+      if (data.success) {
         setProfessionals(data.employees || []);
         setOrganizationCode(data.organizationCode || '');
         console.log('[SupervisorDashboard] Organization code:', data.organizationCode);
@@ -85,14 +67,14 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
           toast.success('Organization code loaded successfully!');
         }
       } else {
-        const errorData = await response.json();
-        console.error('[SupervisorDashboard] Error response:', errorData);
-        console.error('[SupervisorDashboard] Status:', response.status);
-        toast.error(`Failed to load team members: ${errorData.error || 'Unknown error'}`);
+        // This might happen if makeRequest doesn't throw but returns error object
+        // though makeRequest usually throws if not ok.
+        console.error('[SupervisorDashboard] Error response:', data);
+        toast.error(`Failed to load team members: ${data.error || 'Unknown error'}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[SupervisorDashboard] Error loading professionals:', error);
-      toast.error('Error loading team members');
+      toast.error(`Error loading team members: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -100,19 +82,53 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
     if (!organizationCode) return;
     
     try {
-      await navigator.clipboard.writeText(organizationCode);
-      setCopiedCode(true);
-      toast.success('Organization code copied to clipboard!');
-      setTimeout(() => setCopiedCode(false), 2000);
+      // Try modern API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(organizationCode);
+        setCopiedCode(true);
+        toast.success('Organization code copied to clipboard!');
+        setTimeout(() => setCopiedCode(false), 2000);
+      } else {
+        throw new Error('Clipboard API not available');
+      }
     } catch (error) {
-      console.error('Failed to copy code:', error);
-      toast.error('Failed to copy code');
+      console.warn('Clipboard API failed, trying fallback:', error);
+      
+      // Fallback for restricted environments
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = organizationCode;
+        
+        // Ensure it's not visible but part of DOM
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        
+        textArea.focus();
+        textArea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+          setCopiedCode(true);
+          toast.success('Organization code copied to clipboard!');
+          setTimeout(() => setCopiedCode(false), 2000);
+        } else {
+          throw new Error('Fallback copy failed');
+        }
+      } catch (fallbackError) {
+        console.error('Failed to copy code:', fallbackError);
+        toast.error('Failed to copy code. Please select and copy manually.');
+      }
     }
   };
 
   const getProfessionalStats = (professional: User) => {
-    const assessments = getAssessmentsByUserId(professional.id);
-    const reviews = getReviewsByProfessional(professional.id);
+    // Use assessments from API if available, otherwise fallback to local storage
+    const assessments = professional.assessments || getAssessmentsByUserId(professional.id);
+    const reviews = professional.reviews || getReviewsByProfessional(professional.id);
     
     const completedAssessments = assessments.filter(a => a.completedAt);
     const latestReview = reviews.sort((a, b) => 
@@ -139,11 +155,11 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
   const organizationStats = {
     totalProfessionals: professionals.length,
     assessedProfessionals: professionals.filter(p => {
-      const assessments = getAssessmentsByUserId(p.id);
+      const assessments = p.assessments || getAssessmentsByUserId(p.id);
       return assessments.some(a => a.completedAt);
     }).length,
     totalReviews: professionals.reduce((sum, p) => {
-      const reviews = getReviewsByProfessional(p.id);
+      const reviews = p.reviews || getReviewsByProfessional(p.id);
       return sum + reviews.length;
     }, 0),
     fullyAssessed: professionals.filter(p => {
@@ -153,9 +169,9 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-violet-100">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-violet-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
       {/* Header */}
-      <header className="bg-white border-b shadow-sm sticky top-0 z-10">
+      <header className="bg-white/80 backdrop-blur-sm border-b shadow-sm sticky top-0 z-10 dark:bg-gray-950/90 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -163,22 +179,32 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
                 <ShieldCheck className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                  Supervisor Portal
+                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
+                  {user.role === 'organization' ? 'Organization Portal' : 'Supervisor Portal'}
                 </h1>
-                <p className="text-sm text-muted-foreground">
-                  {user.organizationName}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    {user.organizationName}
+                  </p>
+                  {user.industrySector && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <Badge variant="outline" className="text-xs">
+                        {user.industrySector}
+                      </Badge>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-sm">{user.name}</p>
+                <p className="text-sm font-medium text-gray-900">{user.name}</p>
                 <p className="text-xs text-muted-foreground">{user.position}</p>
               </div>
-              <Button variant="outline" onClick={onLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+              <Button variant="outline" onClick={onLogout} size="sm" className="sm:size-default">
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
@@ -501,9 +527,9 @@ function ProfessionalReviewSection({
   supervisor: User;
 }) {
   const [showNewReview, setShowNewReview] = useState(false);
-  const assessments = getAssessmentsByUserId(professional.id);
+  const assessments = professional.assessments || getAssessmentsByUserId(professional.id);
   const completedAssessments = assessments.filter(a => a.completedAt);
-  const reviews = getReviewsByProfessional(professional.id);
+  const reviews = professional.reviews || getReviewsByProfessional(professional.id);
 
   if (completedAssessments.length === 0) {
     return (
@@ -584,7 +610,7 @@ function ProfessionalReviewSection({
                         <Badge variant="outline">{review.roleAlignment}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(review.reviewDate).toLocaleDateString()}
+                        {formatDate(review.reviewDate)}
                       </p>
                     </div>
                     

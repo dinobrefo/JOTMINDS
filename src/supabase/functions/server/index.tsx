@@ -4,6 +4,7 @@ import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import dailyChallengeRoutes from './daily-challenge-routes.tsx';
+import assessmentRoutes from './assessment-routes.tsx';
 
 const app = new Hono();
 
@@ -11,8 +12,9 @@ const app = new Hono();
 app.use('*', cors());
 app.use('*', logger(console.log));
 
-// Mount daily challenge routes
+// Mount routes
 app.route('/make-server-fc8eb847/daily-challenge', dailyChallengeRoutes);
+app.route('/make-server-fc8eb847', assessmentRoutes);
 
 // Create Supabase client
 const getSupabaseClient = (serviceRole = false) => {
@@ -120,7 +122,7 @@ app.post('/make-server-fc8eb847/validate-org-code', async (c) => {
 // Sign up
 app.post('/make-server-fc8eb847/signup', async (c) => {
   try {
-    const { email, password, name, role, organizationName, organizationType, position, phone, school, educationLevel, dateOfBirth, organizationCode, hasConsented, consentType, consentDate } = await c.req.json();
+    const { email, password, name, role, organizationName, organizationType, industrySector, position, phone, school, educationLevel, dateOfBirth, organizationCode, hasConsented, consentType, consentDate } = await c.req.json();
     
     if (!email || !password || !name || !role) {
       return c.json({ error: 'Missing required fields' }, 400);
@@ -139,6 +141,7 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
         code: finalOrgCode,
         name: organizationName,
         type: organizationType,
+        industrySector: industrySector || null,
         createdAt: new Date().toISOString(),
         createdBy: email
       });
@@ -160,7 +163,7 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
       email,
       password,
       email_confirm: true, // Auto-confirm email since email server isn't configured
-      user_metadata: { name, role, organizationName: finalOrgName, organizationType, position, phone, school, educationLevel, dateOfBirth, organizationCode: finalOrgCode, hasConsented, consentType, consentDate }
+      user_metadata: { name, role, organizationName: finalOrgName, organizationType, industrySector, position, phone, school, educationLevel, dateOfBirth, organizationCode: finalOrgCode, hasConsented, consentType, consentDate }
     });
 
     if (error) {
@@ -177,6 +180,7 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
       organizationName: finalOrgName,
       organizationCode: finalOrgCode,
       organizationType: organizationType || null,
+      industrySector: industrySector || null,
       position: position || null,
       phone: phone || null,
       school: school || null,
@@ -295,180 +299,8 @@ app.get('/make-server-fc8eb847/session', async (c) => {
 });
 
 // ============= ASSESSMENT ROUTES =============
-
-// Save assessment progress
-app.post('/make-server-fc8eb847/assessment/progress', async (c) => {
-  try {
-    const user = await verifyAuth(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const { assessmentType, currentQuestion, answers, completed } = await c.req.json();
-    
-    const progressKey = `progress:${user.id}:${assessmentType}`;
-    await kv.set(progressKey, {
-      userId: user.id,
-      assessmentType,
-      currentQuestion,
-      answers,
-      completed,
-      lastUpdated: new Date().toISOString()
-    });
-
-    return c.json({ success: true });
-  } catch (error) {
-    console.log(`Error saving assessment progress: ${error}`);
-    return c.json({ error: 'Failed to save progress' }, 500);
-  }
-});
-
-// Get assessment progress
-app.get('/make-server-fc8eb847/assessment/progress/:assessmentType', async (c) => {
-  try {
-    const user = await verifyAuth(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const assessmentType = c.req.param('assessmentType');
-    const progressKey = `progress:${user.id}:${assessmentType}`;
-    const progress = await kv.get(progressKey);
-
-    return c.json({ success: true, progress });
-  } catch (error) {
-    console.log(`Error fetching assessment progress: ${error}`);
-    return c.json({ error: 'Failed to fetch progress' }, 500);
-  }
-});
-
-// Submit assessment results
-app.post('/make-server-fc8eb847/assessment/submit', async (c) => {
-  try {
-    const user = await verifyAuth(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const { assessmentType, answers, results, strengths, weaknesses, recommendations } = await c.req.json();
-    
-    // Save results
-    const resultKey = `result:${user.id}:${assessmentType}`;
-    await kv.set(resultKey, {
-      id: resultKey,  // Include the ID in the stored data
-      userId: user.id,
-      assessmentType,
-      answers,
-      results,
-      strengths,
-      weaknesses,
-      recommendations,
-      completedAt: new Date().toISOString()
-    });
-
-    // Update user profile
-    const userProfile = await kv.get(`user:${user.id}`) || {};
-    const assessmentsCompleted = userProfile.assessmentsCompleted || [];
-    if (!assessmentsCompleted.includes(assessmentType)) {
-      assessmentsCompleted.push(assessmentType);
-    }
-    
-    await kv.set(`user:${user.id}`, {
-      ...userProfile,
-      assessmentsCompleted
-    });
-
-    // Clear progress
-    await kv.del(`progress:${user.id}:${assessmentType}`);
-
-    return c.json({ success: true, resultId: resultKey });
-  } catch (error) {
-    console.log(`Error submitting assessment results: ${error}`);
-    return c.json({ error: 'Failed to submit results' }, 500);
-  }
-});
-
-// Get assessment results
-app.get('/make-server-fc8eb847/assessment/results/:assessmentType', async (c) => {
-  try {
-    const user = await verifyAuth(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const assessmentType = c.req.param('assessmentType');
-    const resultKey = `result:${user.id}:${assessmentType}`;
-    console.log(`[Assessment Results] Fetching ${assessmentType} for user ${user.id}, key: ${resultKey}`);
-    
-    const results = await kv.get(resultKey);
-    console.log(`[Assessment Results] Retrieved data:`, results);
-    console.log(`[Assessment Results] Data type:`, typeof results);
-    console.log(`[Assessment Results] Is null?`, results === null);
-    console.log(`[Assessment Results] Is undefined?`, results === undefined);
-    
-    // Let's also check if there are ANY keys for this user
-    const allUserKeys = await kv.getByPrefix(`result:${user.id}:`);
-    console.log(`[Assessment Results] All keys for user ${user.id}:`, allUserKeys);
-    console.log(`[Assessment Results] Number of results found:`, allUserKeys?.length || 0);
-
-    // TEMPORARY DEBUG: Include debug info in response
-    return c.json({ 
-      success: true, 
-      results,
-      _debug: {
-        key: resultKey,
-        dataType: typeof results,
-        isNull: results === null,
-        isUndefined: results === undefined,
-        allKeysCount: allUserKeys?.length || 0,
-        allKeys: allUserKeys?.map((k: any) => k.id || k.key || JSON.stringify(k))
-      }
-    });
-  } catch (error) {
-    console.log(`Error fetching assessment results: ${error}`);
-    return c.json({ error: 'Failed to fetch results' }, 500);
-  }
-});
-
-// Get all assessment results for user
-app.get('/make-server-fc8eb847/assessment/results', async (c) => {
-  try {
-    const user = await verifyAuth(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const resultKeys = await kv.getByPrefix(`result:${user.id}:`);
-    
-    return c.json({ success: true, results: resultKeys });
-  } catch (error) {
-    console.log(`Error fetching all assessment results: ${error}`);
-    return c.json({ error: 'Failed to fetch results' }, 500);
-  }
-});
-
-// Admin: Get assessment results for any user
-app.get('/make-server-fc8eb847/admin/user/:userId/results', async (c) => {
-  try {
-    const user = await verifyAuth(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    // Verify admin access
-    if (user.id !== 'admin-001' && user.user_metadata?.role !== 'admin') {
-      return c.json({ error: 'Forbidden - Admin access required' }, 403);
-    }
-
-    const userId = c.req.param('userId');
-    const resultKeys = await kv.getByPrefix(`result:${userId}:`);
-    
-    return c.json({ success: true, results: resultKeys });
-  } catch (error) {
-    console.log(`Error fetching user assessment results: ${error}`);
-    return c.json({ error: 'Failed to fetch results' }, 500);
-  }
-});
+// NOTE: Assessment routes (progress, submit, results, questions) are now in assessment-routes.tsx
+// They are mounted at /make-server-fc8eb847 via: app.route('/make-server-fc8eb847', assessmentRoutes)
 
 // Save cognitive profile
 app.post('/make-server-fc8eb847/cognitive-profile', async (c) => {
@@ -492,6 +324,37 @@ app.post('/make-server-fc8eb847/cognitive-profile', async (c) => {
   } catch (error) {
     console.log(`Error saving cognitive profile: ${error}`);
     return c.json({ error: 'Failed to save cognitive profile' }, 500);
+  }
+});
+
+// User Profile Update - Update user profile fields
+app.patch('/make-server-fc8eb847/user/profile', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const updates = await c.req.json();
+    console.log(`Updating profile for user ${user.id}:`, updates);
+    
+    // Get current user profile
+    const userProfile = await kv.get(`user:${user.id}`) || {};
+    
+    // Update only the provided fields
+    const updatedProfile = {
+      ...userProfile,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await kv.set(`user:${user.id}`, updatedProfile);
+    console.log(`Profile updated successfully for user ${user.id}`);
+
+    return c.json({ success: true, profile: updatedProfile });
+  } catch (error) {
+    console.log(`Error updating user profile: ${error}`);
+    return c.json({ error: 'Failed to update profile' }, 500);
   }
 });
 
@@ -892,9 +755,9 @@ app.get('/make-server-fc8eb847/parent/children', async (c) => {
     const linkedChildIds = userProfile.linkedChildren || [];
     const allUsers = await kv.getByPrefix('user:');
     
-    // Filter to get only the linked children
+    // Filter to get only the linked children (case-insensitive role check)
     const children = allUsers.filter((u: any) => 
-      linkedChildIds.includes(u.id) && (u.role === 'student' || u.role === 'Student')
+      linkedChildIds.includes(u.id) && u.role?.toLowerCase() === 'student'
     );
 
     return c.json({ success: true, children });
@@ -919,6 +782,17 @@ app.post('/make-server-fc8eb847/parent/link-child', async (c) => {
       return c.json({ error: 'Forbidden - Parent access required' }, 403);
     }
 
+    // FIX #2: Check link limit (prevent abuse)
+    const linkedChildren = parentProfile.linkedChildren || [];
+    const MAX_LINKED_CHILDREN = 10;
+    
+    if (linkedChildren.length >= MAX_LINKED_CHILDREN) {
+      return c.json({ 
+        error: `You have reached the maximum limit of ${MAX_LINKED_CHILDREN} linked children. Please contact support if you need to link more.`,
+        code: 'MAX_CHILDREN_REACHED'
+      }, 400);
+    }
+
     // Find child by email
     const allUsers = await kv.getByPrefix('user:');
     const child = allUsers.find((u: any) => 
@@ -929,14 +803,60 @@ app.post('/make-server-fc8eb847/parent/link-child', async (c) => {
       return c.json({ error: 'Student not found. Please check the email address.' }, 404);
     }
 
-    if (child.role !== 'student') {
+    // FIX #1: Case-insensitive role check (fixes capitalized "Student" issue)
+    if (child.role.toLowerCase() !== 'student') {
       return c.json({ error: 'The account found is not a student account.' }, 400);
     }
-
-    const linkedChildren = parentProfile.linkedChildren || [];
     
     if (linkedChildren.includes(child.id)) {
       return c.json({ error: 'This child is already linked to your account.' }, 400);
+    }
+
+    // Get child's full profile for age-based consent
+    const childProfile = await kv.get(`user:${child.id}`);
+    const childAge = childProfile?.age;
+
+    // FIX #3: Integrate consent system (privacy compliance)
+    const consentKey = `consent:${child.id}:${user.id}`;
+    
+    if (childAge !== undefined) {
+      if (childAge <= 10) {
+        // Automatic consent for children 10 and under
+        await kv.set(consentKey, {
+          childId: child.id,
+          parentId: user.id,
+          consentGiven: true,
+          automatic: true,
+          grantedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          reason: 'Automatic consent - child is 10 years old or younger'
+        });
+        console.log(`Automatic consent granted for child (age ${childAge}): ${consentKey}`);
+      } else {
+        // Pending consent for children 11 and older
+        await kv.set(consentKey, {
+          childId: child.id,
+          parentId: user.id,
+          consentGiven: false,
+          automatic: false,
+          pendingAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          reason: 'Explicit consent required - child is 11 years or older'
+        });
+        console.log(`Pending consent created for child (age ${childAge}): ${consentKey}`);
+      }
+    } else {
+      // Age unknown - create pending consent to be safe
+      await kv.set(consentKey, {
+        childId: child.id,
+        parentId: user.id,
+        consentGiven: false,
+        automatic: false,
+        pendingAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: 'Age unknown - explicit consent required'
+      });
+      console.log(`Pending consent created (age unknown): ${consentKey}`);
     }
 
     // Update parent profile
@@ -944,13 +864,23 @@ app.post('/make-server-fc8eb847/parent/link-child', async (c) => {
       ...parentProfile,
       linkedChildren: [...linkedChildren, child.id]
     };
-
     await kv.set(`user:${user.id}`, updatedParent);
+
+    // FIX #4: Bidirectional linking - update child profile
+    const updatedChild = {
+      ...childProfile,
+      linkedParents: [...(childProfile?.linkedParents || []), user.id]
+    };
+    await kv.set(`user:${child.id}`, updatedChild);
+    console.log(`Bidirectional link created: Parent ${user.id} ↔ Child ${child.id}`);
 
     return c.json({ 
       success: true, 
-      message: `${child.name} has been successfully linked to your account!`,
-      parent: updatedParent
+      message: childAge && childAge <= 10 
+        ? `${child.name} has been successfully linked to your account!`
+        : `${child.name} has been linked. They will need to grant access in their Privacy Settings.`,
+      parent: updatedParent,
+      requiresConsent: childAge && childAge > 10
     });
   } catch (error) {
     console.log(`Error linking child to parent: ${error}`);
@@ -984,8 +914,23 @@ app.post('/make-server-fc8eb847/parent/unlink-child', async (c) => {
       ...parentProfile,
       linkedChildren: linkedChildren.filter((id: string) => id !== childId)
     };
-
     await kv.set(`user:${user.id}`, updatedParent);
+
+    // FIX: Bidirectional unlinking - update child profile
+    const childProfile = await kv.get(`user:${childId}`);
+    if (childProfile) {
+      const updatedChild = {
+        ...childProfile,
+        linkedParents: (childProfile.linkedParents || []).filter((p: string) => p !== user.id)
+      };
+      await kv.set(`user:${childId}`, updatedChild);
+      console.log(`Bidirectional unlink: Parent ${user.id} ✗ Child ${childId}`);
+    }
+
+    // FIX: Revoke consent when unlinking
+    const consentKey = `consent:${childId}:${user.id}`;
+    await kv.del(consentKey);
+    console.log(`Consent revoked on unlink: ${consentKey}`);
 
     return c.json({ 
       success: true, 
@@ -1144,6 +1089,12 @@ app.get('/make-server-fc8eb847/parent/linked-children', async (c) => {
               style,
               scores: results
             };
+          } else {
+            // For other assessment types (jhs-thinking, shs-thinking, adult-thinking, etc.)
+            // Pass the results directly under the assessment type key
+            score[assessmentType] = results;
+            // Also try to determine a primary style if possible/applicable, or just pass the raw results
+            // This ensures the frontend receives the data for these new assessment types
           }
           
           console.log('[Backend] Built score object:', score);
@@ -1177,6 +1128,116 @@ app.get('/make-server-fc8eb847/parent/linked-children', async (c) => {
   } catch (error) {
     console.log(`Error fetching linked children: ${error}`);
     return c.json({ error: 'Failed to fetch linked children' }, 500);
+  }
+});
+
+// Get students for a teacher (based on school)
+app.get('/make-server-fc8eb847/teacher/students', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const teacherProfile = await kv.get(`user:${user.id}`);
+    
+    // Allow admin to impersonate or view as teacher if needed, but primarily check for teacher role
+    if (teacherProfile?.role !== 'teacher' && teacherProfile?.role !== 'admin' && user.id !== 'admin-001') {
+      return c.json({ error: 'Forbidden - Teacher access required' }, 403);
+    }
+
+    const schoolName = teacherProfile?.school;
+    
+    if (!schoolName) {
+      return c.json({ success: true, students: [] });
+    }
+
+    console.log(`[Backend] Fetching students for teacher ${user.id} at school: ${schoolName}`);
+
+    // Get all users and filter by school and role
+    const allUsers = await kv.getByPrefix('user:');
+    
+    const students = allUsers.filter((u: any) => 
+      u.role === 'student' && 
+      u.school && 
+      u.school.toLowerCase().trim() === schoolName.toLowerCase().trim()
+    );
+
+    console.log(`[Backend] Found ${students.length} students for school ${schoolName}`);
+
+    // Helper function to determine primary style from scores
+    const determinePrimaryStyle = (scores: any, type: string) => {
+      if (type === 'kolb') {
+        const { CE = 0, RO = 0, AC = 0, AE = 0 } = scores;
+        const acCE = AC - CE;
+        const aeRO = AE - RO;
+        
+        if (acCE > 0 && aeRO > 0) return 'Converging';
+        if (acCE > 0 && aeRO < 0) return 'Assimilating';
+        if (acCE < 0 && aeRO < 0) return 'Diverging';
+        return 'Accommodating';
+      } else if (type === 'sternberg') {
+        const { analytical = 0, creative = 0, practical = 0 } = scores;
+        if (analytical >= creative && analytical >= practical) return 'Analytical';
+        if (creative >= analytical && creative >= practical) return 'Creative';
+        return 'Practical';
+      } else if (type === 'dual-process') {
+        const { system1 = 0, system2 = 0 } = scores;
+        return system1 > system2 ? 'Intuitive' : 'Reflective';
+      }
+      return 'Unknown';
+    };
+
+    // Get assessments for each student
+    const studentsWithAssessments = await Promise.all(
+      students.map(async (student: any) => {
+        // Get student's assessments (using result: prefix)
+        const allAssessments = await kv.getByPrefix(`result:${student.id}:`);
+        const completedAssessments = allAssessments.filter((a: any) => a.completedAt);
+        
+        // Transform assessments to match frontend format
+        const transformedAssessments = completedAssessments.map((assessment: any) => {
+          const assessmentType = assessment.assessmentType;
+          const results = assessment.results || {};
+          
+          // Build the score object with proper structure
+          let score: any = {};
+          
+          if (assessmentType === 'kolb') {
+            const style = determinePrimaryStyle(results, 'kolb');
+            score.kolb = { style, scores: results };
+          } else if (assessmentType === 'sternberg') {
+            const style = determinePrimaryStyle(results, 'sternberg');
+            score.sternberg = { style, scores: results };
+          } else if (assessmentType === 'dual-process') {
+            const style = determinePrimaryStyle(results, 'dual-process');
+            score.dualProcess = { style, scores: results };
+          } else {
+            score[assessmentType] = results;
+          }
+          
+          return {
+            id: assessment.id || `result:${student.id}:${assessmentType}`,
+            userId: student.id,
+            type: assessmentType,
+            completed: true,
+            completedAt: assessment.completedAt,
+            responses: assessment.answers || [],
+            score: score
+          };
+        });
+        
+        return {
+          ...student,
+          assessments: transformedAssessments
+        };
+      })
+    );
+
+    return c.json({ success: true, students: studentsWithAssessments });
+  } catch (error) {
+    console.log(`Error fetching teacher students: ${error}`);
+    return c.json({ error: 'Failed to fetch students' }, 500);
   }
 });
 
@@ -1244,12 +1305,70 @@ app.post('/make-server-fc8eb847/access-request/create', async (c) => {
       }, 400);
     }
 
+    // Check child's age - auto-approve for children 10 or younger
+    let isUnderage = false;
+    let childAge = null;
+    
+    if (child.dateOfBirth) {
+      const birthDate = new Date(child.dateOfBirth);
+      const today = new Date();
+      childAge = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        childAge--;
+      }
+      
+      // Auto-approve for children 10 or younger
+      isUnderage = childAge <= 10;
+    } else if (child.age !== undefined && child.age !== null) {
+      // Fallback to age field if dateOfBirth is not available
+      childAge = Number(child.age);
+      isUnderage = childAge <= 10;
+    }
+
     // Check if request already exists
     const existingRequests = await kv.getByPrefix(`access_request:${user.id}:${child.id}:`);
     const pendingRequest = existingRequests.find((req: any) => req.status === 'pending');
     
+    // If there is a pending request:
+    // 1. If child is NOT underage, return error (must wait for approval)
+    // 2. If child IS underage, auto-approve the existing request immediately
     if (pendingRequest) {
-      return c.json({ error: 'You already have a pending access request for this student.' }, 400);
+      if (!isUnderage) {
+        return c.json({ error: 'You already have a pending access request for this student.' }, 400);
+      }
+      
+      // Upgrade pending request to approved because child is underage
+      const updatedRequest = {
+        ...pendingRequest,
+        status: 'approved',
+        respondedAt: new Date().toISOString(),
+        note: 'Auto-approved: Child is 10 years old or younger (upgraded from pending)'
+      };
+      
+      await kv.set(pendingRequest.id, updatedRequest);
+      
+      // Link child to parent
+      const updatedParent = {
+        ...parentProfile,
+        linkedChildren: [...(parentProfile.linkedChildren || []), child.id]
+      };
+      await kv.set(`user:${user.id}`, updatedParent);
+      
+      // Update child's parent reference
+      const updatedChild = {
+        ...child,
+        parentId: user.id
+      };
+      await kv.set(`user:${child.id}`, updatedChild);
+      
+      return c.json({ 
+        success: true, 
+        message: `✅ Access automatically granted! ${child.name} is 10 years old or younger, so your pending request has been automatically approved.`,
+        request: updatedRequest,
+        autoApproved: true
+      });
     }
 
     // Create access request
@@ -1262,11 +1381,36 @@ app.post('/make-server-fc8eb847/access-request/create', async (c) => {
       childId: child.id,
       childName: child.name,
       childEmail: child.email,
-      status: 'pending',
-      requestedAt: new Date().toISOString()
+      status: isUnderage ? 'approved' : 'pending',
+      requestedAt: new Date().toISOString(),
+      respondedAt: isUnderage ? new Date().toISOString() : undefined,
+      note: isUnderage ? 'Auto-approved: Child is 10 years old or younger' : undefined
     };
 
     await kv.set(requestId, accessRequest);
+
+    // If auto-approved, link the child to parent immediately
+    if (isUnderage) {
+      const updatedParent = {
+        ...parentProfile,
+        linkedChildren: [...(parentProfile.linkedChildren || []), child.id]
+      };
+      await kv.set(`user:${user.id}`, updatedParent);
+      
+      // Update child's parent reference
+      const updatedChild = {
+        ...child,
+        parentId: user.id
+      };
+      await kv.set(`user:${child.id}`, updatedChild);
+
+      return c.json({ 
+        success: true, 
+        message: `✅ Access automatically granted! ${child.name} is 10 years old or younger, so parental access has been automatically approved. You can now view their assessments.`,
+        request: accessRequest,
+        autoApproved: true
+      });
+    }
 
     return c.json({ 
       success: true, 
@@ -1506,9 +1650,28 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
 
     console.log('[supervisor/employees] ✓ User authenticated:', user.id);
 
-    const userProfile = await kv.get(`user:${user.id}`);
-    console.log('[supervisor/employees] User profile:', userProfile ? 'Found' : 'NOT FOUND');
-    console.log('[supervisor/employees] User profile role:', userProfile?.role);
+    // Check if user is Admin impersonating a supervisor
+    const targetSupervisorId = c.req.query('supervisorId');
+    let supervisorId = user.id;
+
+    if (targetSupervisorId) {
+      // If target matches authenticated user, allow it (redundant but safe)
+      if (targetSupervisorId === user.id) {
+        supervisorId = user.id;
+      }
+      // Only allow admin to specify a DIFFERENT supervisor ID
+      else if (user.id === 'admin-001' || user.user_metadata?.role === 'admin') {
+        console.log('[supervisor/employees] Admin requesting data for supervisor:', targetSupervisorId);
+        supervisorId = targetSupervisorId;
+      } else {
+        console.log('[supervisor/employees] ✗ Non-admin tried to request data for another supervisor');
+        return c.json({ error: 'Forbidden - Admin access required to view other supervisors' }, 403);
+      }
+    }
+
+    const userProfile = await kv.get(`user:${supervisorId}`);
+    console.log('[supervisor/employees] Supervisor profile:', userProfile ? 'Found' : 'NOT FOUND');
+    console.log('[supervisor/employees] Supervisor profile role:', userProfile?.role);
     
     if (!userProfile) {
       console.log('[supervisor/employees] ✗ User profile not found in KV store');
@@ -1527,7 +1690,7 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
     
     // MIGRATION FIX: If supervisor doesn't have an org code, generate one now
     if (!orgCode) {
-      console.log(`[Migration] Supervisor ${user.id} has no organization code, generating one...`);
+      console.log(`[Migration] Supervisor ${supervisorId} has no organization code, generating one...`);
       orgCode = generateOrgCode();
       
       // Store organization
@@ -1544,9 +1707,9 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
         ...userProfile,
         organizationCode: orgCode
       };
-      await kv.set(`user:${user.id}`, updatedProfile);
+      await kv.set(`user:${supervisorId}`, updatedProfile);
       
-      console.log(`[Migration] Generated organization code ${orgCode} for supervisor ${user.id}`);
+      console.log(`[Migration] Generated organization code ${orgCode} for supervisor ${supervisorId}`);
     }
 
     console.log('[supervisor/employees] Fetching all users...');
@@ -1557,7 +1720,7 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
     const employees = allUsers.filter((u: any) => {
       const matches = u.organizationCode === orgCode && 
         (u.role === 'Professional/Organization' || u.role === 'professional') && 
-        u.id !== user.id;
+        u.id !== supervisorId;
       
       if (u.organizationCode === orgCode) {
         console.log(`[supervisor/employees] User ${u.email} - orgCode match: ${u.organizationCode}, role: ${u.role}, matches: ${matches}`);
@@ -1567,7 +1730,34 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
     });
 
     console.log('[supervisor/employees] ✓ Found', employees.length, 'employees for org code:', orgCode);
-    return c.json({ success: true, employees, organizationCode: orgCode });
+    
+    // Fetch assessments AND reviews for each employee
+    const employeesWithAssessments = await Promise.all(employees.map(async (emp: any) => {
+      const assessments = await kv.getByPrefix(`result:${emp.id}:`);
+      const completedAssessments = assessments.filter((a: any) => a.completedAt);
+      
+      // Fetch reviews
+      const reviews = await kv.getByPrefix(`review:${emp.id}:`);
+      
+      return {
+        ...emp,
+        reviews: reviews || [],
+        assessments: completedAssessments.map((a: any) => ({
+            id: a.id || `result:${emp.id}:${a.assessmentType}`,
+            userId: emp.id,
+            type: a.assessmentType,
+            responses: a.answers || a.responses || [],
+            score: {
+                kolb: a.assessmentType === 'kolb' ? { style: 'Unknown', scores: a.results } : undefined,
+                sternberg: a.assessmentType === 'sternberg' ? { style: 'Unknown', scores: a.results } : undefined,
+                dualProcess: a.assessmentType === 'dual-process' ? { style: 'Unknown', scores: a.results } : undefined,
+            },
+            completedAt: a.completedAt
+        }))
+      };
+    }));
+
+    return c.json({ success: true, employees: employeesWithAssessments, organizationCode: orgCode });
   } catch (error) {
     console.log(`Error fetching supervised employees: ${error}`);
     return c.json({ error: 'Failed to fetch employees' }, 500);
@@ -1953,6 +2143,321 @@ app.post('/make-server-fc8eb847/save-mood', async (c) => {
       error: 'Failed to save mood', 
       details: error instanceof Error ? error.message : String(error) 
     }, 500);
+  }
+});
+
+// ============= PARENT OBSERVATION ROUTES =============
+
+// Save parent observation (cross-device sync)
+app.post('/make-server-fc8eb847/observation', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const observation = await c.req.json();
+    
+    // Validate required fields
+    if (!observation.childId || !observation.thinking || !observation.playing || !observation.learning) {
+      return c.json({ error: 'Missing required observation fields' }, 400);
+    }
+
+    const observationId = observation.id || `obs-${user.id}-${Date.now()}`;
+    const obsKey = `observation:${observationId}`;
+    
+    const observationData = {
+      ...observation,
+      id: observationId,
+      parentId: user.id,
+      createdAt: observation.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await kv.set(obsKey, observationData);
+    
+    console.log(`Parent observation saved: ${obsKey}`);
+    return c.json({ success: true, observation: observationData });
+  } catch (error) {
+    console.error('Error saving parent observation:', error);
+    return c.json({ error: 'Failed to save observation' }, 500);
+  }
+});
+
+// Get observations by parent
+app.get('/make-server-fc8eb847/observation/parent/:parentId', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const parentId = c.req.param('parentId');
+    
+    // Security: Only allow users to access their own observations or admin access
+    if (user.id !== parentId && user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    const allObservations = await kv.getByPrefix('observation:');
+    const parentObservations = allObservations.filter((obs: any) => obs.parentId === parentId);
+    
+    // Sort by creation date descending
+    const sortedObservations = parentObservations.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return c.json({ success: true, observations: sortedObservations });
+  } catch (error) {
+    console.error('Error fetching parent observations:', error);
+    return c.json({ error: 'Failed to fetch observations' }, 500);
+  }
+});
+
+// Get observations by child
+app.get('/make-server-fc8eb847/observation/child/:childId', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const childId = c.req.param('childId');
+    
+    const allObservations = await kv.getByPrefix('observation:');
+    const childObservations = allObservations.filter((obs: any) => obs.childId === childId);
+    
+    // Sort by creation date descending
+    const sortedObservations = childObservations.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return c.json({ success: true, observations: sortedObservations });
+  } catch (error) {
+    console.error('Error fetching child observations:', error);
+    return c.json({ error: 'Failed to fetch observations' }, 500);
+  }
+});
+
+// ============= SHARING CONSENT ROUTES =============
+
+// Save/update sharing consent (cross-device sync)
+app.post('/make-server-fc8eb847/consent', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const consent = await c.req.json();
+    
+    // Validate required fields
+    if (!consent.childId || !consent.parentId || typeof consent.consentGiven !== 'boolean') {
+      return c.json({ error: 'Missing required consent fields' }, 400);
+    }
+
+    // Security: Only the child can grant/revoke consent for themselves
+    if (user.id !== consent.childId && user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden - Only the child can manage consent' }, 403);
+    }
+
+    const consentKey = `consent:${consent.childId}:${consent.parentId}`;
+    
+    const consentData = {
+      childId: consent.childId,
+      parentId: consent.parentId,
+      consentGiven: consent.consentGiven,
+      grantedAt: consent.consentGiven ? new Date().toISOString() : null,
+      revokedAt: !consent.consentGiven ? new Date().toISOString() : null,
+      updatedAt: new Date().toISOString()
+    };
+
+    await kv.set(consentKey, consentData);
+    
+    console.log(`Sharing consent ${consent.consentGiven ? 'granted' : 'revoked'}: ${consentKey}`);
+    return c.json({ success: true, consent: consentData });
+  } catch (error) {
+    console.error('Error saving consent:', error);
+    return c.json({ error: 'Failed to save consent' }, 500);
+  }
+});
+
+// Get consent status
+app.get('/make-server-fc8eb847/consent/:childId/:parentId', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const childId = c.req.param('childId');
+    const parentId = c.req.param('parentId');
+    
+    const consentKey = `consent:${childId}:${parentId}`;
+    const consent = await kv.get(consentKey);
+
+    // If no explicit consent record, check child's age
+    if (!consent) {
+      // Get child's age to determine automatic access
+      const childProfile = await kv.get(`user:${childId}`);
+      
+      if (childProfile) {
+        const age = childProfile.age;
+        
+        // Children 10 and under - automatic access
+        if (age !== undefined && age <= 10) {
+          return c.json({ 
+            success: true, 
+            consent: {
+              childId,
+              parentId,
+              consentGiven: true,
+              automatic: true,
+              reason: 'Child is 10 years old or younger'
+            }
+          });
+        }
+      }
+      
+      // Children 11+ with no explicit consent - access denied
+      return c.json({ 
+        success: true, 
+        consent: {
+          childId,
+          parentId,
+          consentGiven: false,
+          automatic: false,
+          reason: 'No consent record found for child 11 years or older'
+        }
+      });
+    }
+
+    return c.json({ success: true, consent });
+  } catch (error) {
+    console.error('Error fetching consent:', error);
+    return c.json({ error: 'Failed to fetch consent' }, 500);
+  }
+});
+
+// Get all consents for a child
+app.get('/make-server-fc8eb847/consent/child/:childId', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const childId = c.req.param('childId');
+    
+    // Security: Only the child or admin can view their consents
+    if (user.id !== childId && user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    const allConsents = await kv.getByPrefix(`consent:${childId}:`);
+
+    return c.json({ success: true, consents: allConsents });
+  } catch (error) {
+    console.error('Error fetching child consents:', error);
+    return c.json({ error: 'Failed to fetch consents' }, 500);
+  }
+});
+
+// ============= SUPERVISOR REVIEW ROUTES =============
+
+// Submit supervisor review (cross-device sync)
+app.post('/make-server-fc8eb847/review', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const review = await c.req.json();
+    
+    // Validate required fields
+    if (!review.professionalId || !review.ratings || !review.comments) {
+      return c.json({ error: 'Missing required review fields' }, 400);
+    }
+
+    const reviewId = review.id || `review-${user.id}-${Date.now()}`;
+    const reviewKey = `review:${reviewId}`;
+    
+    const reviewData = {
+      ...review,
+      id: reviewId,
+      supervisorId: user.id,
+      createdAt: review.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await kv.set(reviewKey, reviewData);
+    
+    console.log(`Supervisor review saved: ${reviewKey}`);
+    return c.json({ success: true, review: reviewData });
+  } catch (error) {
+    console.error('Error saving supervisor review:', error);
+    return c.json({ error: 'Failed to save review' }, 500);
+  }
+});
+
+// Get reviews for a professional
+app.get('/make-server-fc8eb847/review/professional/:professionalId', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const professionalId = c.req.param('professionalId');
+    
+    // Security: Only the professional themselves or admin can view reviews
+    if (user.id !== professionalId && user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    const allReviews = await kv.getByPrefix('review:');
+    const professionalReviews = allReviews.filter((rev: any) => rev.professionalId === professionalId);
+    
+    // Sort by creation date descending
+    const sortedReviews = professionalReviews.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return c.json({ success: true, reviews: sortedReviews });
+  } catch (error) {
+    console.error('Error fetching professional reviews:', error);
+    return c.json({ error: 'Failed to fetch reviews' }, 500);
+  }
+});
+
+// Get reviews by supervisor
+app.get('/make-server-fc8eb847/review/supervisor/:supervisorId', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const supervisorId = c.req.param('supervisorId');
+    
+    // Security: Only the supervisor themselves or admin can view their submitted reviews
+    if (user.id !== supervisorId && user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    const allReviews = await kv.getByPrefix('review:');
+    const supervisorReviews = allReviews.filter((rev: any) => rev.supervisorId === supervisorId);
+    
+    // Sort by creation date descending
+    const sortedReviews = supervisorReviews.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return c.json({ success: true, reviews: sortedReviews });
+  } catch (error) {
+    console.error('Error fetching supervisor reviews:', error);
+    return c.json({ error: 'Failed to fetch reviews' }, 500);
   }
 });
 
