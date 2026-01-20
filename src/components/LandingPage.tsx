@@ -10,13 +10,12 @@ import { motion } from 'motion/react';
 interface LandingPageProps {
   onGetStarted: () => void;
   onSupervisorPortal?: () => void;
-  onKidsDemo?: () => void;
   onViewPrivacyPolicy?: () => void;
   onViewTermsOfUse?: () => void;
   onViewContact?: () => void;
 }
 
-export function LandingPage({ onGetStarted, onSupervisorPortal, onKidsDemo, onViewPrivacyPolicy, onViewTermsOfUse, onViewContact }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPolicy, onViewTermsOfUse, onViewContact }: LandingPageProps) {
   const [showStickyHeader, setShowStickyHeader] = useState(false);
 
   useEffect(() => {
@@ -216,19 +215,6 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onKidsDemo, onVi
               element?.scrollIntoView({ behavior: 'smooth' });
             }}>
               Learn More
-            </Button>
-            <Button 
-              size="lg" 
-              onClick={() => {
-                if (onKidsDemo) {
-                  onKidsDemo();
-                } else {
-                  console.log('Kids Mode Demo clicked but no handler provided');
-                }
-              }}
-              className="group text-lg px-8 h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-            >
-              🎨 Kids Mode Demo
             </Button>
           </div>
         </div>

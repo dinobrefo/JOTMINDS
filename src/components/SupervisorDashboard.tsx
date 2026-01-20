@@ -10,7 +10,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
-import { SupervisorReview } from './SupervisorReview';
+import { SchoolInsights } from './SchoolInsights';
 import { 
   Building2, 
   LogOut, 
@@ -24,7 +24,10 @@ import {
   BarChart3,
   ShieldCheck,
   Copy,
-  Check
+  Check,
+  School,
+  GraduationCap,
+  PieChart
 } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
@@ -44,6 +47,13 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
   const [activeTab, setActiveTab] = useState('overview');
   const [organizationCode, setOrganizationCode] = useState<string>('');
   const [copiedCode, setCopiedCode] = useState(false);
+
+  const isSchool = user.organizationType === 'Educational Institution' || 
+                   user.industrySector === 'Educational Institutions';
+
+  const dashboardTitle = isSchool ? 'School Dashboard' : (user.role === 'organization' ? 'Organization Portal' : 'Supervisor Portal');
+  const professionalTerm = isSchool ? 'Teacher' : 'Professional';
+  const professionalsTerm = isSchool ? 'Teachers' : 'Professionals';
 
   useEffect(() => {
     loadProfessionals();
@@ -176,11 +186,11 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-                <ShieldCheck className="h-6 w-6 text-white" />
+                {isSchool ? <School className="h-6 w-6 text-white" /> : <ShieldCheck className="h-6 w-6 text-white" />}
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
-                  {user.role === 'organization' ? 'Organization Portal' : 'Supervisor Portal'}
+                  {dashboardTitle}
                 </h1>
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">
@@ -219,8 +229,12 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
               Overview
             </TabsTrigger>
             <TabsTrigger value="professionals">
-              <Users className="h-4 w-4 mr-2" />
-              Professionals
+              {isSchool ? <GraduationCap className="h-4 w-4 mr-2" /> : <Users className="h-4 w-4 mr-2" />}
+              {professionalsTerm}
+            </TabsTrigger>
+            <TabsTrigger value="insights">
+              <PieChart className="h-4 w-4 mr-2" />
+              Insights
             </TabsTrigger>
           </TabsList>
 
@@ -278,7 +292,7 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
                 <CardHeader className="pb-3">
                   <CardDescription className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    Total Professionals
+                    Total {professionalsTerm}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -336,17 +350,17 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-purple-600" />
-                  Welcome to Your Organization Dashboard
+                  Welcome to Your {isSchool ? 'School' : 'Organization'} Dashboard
                 </CardTitle>
                 <CardDescription>
-                  Review and manage cognitive assessments for professionals in {user.organizationName}
+                  Review and manage cognitive assessments for {professionalsTerm.toLowerCase()} in {user.organizationName}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 text-sm text-muted-foreground">
                   <p className="flex items-start gap-2">
                     <span>•</span>
-                    <span>View all professionals from your organization who have completed assessments</span>
+                    <span>View all {professionalsTerm.toLowerCase()} from your {isSchool ? 'school' : 'organization'} who have completed assessments</span>
                   </p>
                   <p className="flex items-start gap-2">
                     <span>•</span>
@@ -369,7 +383,7 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
               <Card>
                 <CardHeader>
                   <CardTitle>Quick Access</CardTitle>
-                  <CardDescription>Recently active professionals</CardDescription>
+                  <CardDescription>Recently active {professionalsTerm.toLowerCase()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -413,7 +427,7 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
               <Alert>
                 <Users className="h-4 w-4" />
                 <AlertDescription>
-                  No professionals from {user.organizationName} have registered yet. 
+                  No {professionalsTerm.toLowerCase()} from {user.organizationName} have registered yet. 
                   Invite your team members to complete their cognitive assessments.
                 </AlertDescription>
               </Alert>
@@ -431,7 +445,7 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
-                            placeholder="Search professionals..."
+                            placeholder={`Search ${professionalsTerm.toLowerCase()}...`}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-9"
@@ -499,18 +513,27 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
                     <ProfessionalReviewSection
                       professional={selectedProfessional}
                       supervisor={user}
+                      term={professionalTerm}
                     />
                   ) : (
                     <Card className="h-full flex items-center justify-center p-12">
                       <div className="text-center text-muted-foreground">
                         <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Select a professional to view their assessments and add reviews</p>
+                        <p>Select a {professionalTerm.toLowerCase()} to view their assessments and add reviews</p>
                       </div>
                     </Card>
                   )}
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          {/* Insights Tab */}
+          <TabsContent value="insights" className="space-y-6">
+            <SchoolInsights 
+              professionals={professionals} 
+              organizationName={user.organizationName || 'your organization'} 
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -521,10 +544,12 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
 // Separate component for professional review section
 function ProfessionalReviewSection({ 
   professional, 
-  supervisor 
+  supervisor,
+  term = 'Employee'
 }: { 
   professional: User; 
   supervisor: User;
+  term?: string;
 }) {
   const [showNewReview, setShowNewReview] = useState(false);
   const assessments = professional.assessments || getAssessmentsByUserId(professional.id);
@@ -586,6 +611,7 @@ function ProfessionalReviewSection({
           supervisorId={supervisor.id}
           professionalId={professional.id}
           onReviewSubmitted={() => setShowNewReview(false)}
+          subjectTerm={term}
         />
       )}
 

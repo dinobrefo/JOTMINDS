@@ -1,4 +1,9 @@
 import { projectId, publicAnonKey } from './supabase/info';
+import { 
+  generateDetailedStrengths, 
+  generateDetailedWeaknesses, 
+  generateDetailedRecommendations 
+} from './assessmentInsights';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc8eb847`;
 
@@ -34,13 +39,38 @@ const getFrameworkName = (type: string): string => {
  * Fetch versioned assessment questions from backend
  * @param framework - 'kolb', 'sternberg', or 'dual-process'
  * @param version - 'v1', 'v2', 'v3', etc.
+ * @param options - Additional options for fetching questions
  */
 export const fetchAssessmentQuestions = async (
   framework: string,
-  version: string = 'v1'
+  version: string = 'v1',
+  options: {
+    randomize?: boolean;
+    seed?: string;
+    userId?: string;
+  } = {}
 ): Promise<any> => {
   try {
-    const response = await fetch(`${BASE_URL}/assessment/${framework}/${version}`, {
+    // Build query parameters
+    const params = new URLSearchParams();
+    
+    // Enable randomization by default for better user experience
+    const randomize = options.randomize !== undefined ? options.randomize : true;
+    if (randomize) {
+      params.append('randomize', 'true');
+      
+      // Use provided seed, or userId if available
+      if (options.seed) {
+        params.append('seed', options.seed);
+      } else if (options.userId) {
+        params.append('userId', options.userId);
+      }
+    }
+    
+    const queryString = params.toString();
+    const url = `${BASE_URL}/assessment/${framework}/${version}${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -54,7 +84,11 @@ export const fetchAssessmentQuestions = async (
     }
 
     const data = await response.json();
-    console.log(`[AssessmentAPI] Fetched ${framework} ${version} questions:`, data);
+    console.log(`[AssessmentAPI] Fetched ${framework} ${version} questions:`, {
+      questionCount: data.questionCount,
+      randomized: data.randomized,
+      seed: data.seed
+    });
     
     return data;
   } catch (error) {
@@ -167,17 +201,36 @@ export const autoSaveProgress = async (
  * @param type - 'learning', 'thinking', or 'decision'
  * @param answers - All answers from the assessment
  * @param version - Version of questions used
+ * @param userProfile - User profile data for personalization
  */
 export const submitAssessmentWithServerScoring = async (
   type: string,
   answers: any[],
-  version: string = 'v1'
+  version: string = 'v1',
+  userProfile?: any
 ): Promise<any> => {
   try {
     const framework = getFrameworkName(type);
     
     // Calculate scores on server
     const scoringResult = await calculateScoresOnServer(framework, answers, version);
+    
+    console.log(`[AssessmentAPI] Generating personalized insights for ${framework}:`, {
+      results: scoringResult.results,
+      userContext: {
+        age: userProfile?.age,
+        role: userProfile?.role,
+        educationLevel: userProfile?.educationLevel,
+        position: userProfile?.position
+      }
+    });
+    
+    // Generate truly personalized insights using user profile
+    const strengths = generateDetailedStrengths(scoringResult.results, framework, userProfile);
+    const weaknesses = generateDetailedWeaknesses(scoringResult.results, framework, userProfile);
+    const recommendations = generateDetailedRecommendations(scoringResult.results, framework, userProfile);
+    
+    console.log(`[AssessmentAPI] Generated ${strengths.length} strengths, ${weaknesses.length} weaknesses, ${recommendations.length} recommendations`);
     
     // Submit assessment results
     const response = await fetch(`${BASE_URL}/assessment/submit`, {
@@ -192,9 +245,9 @@ export const submitAssessmentWithServerScoring = async (
         results: scoringResult.results,
         version,
         scoredAt: scoringResult.calculatedAt,
-        strengths: generateStrengthsFromResults(scoringResult.results),
-        weaknesses: generateWeaknessesFromResults(scoringResult.results),
-        recommendations: generateRecommendationsFromResults(scoringResult.results)
+        strengths,
+        weaknesses,
+        recommendations
       })
     });
 
@@ -214,44 +267,4 @@ export const submitAssessmentWithServerScoring = async (
     console.error('[AssessmentAPI] Error submitting assessment:', error);
     throw error;
   }
-};
-
-// Helper functions to generate insights from results
-const generateStrengthsFromResults = (results: any): string[] => {
-  const strengths: string[] = [];
-  const { dominantStyle, percentages } = results;
-  
-  strengths.push(`Your dominant style is ${dominantStyle} (${percentages[dominantStyle]}%)`);
-  
-  // Add style-specific strengths
-  if (percentages[dominantStyle] > 60) {
-    strengths.push(`You show strong preference for ${dominantStyle.toLowerCase()} approaches`);
-  }
-  
-  return strengths;
-};
-
-const generateWeaknessesFromResults = (results: any): string[] => {
-  const weaknesses: string[] = [];
-  const { percentages } = results;
-  
-  // Find styles with low percentages
-  Object.entries(percentages).forEach(([style, percentage]) => {
-    if ((percentage as number) < 20) {
-      weaknesses.push(`Consider developing more ${style.toLowerCase()} skills`);
-    }
-  });
-  
-  return weaknesses;
-};
-
-const generateRecommendationsFromResults = (results: any): string[] => {
-  const recommendations: string[] = [];
-  const { dominantStyle } = results;
-  
-  recommendations.push(`Leverage your ${dominantStyle} style in learning and problem-solving`);
-  recommendations.push('Try to balance your approaches by exploring other styles');
-  recommendations.push('Reflect on situations where different styles might be more effective');
-  
-  return recommendations;
 };

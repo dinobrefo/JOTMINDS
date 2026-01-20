@@ -180,6 +180,9 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
               <Award className="inline-block mr-2 h-8 w-8" />
               Section Complete!
             </DialogTitle>
+            <DialogDescription className="text-center">
+              Review your progress before continuing
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="text-center">

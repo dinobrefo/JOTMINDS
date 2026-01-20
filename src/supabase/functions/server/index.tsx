@@ -1731,6 +1731,31 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
 
     console.log('[supervisor/employees] ✓ Found', employees.length, 'employees for org code:', orgCode);
     
+    // Helper function to determine primary style from scores
+    const determinePrimaryStyle = (scores: any, type: string) => {
+      if (type === 'kolb') {
+        const { CE = 0, RO = 0, AC = 0, AE = 0 } = scores;
+        const acCE = AC - CE;
+        const aeRO = AE - RO;
+        
+        if (acCE > 0 && aeRO > 0) return 'Converging';
+        if (acCE > 0 && aeRO < 0) return 'Assimilating';
+        if (acCE < 0 && aeRO < 0) return 'Diverging';
+        return 'Accommodating';
+      } else if (type === 'sternberg') {
+        const { analytical = 0, creative = 0, practical = 0 } = scores;
+        if (analytical >= creative && analytical >= practical) return 'Analytical';
+        if (creative >= analytical && creative >= practical) return 'Creative';
+        return 'Practical';
+      } else if (type === 'dual-process') {
+        const { system1 = 0, system2 = 0 } = scores;
+        const diff = Math.abs(system1 - system2);
+        if (diff < 5) return 'Balanced';
+        return system1 > system2 ? 'Intuitive' : 'Reflective';
+      }
+      return 'Unknown';
+    };
+    
     // Fetch assessments AND reviews for each employee
     const employeesWithAssessments = await Promise.all(employees.map(async (emp: any) => {
       const assessments = await kv.getByPrefix(`result:${emp.id}:`);
@@ -1742,18 +1767,36 @@ app.get('/make-server-fc8eb847/supervisor/employees', async (c) => {
       return {
         ...emp,
         reviews: reviews || [],
-        assessments: completedAssessments.map((a: any) => ({
-            id: a.id || `result:${emp.id}:${a.assessmentType}`,
+        assessments: completedAssessments.map((a: any) => {
+          const assessmentType = a.assessmentType;
+          const results = a.results || {};
+          
+          // Build the score object with proper structure
+          let score: any = {};
+          
+          if (assessmentType === 'kolb') {
+            const style = determinePrimaryStyle(results, 'kolb');
+            score.kolb = { style, scores: results };
+          } else if (assessmentType === 'sternberg') {
+            const style = determinePrimaryStyle(results, 'sternberg');
+            score.sternberg = { style, scores: results };
+          } else if (assessmentType === 'dual-process') {
+            const style = determinePrimaryStyle(results, 'dual-process');
+            score.dualProcess = { style, scores: results };
+          } else {
+            // For other assessment types, pass results directly
+            score[assessmentType] = results;
+          }
+          
+          return {
+            id: a.id || `result:${emp.id}:${assessmentType}`,
             userId: emp.id,
-            type: a.assessmentType,
+            type: assessmentType,
             responses: a.answers || a.responses || [],
-            score: {
-                kolb: a.assessmentType === 'kolb' ? { style: 'Unknown', scores: a.results } : undefined,
-                sternberg: a.assessmentType === 'sternberg' ? { style: 'Unknown', scores: a.results } : undefined,
-                dualProcess: a.assessmentType === 'dual-process' ? { style: 'Unknown', scores: a.results } : undefined,
-            },
+            score: score,
             completedAt: a.completedAt
-        }))
+          };
+        })
       };
     }));
 
@@ -1824,17 +1867,33 @@ app.get('/make-server-fc8eb847/organization/members', async (c) => {
     }
 
     const userProfile = await kv.get(`user:${user.id}`);
-    if (userProfile?.role !== 'Professional/Organization') {
+    // Check for normalized role names (session normalization converts all to lowercase)
+    if (userProfile?.role !== 'professional' && userProfile?.role !== 'organization') {
       return c.json({ error: 'Forbidden - Organization access required' }, 403);
     }
 
+    // Use organizationCode for linking (more reliable than organizationName)
+    const orgCode = userProfile.organizationCode;
     const orgName = userProfile.organizationName;
+    
+    if (!orgCode && !orgName) {
+      return c.json({ success: true, members: [] });
+    }
+    
     const allUsers = await kv.getByPrefix('user:');
     
-    // Filter users by organization name
-    const members = allUsers.filter((u: any) => 
-      u.organizationName === orgName && u.id !== user.id
-    );
+    // Filter users by organization code (preferred) or name (fallback)
+    const members = allUsers.filter((u: any) => {
+      if (u.id === user.id) return false; // Exclude self
+      
+      // Prefer organizationCode matching
+      if (orgCode && u.organizationCode === orgCode) return true;
+      
+      // Fallback to organizationName matching
+      if (orgName && u.organizationName === orgName) return true;
+      
+      return false;
+    });
 
     return c.json({ success: true, members });
   } catch (error) {

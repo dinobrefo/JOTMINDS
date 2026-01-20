@@ -42,7 +42,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Load questions from backend
+  // Load questions from backend - will re-run on every mount due to key prop in App.tsx
   useEffect(() => {
     if (!user) return;
 
@@ -54,10 +54,30 @@ export const Assessment: React.FC<AssessmentProps> = ({
           type === 'thinking' ? 'sternberg' :
           'dual-process';
         
-        const data = await fetchAssessmentQuestions(framework, 'v1');
+        // Fetch questions with randomization enabled and user-specific seed
+        const data = await fetchAssessmentQuestions(framework, 'v1', {
+          randomize: true,
+          userId: user.id
+        });
+        
         setQuestions(data.questions);
         setQuestionVersion(data.version);
-        console.log(`[Assessment] Loaded ${data.questions.length} questions for ${framework}`);
+        
+        // Verify question distribution (debugging)
+        const styleDistribution: Record<string, number> = {};
+        data.questions.forEach((q: any) => {
+          styleDistribution[q.style] = (styleDistribution[q.style] || 0) + 1;
+        });
+        
+        console.log(`[Assessment] ✅ NEW ASSESSMENT SESSION - Loaded ${data.questions.length} questions for ${framework}`, {
+          randomized: data.randomized,
+          seed: data.seed,
+          timestamp: new Date().toISOString(),
+          firstQuestionId: data.questions[0]?.id,
+          lastQuestionId: data.questions[data.questions.length - 1]?.id,
+          first5Questions: data.questions.slice(0, 5).map((q: any) => q.id),
+          styleDistribution // Show how many questions of each style
+        });
       } catch (error) {
         console.error('[Assessment] Failed to load questions:', error);
         // Fallback to local questions if backend fails
@@ -133,7 +153,8 @@ export const Assessment: React.FC<AssessmentProps> = ({
       questionId: currentQuestion.id,
       question: currentQuestion.question,
       selectedOption: selectedOptionData.text,
-      selectedStyle: selectedOptionData.style
+      selectedValue: selectedOptionData.value, // Likert scale value (1-5)
+      selectedStyle: currentQuestion.style // Style is on the question, not the option
     };
 
     console.log('[Assessment] New answers array:', newAnswers);
@@ -187,10 +208,22 @@ export const Assessment: React.FC<AssessmentProps> = ({
     setIsSaving(true);
 
     try {
+      // Pass user profile for personalized insights
+      const userProfile = {
+        age: user.age,
+        role: user.role,
+        educationLevel: user.user_metadata?.educationLevel || user.educationLevel,
+        school: user.user_metadata?.school || user.school,
+        position: user.user_metadata?.position || user.position,
+        industrySector: user.user_metadata?.industrySector || user.industrySector,
+        name: user.name
+      };
+      
       const results = await submitAssessmentWithServerScoring(
         type,
         answers,
-        questionVersion
+        questionVersion,
+        userProfile
       );
 
       // Wait for confetti to finish before completing
@@ -435,7 +468,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
 
           <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: '#F0F9FF', borderLeft: '4px solid #1FC8E1' }}>
             <p className="text-sm">
-              <strong>Note:</strong> These questions are personalized for you and will remain consistent across all your attempts. 
+              <strong>Note:</strong> Questions are randomized for each assessment attempt to ensure a fresh experience. 
               Your progress is automatically saved.
             </p>
           </div>

@@ -667,6 +667,9 @@ export function DailyChallengeTab({ userId, userName, userAge }: DailyChallengeT
             <DialogTitle className="text-center text-2xl">
               🎉 Challenge Completed!
             </DialogTitle>
+            <DialogDescription className="text-center">
+              View your earned points and badges
+            </DialogDescription>
           </DialogHeader>
           <div className="text-center pt-4 space-y-4">
             <div className="text-6xl">✨</div>

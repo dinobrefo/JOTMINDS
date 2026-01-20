@@ -48,9 +48,10 @@ const orgAssessmentDescriptions = {
 };
 
 export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel, isOrganizational = false, userAge }: AssessmentTakingProps) {
-  // Get personalized questions for this user (12 questions, consistent per user)
+  // Get personalized questions for this user (12 questions)
+  // NEW: Questions are now randomized on each assessment attempt for better validity
   // Ages 15-18 automatically receive questions from the expanded teen question bank (300 questions)
-  const [questions, setQuestions] = useState(() => getPersonalizedQuestions(assessmentType, userId, isOrganizational, userAge));
+  const [questions, setQuestions] = useState(() => getPersonalizedQuestions(assessmentType, userId, isOrganizational, userAge, true)); // randomize=true
   const [showIntro, setShowIntro] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [responses, setResponses] = useState<number[]>(new Array(questions.length).fill(0));
@@ -91,15 +92,20 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
         // Then try to get from backend (for cross-device sync)
         try {
           const backendProgress = await getProgress(assessmentType);
-          if (backendProgress && backendProgress.answers && backendProgress.answers.length > 0) {
-            console.log('Found backend progress:', backendProgress);
+          console.log('[Progress] Backend response:', backendProgress);
+          
+          // FIX: Backend returns { success: true, progress: {...} }
+          const progressData = backendProgress?.progress;
+          
+          if (progressData && progressData.answers && progressData.answers.length > 0) {
+            console.log('Found backend progress:', progressData);
             
             // Validate backend data integrity
             const backendIsValid = 
-              Array.isArray(backendProgress.answers) &&
-              backendProgress.answers.length <= questions.length &&
-              typeof backendProgress.currentQuestion === 'number' &&
-              backendProgress.currentQuestion >= 0;
+              Array.isArray(progressData.answers) &&
+              progressData.answers.length <= questions.length &&
+              typeof progressData.currentQuestion === 'number' &&
+              progressData.currentQuestion >= 0;
             
             if (!backendIsValid) {
               console.warn('Invalid backend progress detected, ignoring');
@@ -108,9 +114,9 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
               // Backend progress takes precedence if it's newer or has more answers
               const shouldUseBackend = 
                 !savedProgress || 
-                backendProgress.answers.length > (savedProgress.responses?.length || 0) ||
-                (backendProgress.updatedAt && savedProgress.lastSaved && 
-                 new Date(backendProgress.updatedAt) > new Date(savedProgress.lastSaved));
+                progressData.answers.length > (savedProgress.responses?.length || 0) ||
+                (progressData.lastUpdated && savedProgress.lastSaved && 
+                 new Date(progressData.lastUpdated) > new Date(savedProgress.lastSaved));
               
               if (shouldUseBackend) {
                 // Merge backend progress with localStorage format
@@ -118,10 +124,10 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                   userId,
                   assessmentType,
                   isOrganizational,
-                  currentQuestion: Math.min(backendProgress.currentQuestion || 0, questions.length - 1),
-                  responses: backendProgress.answers.slice(0, questions.length), // Prevent overflow
+                  currentQuestion: Math.min(progressData.currentQuestion || 0, questions.length - 1),
+                  responses: progressData.answers.slice(0, questions.length), // Prevent overflow
                   questions: questions, // Use current personalized questions
-                  lastSaved: backendProgress.updatedAt || new Date().toISOString(),
+                  lastSaved: progressData.lastUpdated || new Date().toISOString(),
                 };
                 
                 // Save merged progress to localStorage for offline access
@@ -135,6 +141,7 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                 setHasResumableProgress(true);
                 setLastSaveTime(mergedProgress.lastSaved);
                 console.log('Using backend progress (newer/more complete)');
+                toast.success('Progress restored from another device!');
                 return;
               }
             }
@@ -617,9 +624,14 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                 <span className="text-sm font-semibold text-foreground">
                   Question {currentQuestion + 1} of {questions.length}
                 </span>
-                <span className="text-sm font-semibold" style={{ color: '#1FC8E1' }}>
-                  {Math.round(progress)}% Complete
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    {responses.filter(r => r > 0).length} answered
+                  </span>
+                  <span className="text-sm font-semibold" style={{ color: '#1FC8E1' }}>
+                    {Math.round(progress)}% Complete
+                  </span>
+                </div>
               </div>
               <Progress value={progress} className="h-2" />
               

@@ -8,13 +8,12 @@ import { AuthForm } from './components/AuthForm';
 import { ForgotPasswordForm } from './components/ForgotPasswordForm';
 import { ResetPasswordForm } from './components/ResetPasswordForm';
 import { AdminPanel } from './components/AdminPanel';
-import { TeacherDashboard } from './components/TeacherDashboard';
+import { TeacherDashboardNew as TeacherDashboard } from './components/TeacherDashboardNew';
 import { StudentDashboard } from './components/StudentDashboard';
 import { ParentDashboard } from './components/ParentDashboard';
 import { ProfessionalDashboard } from './components/ProfessionalDashboard';
-import { OrganizationApp } from './components/supervisor/OrganizationApp';
+import { OrganizationApp } from './components/OrganizationApp';
 import { KidsModeWrapper } from './components/kids/KidsModeWrapper';
-import { KidsModeDemo } from './components/kids/KidsModeDemo';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import { createClient } from './utils/supabase/client';
@@ -38,8 +37,7 @@ type ViewType =
   | 'assessment' 
   | 'summary' 
   | 'profile' 
-  | 'admin'
-  | 'kids-demo';
+  | 'admin';
 
 type AssessmentType = 'learning' | 'thinking' | 'decision';
 
@@ -49,6 +47,7 @@ function AppContent() {
   const [currentAssessment, setCurrentAssessment] = useState<AssessmentType | null>(null);
   const [assessmentResults, setAssessmentResults] = useState<any>(null);
   const [consentData, setConsentData] = useState<any>(null);
+  const [assessmentKey, setAssessmentKey] = useState(0); // Key to force Assessment remount on retake
 
   // Set document title
   useEffect(() => {
@@ -166,11 +165,6 @@ function AppContent() {
     setCurrentView('organization');
   };
 
-  const handleKidsDemo = () => {
-    console.log('[App] 🎨 Kids Mode Demo clicked! Switching to kids-demo view...');
-    setCurrentView('kids-demo');
-  };
-
   const handleBackToLanding = () => {
     setCurrentView('landing');
   };
@@ -178,12 +172,19 @@ function AppContent() {
   const handleStartAssessment = (type: AssessmentType) => {
     setCurrentAssessment(type);
     setAssessmentResults(null);
+    setAssessmentKey(prev => {
+      const newKey = prev + 1;
+      console.log(`[App] 🔄 Starting new assessment attempt - Key: ${newKey}, Type: ${type}`);
+      return newKey;
+    });
     setCurrentView('assessment');
   };
 
   const handleAssessmentComplete = (results: any) => {
     setAssessmentResults(results);
     setCurrentView('summary');
+    // Refresh user data to get updated assessmentsCompleted array
+    refreshUser();
   };
 
   const handleLogout = async () => {
@@ -218,6 +219,7 @@ function AppContent() {
   const handleStartNextAssessment = (type: AssessmentType) => {
     setCurrentAssessment(type);
     setAssessmentResults(null);
+    setAssessmentKey(prev => prev + 1); // Increment key to force Assessment remount
     setCurrentView('assessment');
     // Refresh user data to ensure we have latest assessment status
     refreshUser();
@@ -326,15 +328,10 @@ function AppContent() {
       return <OrganizationApp onBackToMain={handleBackToLanding} initialUser={user} />;
     }
     
-    if (currentView === 'kids-demo') {
-      return <KidsModeDemo onBack={handleBackToLanding} />;
-    }
-    
     return (
       <LandingPage 
         onGetStarted={handleGetStarted}
         onSupervisorPortal={handleSupervisorPortal}
-        onKidsDemo={handleKidsDemo}
         onViewPrivacyPolicy={() => setCurrentView('privacy-policy')}
         onViewTermsOfUse={() => setCurrentView('terms-of-use')}
         onViewContact={() => setCurrentView('contact')}
@@ -349,15 +346,11 @@ function AppContent() {
         <LandingPage 
           onGetStarted={handleGetStarted}
           onSupervisorPortal={handleSupervisorPortal}
-          onKidsDemo={handleKidsDemo}
           onViewPrivacyPolicy={() => setCurrentView('privacy-policy')}
           onViewTermsOfUse={() => setCurrentView('terms-of-use')}
           onViewContact={() => setCurrentView('contact')}
         />
       );
-
-    case 'kids-demo':
-      return <KidsModeDemo onBack={handleBackToLanding} />;
 
     case 'organization':
       return (
@@ -371,6 +364,7 @@ function AppContent() {
     case 'assessment':
       return currentAssessment ? (
         <Assessment
+          key={assessmentKey}
           type={currentAssessment}
           onComplete={handleAssessmentComplete}
           onBack={handleBackToDashboard}

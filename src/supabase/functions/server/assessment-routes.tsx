@@ -192,6 +192,19 @@ app.get('/assessment/progress/:assessmentType', async (c) => {
     const progressKey = `progress:${user.id}:${assessmentType}`;
     const progress = await kv.get(progressKey);
 
+    // Check if progress has expired (7 days old)
+    if (progress && progress.lastUpdated) {
+      const lastUpdated = new Date(progress.lastUpdated);
+      const now = new Date();
+      const daysSinceUpdate = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24);
+      
+      if (daysSinceUpdate > 7) {
+        console.log(`[Progress] Progress expired (${Math.round(daysSinceUpdate)} days old), deleting...`);
+        await kv.del(progressKey);
+        return c.json({ success: true, progress: null });
+      }
+    }
+
     return c.json({ success: true, progress });
   } catch (error) {
     console.log(`[Progress] Error fetching assessment progress: ${error}`);
@@ -306,11 +319,53 @@ app.get('/assessment/results', async (c) => {
 
 // ============= QUESTION ROUTES =============
 
+/**
+ * Shuffle an array using Fisher-Yates algorithm with optional seed
+ * @param array - Array to shuffle
+ * @param seed - Optional seed for deterministic randomization
+ */
+function shuffleArray<T>(array: T[], seed?: string): T[] {
+  const shuffled = [...array]; // Create a copy to avoid mutation
+  
+  if (seed) {
+    // Seeded random number generator (simple LCG)
+    let seedNum = 0;
+    for (let i = 0; i < seed.length; i++) {
+      seedNum = ((seedNum << 5) - seedNum) + seed.charCodeAt(i);
+      seedNum = seedNum & seedNum; // Convert to 32-bit integer
+    }
+    
+    const seededRandom = () => {
+      seedNum = (seedNum * 9301 + 49297) % 233280;
+      return seedNum / 233280;
+    };
+    
+    // Fisher-Yates shuffle with seeded random
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(seededRandom() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+  } else {
+    // Fisher-Yates shuffle with Math.random()
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+  }
+  
+  return shuffled;
+}
+
 // Get assessment questions by framework and version
 app.get('/assessment/:framework/:version', async (c) => {
   try {
     const framework = c.req.param('framework');
     const version = c.req.param('version');
+    
+    // Get query parameters for randomization
+    const randomize = c.req.query('randomize') === 'true';
+    const seed = c.req.query('seed'); // Optional seed for deterministic randomization
+    const userId = c.req.query('userId'); // For generating user-specific seed
 
     // Validate framework
     const validFrameworks = ['kolb', 'sternberg', 'dual-process'];
@@ -329,16 +384,47 @@ app.get('/assessment/:framework/:version', async (c) => {
       return c.json({ error: `Question set not found for ${framework} ${version}` }, 404);
     }
 
-    console.log(`[Questions] Retrieved ${framework} ${version} with ${questionSet.questions.length} questions`);
+    let questions = questionSet.questions;
+    let usedSeed = null;
+    
+    // Apply randomization if requested
+    if (randomize) {
+      // Generate or use provided seed
+      if (seed) {
+        usedSeed = seed;
+      } else if (userId) {
+        // Create a unique seed based on user, framework, and current timestamp for true randomization
+        const timestamp = Date.now(); // Use milliseconds for unique shuffle each time
+        usedSeed = `${userId}-${framework}-${version}-${timestamp}`;
+      } else {
+        // Use random seed based on current timestamp
+        usedSeed = `random-${Date.now()}`;
+      }
+      
+      questions = shuffleArray(questions, usedSeed);
+      console.log(`[Questions] Randomized ${framework} ${version} with seed: ${usedSeed}`);
+      
+      // Verify question integrity after shuffle (no mixing between frameworks)
+      const verifyQuestions = questions.every((q: any) => q.id.startsWith(`${framework}-`));
+      if (!verifyQuestions) {
+        console.error(`[Questions] ⚠️ WARNING: Question integrity check FAILED for ${framework}!`);
+      } else {
+        console.log(`[Questions] ✅ Question integrity verified - all questions belong to ${framework}`);
+      }
+    }
+
+    console.log(`[Questions] Retrieved ${framework} ${version} with ${questions.length} questions${randomize ? ' (randomized)' : ''}`);
 
     return c.json({
       success: true,
       framework,
       version,
       description: questionSet.description,
-      questionCount: questionSet.questions.length,
+      questionCount: questions.length,
       createdAt: questionSet.createdAt,
-      questions: questionSet.questions
+      randomized: randomize,
+      seed: usedSeed,
+      questions
     });
   } catch (error) {
     console.log(`Error fetching assessment questions: ${error}`);

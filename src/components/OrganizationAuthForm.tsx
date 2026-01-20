@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { User as UserType, OrganizationType, IndustrySector } from '../types';
-import { signup } from '../utils/api';
+import { signup, setAuthToken } from '../utils/api';
 import { Alert, AlertDescription } from './ui/alert';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -137,6 +137,10 @@ export function OrganizationAuthForm({ onLogin, onBackToMain }: OrganizationAuth
       }
 
       console.log('[OrganizationAuth] Sign in successful, session created');
+      
+      // Store the access token for API requests
+      console.log('[OrganizationAuth] Setting auth token for API requests');
+      setAuthToken(data.session.access_token);
       
       // Fetch user profile from backend
       let userData;

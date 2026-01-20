@@ -9,11 +9,11 @@ import { Home, Share2, Download } from 'lucide-react';
 import { User } from '../../types/index';
 
 interface KidsResultsProps {
-  type: 'learning' | 'thinking' | 'decision';
+  type: 'learning' | 'thinking' | 'decision' | 'problem-solving' | 'social-thinking';
   results: any;
   insights: string;
   onBackToDashboard: () => void;
-  onStartNext?: (type: 'learning' | 'thinking' | 'decision') => void;
+  onStartNext?: (type: 'learning' | 'thinking' | 'decision' | 'problem-solving' | 'social-thinking') => void;
   user?: User;
 }
 
@@ -123,6 +123,76 @@ const resultDescriptions: Record<string, any> = {
         '🤗 Help each other'
       ]
     }
+  },
+  'problem-solving': {
+    logical: {
+      title: 'You Solve Problems Logically! 🧠',
+      emoji: '🔍',
+      description: 'You think step by step to find answers!',
+      tips: [
+        '📝 Break problems into steps',
+        '🤔 Ask yourself questions',
+        '🧮 Think carefully',
+        '📊 Make a plan'
+      ]
+    },
+    creative: {
+      title: 'You Solve Problems Creatively! 🎨',
+      emoji: '💡',
+      description: 'You use your imagination to find new ways!',
+      tips: [
+        '🌟 Dream up new ideas',
+        '🎭 Try different ways',
+        '✏️ Draw your ideas',
+        '🌈 Think outside the box'
+      ]
+    },
+    trial: {
+      title: 'You Solve Problems by Trying! 🔬',
+      emoji: '🚀',
+      description: 'You like to test things and see what works!',
+      tips: [
+        '✓ Try different solutions',
+        '🔨 Test your ideas',
+        '💪 Learn from mistakes',
+        '🎯 Keep trying!'
+      ]
+    }
+  },
+  'social-thinking': {
+    leader: {
+      title: 'You Are a Great Leader! 👑',
+      emoji: '⭐',
+      description: 'You help organize and lead others!',
+      tips: [
+        '💬 Share your ideas',
+        '👥 Help everyone join in',
+        '🎯 Make good plans',
+        '🌟 Be kind and fair'
+      ]
+    },
+    helper: {
+      title: 'You Are a Great Helper! 🤝',
+      emoji: '💝',
+      description: 'You love to help and care for others!',
+      tips: [
+        '❤️ Listen to your friends',
+        '🤗 Be kind and caring',
+        '👂 Understand feelings',
+        '💪 Help when needed'
+      ]
+    },
+    follower: {
+      title: 'You Are a Great Team Player! 🎈',
+      emoji: '🌈',
+      description: 'You work well with others and enjoy being part of a team!',
+      tips: [
+        '👥 Work well with others',
+        '🎉 Join in the fun',
+        '⏳ Wait your turn',
+        '😊 Be a good friend'
+      ]
+    }
   }
 };
 
@@ -161,20 +231,38 @@ export function KidsResults({
   const assessmentConfig = {
     learning: { color: '#667eea', icon: '📚', title: 'Learning Style' },
     thinking: { color: '#4ECDC4', icon: '🧠', title: 'Thinking Style' },
-    decision: { color: '#FF9800', icon: '🎯', title: 'Decision Style' }
+    decision: { color: '#FF9800', icon: '🎯', title: 'Decision Style' },
+    'problem-solving': { color: '#FF6B9D', icon: '🔧', title: 'Problem-Solving Style' },
+    'social-thinking': { color: '#FEC163', icon: '🤝', title: 'Social-Thinking Style' }
   };
 
   const config = assessmentConfig[type];
 
+  // Add safety checks for undefined config or styleInfo
+  if (!config || !styleInfo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-xl text-gray-600 mb-4">Oops! Something went wrong with your results.</p>
+          <KidsButton onClick={onBackToDashboard} color="#667eea">
+            Go Back Home
+          </KidsButton>
+        </div>
+      </div>
+    );
+  }
+
   // Helper function to check if an assessment is completed
-  const isAssessmentCompleted = (assessmentType: 'learning' | 'thinking' | 'decision') => {
+  const isAssessmentCompleted = (assessmentType: 'learning' | 'thinking' | 'decision' | 'problem-solving' | 'social-thinking') => {
     if (!user) return false;
     
     // Map assessment type to backend assessment names
     const assessmentMap = {
       learning: 'kolb',
       thinking: 'sternberg',
-      decision: 'dual-process'
+      decision: 'dual-process',
+      'problem-solving': 'problem-solving',
+      'social-thinking': 'social-thinking'
     };
     
     const backendType = assessmentMap[assessmentType];
@@ -192,7 +280,9 @@ export function KidsResults({
   const nextAssessments = [
     { type: 'learning' as const, title: 'Learning Style', icon: '📚', color: '#667eea' },
     { type: 'thinking' as const, title: 'Thinking Style', icon: '🧠', color: '#4ECDC4' },
-    { type: 'decision' as const, title: 'Decision Style', icon: '🎯', color: '#FF9800' }
+    { type: 'decision' as const, title: 'Decision Style', icon: '🎯', color: '#FF9800' },
+    { type: 'problem-solving' as const, title: 'Problem-Solving Style', icon: '🔧', color: '#FF6B9D' },
+    { type: 'social-thinking' as const, title: 'Social-Thinking Style', icon: '🤝', color: '#FEC163' }
   ].filter(a => a.type !== type && !isAssessmentCompleted(a.type));
 
   return (

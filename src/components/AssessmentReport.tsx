@@ -7,8 +7,9 @@ import { Label } from './ui/label';
 import { Assessment, UserRole } from '../types';
 import { saveReflection, getReflections, generateId } from '../utils/storage';
 import { getGhanaMapping, getStyleDescription } from '../utils/scoring';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { SternbergResults } from './SternbergResults';
-import { BookOpen, Briefcase, Lightbulb, FileText, Download, ArrowLeft, TrendingUp, AlertTriangle, Target, Users, BarChart3, Share2, Eye, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookOpen, Briefcase, Lightbulb, FileText, Download, ArrowLeft, TrendingUp, AlertTriangle, Target, Users, BarChart3, Share2, Eye, Brain, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { generatePDF } from '../utils/pdfGenerator';
 import { getAssessmentInsights } from '../utils/insights';
 import { toast } from 'sonner@2.0.3';
@@ -16,6 +17,14 @@ import { FeedbackPrompt } from './FeedbackPrompt';
 import { formatDateTime } from '../utils/dateFormat';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, LabelList, Tooltip as RechartsTooltip } from 'recharts';
 import { colors, componentSpacing } from '../utils/designTokens';
+import { RadarChartWidget, prepareKolbRadarData, prepareSternbergRadarData, prepareDualProcessRadarData } from './RadarChartWidget';
+import { PeerComparison, generatePeerComparisonData, defaultAverages } from './PeerComparison';
+import { ProfileBadge } from './ProfileBadge';
+import { StudyStrategyGenerator } from './StudyStrategyGenerator';
+import { CareerRecommendations } from './CareerRecommendations';
+import { GuidedReflection } from './GuidedReflection';
+import { GhanaEducationGuidance } from './GhanaEducationGuidance';
+import { AcademicSuccessTips } from './AcademicSuccessTips';
 
 interface AssessmentReportProps {
   assessment: Assessment;
@@ -105,6 +114,11 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
   const handleDownloadPDF = () => {
     generatePDF(assessment, userName, ghanaMapping, isOrganizational);
     toast.success('PDF downloaded successfully!');
+  };
+
+  const handlePrint = () => {
+    window.print();
+    toast.success('Opening print dialog...');
   };
 
   const handleShareResults = async () => {
@@ -371,12 +385,26 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-2 sm:p-4">
       <div className="max-w-4xl mx-auto py-4 sm:py-8 space-y-4 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        {/* Print-only header */}
+        <div className="print-only print-header hidden">
+          <div className="print-title">JOTMINDS COGNITIVE ASSESSMENT</div>
+          <div className="print-subtitle">Personalized Assessment Report</div>
+          <div className="print-meta">
+            <strong>Name:</strong> {userName} | <strong>Date:</strong> {new Date(assessment.completedAt).toLocaleDateString()} | <strong>Assessment ID:</strong> {assessment.id}
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 no-print">
           <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard
           </Button>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <Button onClick={handlePrint} variant="outline" className="w-full sm:w-auto">
+              <Printer className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Print Report</span>
+              <span className="sm:hidden">Print</span>
+            </Button>
             <Button onClick={handleDownloadPDF} className="w-full sm:w-auto">
               <Download className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Download PDF</span>
@@ -1094,6 +1122,173 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
           </Card>
         )}
 
+        {/* Tertiary Student Enhancements - Only show for non-organizational assessments */}
+        {!isOrganizational && (
+          <>
+            {/* Profile Badge */}
+            {assessment.score.kolb && (
+              <ProfileBadge
+                style={mainStyle}
+                level={0}
+                totalScore={
+                  (assessment.score.kolb.scores.CE || 0) +
+                  (assessment.score.kolb.scores.RO || 0) +
+                  (assessment.score.kolb.scores.AC || 0) +
+                  (assessment.score.kolb.scores.AE || 0)
+                }
+                maxScore={60}
+              />
+            )}
+            {assessment.score.sternberg && (
+              <ProfileBadge
+                style={mainStyle}
+                level={0}
+                totalScore={
+                  (assessment.score.sternberg.scores.analytical || 0) +
+                  (assessment.score.sternberg.scores.creative || 0) +
+                  (assessment.score.sternberg.scores.practical || 0)
+                }
+                maxScore={60}
+              />
+            )}
+            {assessment.score.dualProcess && (
+              <ProfileBadge
+                style={mainStyle}
+                level={0}
+                totalScore={
+                  (assessment.score.dualProcess.scores.system1 || 0) +
+                  (assessment.score.dualProcess.scores.system2 || 0)
+                }
+                maxScore={60}
+              />
+            )}
+
+            {/* Radar Chart Visualization */}
+            <Card>
+              <CardContent className="pt-6">
+                {assessment.score.kolb && (
+                  <RadarChartWidget
+                    data={prepareKolbRadarData(assessment.score.kolb.scores)}
+                    title="Your Learning Profile Spectrum"
+                    description="Visual representation of your learning dimensions"
+                  />
+                )}
+                {assessment.score.sternberg && (
+                  <RadarChartWidget
+                    data={prepareSternbergRadarData(assessment.score.sternberg.scores)}
+                    title="Your Thinking Style Spectrum"
+                    description="Visual representation of your thinking dimensions"
+                  />
+                )}
+                {assessment.score.dualProcess && (
+                  <RadarChartWidget
+                    data={prepareDualProcessRadarData(assessment.score.dualProcess.scores)}
+                    title="Your Decision Style Spectrum"
+                    description="Visual representation of your decision-making approach"
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Peer Comparison */}
+            <Card>
+              <CardContent className="pt-6">
+                {assessment.score.kolb && (
+                  <PeerComparison
+                    data={generatePeerComparisonData(
+                      {
+                        CE: assessment.score.kolb.scores.CE,
+                        RO: assessment.score.kolb.scores.RO,
+                        AC: assessment.score.kolb.scores.AC,
+                        AE: assessment.score.kolb.scores.AE
+                      },
+                      defaultAverages.kolb
+                    )}
+                  />
+                )}
+                {assessment.score.sternberg && (
+                  <PeerComparison
+                    data={generatePeerComparisonData(
+                      assessment.score.sternberg.scores,
+                      defaultAverages.sternberg
+                    )}
+                  />
+                )}
+                {assessment.score.dualProcess && (
+                  <PeerComparison
+                    data={generatePeerComparisonData(
+                      {
+                        Intuitive: assessment.score.dualProcess.scores.system1,
+                        Reflective: assessment.score.dualProcess.scores.system2
+                      },
+                      defaultAverages.dualProcess
+                    )}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Academic Success Tips */}
+            <AcademicSuccessTips
+              cognitiveStyle={mainStyle}
+              assessmentType={assessment.type}
+            />
+
+            {/* Study Strategy Generator */}
+            <StudyStrategyGenerator
+              cognitiveStyle={mainStyle}
+              assessmentType={assessment.type}
+            />
+
+            {/* Career Recommendations */}
+            <CareerRecommendations
+              cognitiveStyle={mainStyle}
+              assessmentType={assessment.type}
+            />
+
+            {/* Ghana Education Guidance */}
+            <GhanaEducationGuidance
+              cognitiveStyle={mainStyle}
+              assessmentType={assessment.type}
+            />
+
+            {/* Guided Reflection */}
+            <GuidedReflection
+              cognitiveStyle={mainStyle}
+              assessmentType={assessment.type}
+              onSaveReflection={async (reflections) => {
+                try {
+                  // Combine all reflections into one content string
+                  const content = Object.entries(reflections)
+                    .map(([index, answer]) => `Q${parseInt(index) + 1}: ${answer}`)
+                    .join('\n\n');
+                  
+                  const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-fc8eb847/reflection`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${publicAnonKey}`
+                    },
+                    body: JSON.stringify({
+                      content,
+                      assessmentResultId: assessment.id
+                    })
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error('Failed to save reflection');
+                  }
+                  
+                  toast.success('Reflections saved successfully!');
+                } catch (error) {
+                  console.error('Error saving reflections:', error);
+                  toast.error('Failed to save reflections. Please try again.');
+                }
+              }}
+            />
+          </>
+        )}
+
         <Card>
           <CardHeader style={{ padding: `${componentSpacing.cardPadding}px` }}>
             <CardTitle className="flex items-center gap-2" style={{ color: colors.primary.main }}>
@@ -1142,7 +1337,9 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
           </CardContent>
         </Card>
 
-        <FeedbackPrompt />
+        <div className="no-print">
+          <FeedbackPrompt />
+        </div>
       </div>
     </div>
   );

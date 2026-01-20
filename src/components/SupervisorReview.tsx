@@ -19,6 +19,7 @@ interface SupervisorReviewProps {
   supervisorId?: string;
   professionalId?: string;
   onReviewSubmitted?: () => void;
+  subjectTerm?: string;
 }
 
 interface ReviewData {
@@ -37,7 +38,8 @@ export function SupervisorReview({
   assessments, 
   supervisorId, 
   professionalId,
-  onReviewSubmitted 
+  onReviewSubmitted,
+  subjectTerm = 'Employee'
 }: SupervisorReviewProps) {
   const [reviewData, setReviewData] = useState<ReviewData>({
     roleAlignment: '',
@@ -154,7 +156,7 @@ export function SupervisorReview({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5 text-blue-600" />
-            Employee Cognitive Profile Summary
+            {subjectTerm} Cognitive Profile Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -291,7 +293,7 @@ export function SupervisorReview({
             </Label>
             <Textarea
               id="developmentAreas"
-              placeholder="Identify areas where the employee could grow or improve..."
+              placeholder={`Identify areas where the ${subjectTerm.toLowerCase()} could grow or improve...`}
               value={reviewData.developmentAreas}
               onChange={(e) => setReviewData({...reviewData, developmentAreas: e.target.value})}
               rows={4}

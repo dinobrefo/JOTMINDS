@@ -6,6 +6,7 @@ import { SupervisorDashboard } from './SupervisorDashboard';
 import { Toaster } from './ui/sonner';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { setAuthToken, clearAuthToken } from '../utils/api';
 
 interface OrganizationAppProps {
   onBackToMain: () => void;
@@ -70,13 +71,16 @@ export function OrganizationApp({ onBackToMain, initialUser, onLogout }: Organiz
             };
             setCurrentUser(user);
             saveCurrentUser(user);
+            setAuthToken(session.access_token);
           } else {
             console.log('[OrganizationApp] User is not an organization, clearing session. Role:', userData.role);
             await supabase.auth.signOut();
+            clearAuthToken();
           }
         } else {
           console.log('[OrganizationApp] Failed to fetch user profile, clearing session');
           await supabase.auth.signOut();
+          clearAuthToken();
         }
       } else {
         console.log('[OrganizationApp] No active Supabase session');
@@ -105,6 +109,7 @@ export function OrganizationApp({ onBackToMain, initialUser, onLogout }: Organiz
     
     // Clear user session in storage
     saveCurrentUser(null);
+    clearAuthToken();
     
     // Navigate back to main app (which will handle state cleanup)
     onBackToMain();

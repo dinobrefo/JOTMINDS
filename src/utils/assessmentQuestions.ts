@@ -4,11 +4,17 @@ import {
   sternbergQuestionsTeen, 
   dualProcessQuestionsTeen 
 } from './assessmentQuestions_teen';
+import {
+  kolbQuestionsTertiary,
+  sternbergQuestionsTertiary,
+  dualProcessQuestionsTertiary
+} from './assessmentQuestions_tertiary';
 
 /**
  * JOTMINDS ASSESSMENT QUESTION BANKS
  * 
  * Question banks organized by age group:
+ * - Ages 19-25 (Tertiary): 600 comprehensive questions (200 per framework)
  * - Ages 15-18: 300 comprehensive questions (100 per framework)
  * - Ages 11-14: Original educational questions (40 per framework)
  * - Ages 6-10: Kids Mode questions (500 approved replacement questions)
@@ -32,15 +38,19 @@ function seededRandom(seed: string, index: number): number {
 
 /**
  * Select random questions from a pool based on user ID
- * Ensures consistent selection for the same user
+ * Ensures consistent selection for the same user (or random if randomize=true)
  */
 function selectRandomQuestions(
   allQuestions: Question[],
   dimensions: string[],
   questionsPerDimension: number,
-  userId: string
+  userId: string,
+  randomize: boolean = false
 ): Question[] {
   const selected: Question[] = [];
+  
+  // If randomize is true, add timestamp to seed for different shuffle each time
+  const seed = randomize ? `${userId}-${Date.now()}` : userId;
   
   dimensions.forEach((dimension, dimIndex) => {
     // Get all questions for this dimension
@@ -49,9 +59,9 @@ function selectRandomQuestions(
     // Create a copy to shuffle
     const shuffled = [...dimensionQuestions];
     
-    // Seeded shuffle using user ID + dimension
+    // Seeded shuffle using user ID (+ timestamp if randomizing) + dimension
     for (let i = shuffled.length - 1; i > 0; i--) {
-      const randomValue = seededRandom(userId + dimension, i);
+      const randomValue = seededRandom(seed + dimension, i);
       const j = Math.floor(randomValue * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
@@ -71,12 +81,14 @@ function selectRandomQuestions(
  * @param userId - User ID for consistent question selection
  * @param isOrganizational - Whether this is organizational assessment
  * @param userAge - Optional: User's age for age-appropriate questions (default: undefined for ages 11-14)
+ * @param randomize - Optional: If true, generates different questions on each call for re-takes
  */
 export function getPersonalizedQuestions(
   assessmentType: 'kolb' | 'sternberg' | 'dual-process',
   userId: string,
   isOrganizational: boolean = false,
-  userAge?: number
+  userAge?: number,
+  randomize: boolean = false
 ): Question[] {
   let allQuestions: Question[];
   let dimensions: string[];
@@ -84,9 +96,12 @@ export function getPersonalizedQuestions(
   
   // Determine which question bank to use based on age
   const useTeen15to18 = userAge && userAge >= 15 && userAge <= 18;
+  const useTertiary19to25 = userAge && userAge >= 19 && userAge <= 25;
   
   if (assessmentType === 'kolb') {
-    if (useTeen15to18) {
+    if (useTertiary19to25) {
+      allQuestions = kolbQuestionsTertiary;
+    } else if (useTeen15to18) {
       allQuestions = kolbQuestionsTeen;
     } else {
       allQuestions = isOrganizational ? orgKolbQuestions : kolbQuestions;
@@ -94,7 +109,9 @@ export function getPersonalizedQuestions(
     dimensions = ['CE', 'RO', 'AC', 'AE'];
     questionsPerDimension = 3; // 4 dimensions × 3 = 12 questions
   } else if (assessmentType === 'sternberg') {
-    if (useTeen15to18) {
+    if (useTertiary19to25) {
+      allQuestions = sternbergQuestionsTertiary;
+    } else if (useTeen15to18) {
       allQuestions = sternbergQuestionsTeen;
     } else {
       allQuestions = isOrganizational ? orgSternbergQuestions : sternbergQuestions;
@@ -102,7 +119,9 @@ export function getPersonalizedQuestions(
     dimensions = ['analytical', 'creative', 'practical'];
     questionsPerDimension = 4; // 3 dimensions × 4 = 12 questions
   } else {
-    if (useTeen15to18) {
+    if (useTertiary19to25) {
+      allQuestions = dualProcessQuestionsTertiary;
+    } else if (useTeen15to18) {
       allQuestions = dualProcessQuestionsTeen;
     } else {
       allQuestions = isOrganizational ? orgDualProcessQuestions : dualProcessQuestions;
@@ -111,7 +130,7 @@ export function getPersonalizedQuestions(
     questionsPerDimension = 6; // 2 dimensions × 6 = 12 questions
   }
   
-  return selectRandomQuestions(allQuestions, dimensions, questionsPerDimension, userId);
+  return selectRandomQuestions(allQuestions, dimensions, questionsPerDimension, userId, randomize);
 }
 
 // Your Learning Style - Educational Version

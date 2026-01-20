@@ -39,7 +39,14 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
 
   // Determine which assessments are incomplete
   const getNextAssessment = () => {
-    if (!user?.assessmentsCompleted) return null;
+    console.log('[AssessmentSummary] Checking for next assessment');
+    console.log('[AssessmentSummary] User:', user);
+    console.log('[AssessmentSummary] Assessments Completed:', user?.assessmentsCompleted);
+    
+    if (!user?.assessmentsCompleted) {
+      console.log('[AssessmentSummary] No assessmentsCompleted array found');
+      return null;
+    }
 
     const assessmentMapping = {
       'learning': 'kolb',
@@ -54,26 +61,32 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
     };
 
     const completed = user.assessmentsCompleted;
+    console.log('[AssessmentSummary] Completed assessments:', completed);
 
     // Check each assessment type
     const assessmentOrder: ('learning' | 'thinking' | 'decision')[] = ['learning', 'thinking', 'decision'];
     
     for (const assessmentType of assessmentOrder) {
       const internalType = assessmentMapping[assessmentType as keyof typeof assessmentMapping];
+      console.log(`[AssessmentSummary] Checking ${assessmentType} (${internalType}):`, !completed.includes(internalType));
       if (!completed.includes(internalType)) {
-        return {
+        const nextAssessmentInfo = {
           type: assessmentType,
-          title: assessmentType === 'learning' ? 'Your Learning Style' :
-                 assessmentType === 'thinking' ? 'Your Thinking Style' :
-                 'Your Decision Style'
+          title: assessmentType === 'learning' ? 'Learning Style' :
+                 assessmentType === 'thinking' ? 'Thinking Style' :
+                 'Decision Style'
         };
+        console.log('[AssessmentSummary] Next assessment found:', nextAssessmentInfo);
+        return nextAssessmentInfo;
       }
     }
 
+    console.log('[AssessmentSummary] All assessments completed');
     return null; // All assessments completed
   };
 
   const nextAssessment = getNextAssessment();
+  console.log('[AssessmentSummary] Final nextAssessment:', nextAssessment);
 
   const sortedResults = Object.entries(results).sort((a, b) => b[1] - a[1]);
 
@@ -226,11 +239,11 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
         )}
 
         {/* Actions */}
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-4 flex-wrap">
           <Button
             onClick={onBackToDashboard}
             size="lg"
-            style={{ backgroundColor: '#2C2E83' }}
+            variant="outline"
           >
             Back to Dashboard
           </Button>
@@ -238,9 +251,10 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
             <Button
               onClick={() => onStartNextAssessment(nextAssessment.type)}
               size="lg"
-              style={{ backgroundColor: '#1FC8E1' }}
+              className="animate-pulse"
+              style={{ backgroundColor: '#FF715B' }}
             >
-              Take {nextAssessment.title} <ArrowRight className="w-4 h-4 ml-2" />
+              Take Next Assessment: {nextAssessment.title} <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           )}
         </div>

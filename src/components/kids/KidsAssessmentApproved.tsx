@@ -92,11 +92,11 @@ export function KidsAssessmentApproved({
                       '#8b5cf6';
 
   useEffect(() => {
-    // Load existing answer for this question
+    // Load existing answer for this question when question changes
     if (currentQuestion) {
       setSelectedOption(answers[currentQuestion.id] || null);
     }
-  }, [currentQuestionIndex, currentQuestion, answers]);
+  }, [currentQuestionIndex, currentQuestion]); // Removed 'answers' from dependency array
 
   const handleSelectOption = (value: 1 | 2 | 3) => {
     // Only show feedback if this is a NEW answer (not changing answer)

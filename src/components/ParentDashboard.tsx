@@ -596,7 +596,7 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
               
               // Get other assessments (e.g. JHS Thinking, SHS Thinking)
               const otherAssessments = (childrenData.get(child.id) || []).filter(a => 
-                !['kolb', 'sternberg', 'dual-process'].includes(a.type) && a.completedAt // Ensure completion
+                a.type && !['kolb', 'sternberg', 'dual-process'].includes(a.type) && a.completedAt // Ensure type exists and completion
               );
 
               const displayAge = child.age ?? (child.dateOfBirth ? calculateAge(child.dateOfBirth) : 'N/A');
@@ -718,7 +718,7 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
                                       <div key={assessment.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded border border-gray-100 dark:border-gray-800 shadow-sm">
                                         <div>
                                           <p className="font-medium text-sm capitalize">
-                                            {assessment.type.replace(/-/g, ' ')}
+                                            {assessment.type?.replace(/-/g, ' ') || 'Unknown Assessment'}
                                           </p>
                                           <p className="text-xs text-muted-foreground">
                                             {formatDate(assessment.completedAt)}

@@ -3,9 +3,10 @@ import { useAuth } from './AuthContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { LogOut, Brain, Target, Lightbulb, CheckCircle2, Lock, TrendingUp, Users, ArrowLeft, UserPlus, X, Eye } from 'lucide-react';
+import { LogOut, Brain, Target, Lightbulb, CheckCircle2, Lock, TrendingUp, Users, ArrowLeft, UserPlus, X, Eye, MessageSquare, RefreshCw } from 'lucide-react';
 import { getAllAssessmentResults, getOrganizationMembers, getUserAssessmentResults, getLinkedChildren, linkChildByEmail, unlinkChild } from '../utils/api';
 import { Input } from './ui/input';
+import { ClearOldResults } from './ClearOldResults';
 
 interface DashboardProps {
   onStartAssessment: (type: 'learning' | 'thinking' | 'decision') => void;
@@ -230,6 +231,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {getRoleMessage()}
           </p>
         </div>
+
+        {/* New Personalized Insights Banner */}
+        {assessmentResults.length > 0 && (
+          <Card className="mb-8 shadow-md bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
+            <CardHeader>
+              <div className="flex items-start gap-3">
+                <div className="bg-blue-500 rounded-full p-2">
+                  <RefreshCw className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-blue-900 mb-2">
+                    🎉 New! Truly Personalized Assessment Insights
+                  </CardTitle>
+                  <CardDescription className="text-blue-800">
+                    <strong>We've upgraded our insights system!</strong> Your assessment results now include:
+                  </CardDescription>
+                  <ul className="mt-2 space-y-1 text-sm text-blue-800">
+                    <li>✓ Insights referencing your exact scores and percentages</li>
+                    <li>✓ Recommendations tailored to your {displayUser.educationLevel || 'education level'}, {displayUser.role}, and {displayUser.age ? `age (${displayUser.age})` : 'profile'}</li>
+                    <li>✓ Activities matched to {displayUser.school ? `${displayUser.school}` : displayUser.position ? `your role as ${displayUser.position}` : 'your context'}</li>
+                    <li>✓ Specific development areas based on your unique score gaps</li>
+                  </ul>
+                  <div className="mt-3 p-3 bg-white/70 rounded-lg border border-blue-300">
+                    <p className="text-sm text-blue-900 font-semibold mb-1">
+                      💡 To get personalized insights:
+                    </p>
+                    <p className="text-sm text-blue-800">
+                      Simply retake any assessment below. Your new results will be completely customized to your profile!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
 
         {/* Progress Overview */}
         <Card className="mb-8 shadow-md" style={{ borderLeft: '4px solid #1FC8E1' }}>

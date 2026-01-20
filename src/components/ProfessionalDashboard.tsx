@@ -75,6 +75,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
         // Convert API results to Assessment format
         const convertedAssessments: Assessment[] = results.map((result: any) => {
           console.log('[ProfessionalDashboard] Converting result:', { id: result.id, assessmentType: result.assessmentType });
+          console.log('[ProfessionalDashboard] Raw result.results:', result.results);
           
           return {
             id: result.id,
@@ -85,19 +86,19 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                   result.assessmentType, // Use as-is if already in correct format
             score: {
               kolb: result.assessmentType === 'learning' || result.assessmentType === 'kolb' ? {
-                primaryStyle: getDominantStyle(result.results),
-                style: getDominantStyle(result.results),
-                scores: result.results || {}
+                primaryStyle: result.results?.kolb?.style || result.results?.style || getDominantStyle(result.results?.kolb?.scores || result.results?.scores || result.results),
+                style: result.results?.kolb?.style || result.results?.style || getDominantStyle(result.results?.kolb?.scores || result.results?.scores || result.results),
+                scores: result.results?.kolb?.scores || result.results?.scores || result.results || {}
               } : undefined,
               sternberg: result.assessmentType === 'thinking' || result.assessmentType === 'sternberg' ? {
-                primaryStyle: getDominantStyle(result.results),
-                style: getDominantStyle(result.results),
-                scores: result.results || {}
+                primaryStyle: result.results?.sternberg?.style || result.results?.style || getDominantStyle(result.results?.sternberg?.scores || result.results?.scores || result.results),
+                style: result.results?.sternberg?.style || result.results?.style || getDominantStyle(result.results?.sternberg?.scores || result.results?.scores || result.results),
+                scores: result.results?.sternberg?.scores || result.results?.scores || result.results || {}
               } : undefined,
               dualProcess: result.assessmentType === 'decision' || result.assessmentType === 'dual-process' ? {
-                primaryStyle: getDominantStyle(result.results),
-                style: getDominantStyle(result.results),
-                scores: result.results || {}
+                primaryStyle: result.results?.dualProcess?.style || result.results?.style || getDominantStyle(result.results?.dualProcess?.scores || result.results?.scores || result.results),
+                style: result.results?.dualProcess?.style || result.results?.style || getDominantStyle(result.results?.dualProcess?.scores || result.results?.scores || result.results),
+                scores: result.results?.dualProcess?.scores || result.results?.scores || result.results || {}
               } : undefined,
             },
             completed: true,

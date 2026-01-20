@@ -49,11 +49,12 @@ export interface User {
 export interface Assessment {
   id: string;
   userId: string;
-  type: 'kolb' | 'sternberg' | 'dual-process' | 'jhs-thinking' | 'shs-thinking' | 'adult-thinking' | 'children-thinking';
+  type: 'kolb' | 'sternberg' | 'dual-process' | 'jhs-thinking' | 'shs-thinking' | 'adult-thinking' | 'child-thinking' | 'teaching-style';
   responses: number[];
   questions?: Question[]; // Store the specific questions used for this assessment
   score: AssessmentScore;
-  completedAt: string;
+  completed?: boolean; // Added by backend to indicate completion status
+  completedAt?: string; // ISO date string when assessment was completed
 }
 
 export interface AssessmentScore {
@@ -64,6 +65,11 @@ export interface AssessmentScore {
       RO: number; // Reflective Observation
       AC: number; // Abstract Conceptualization
       AE: number; // Active Experimentation
+      // Legacy full-name properties (for backwards compatibility)
+      concreteExperience?: number;
+      reflectiveObservation?: number;
+      abstractConceptualization?: number;
+      activeExperimentation?: number;
     };
   };
   sternberg?: {
@@ -81,20 +87,52 @@ export interface AssessmentScore {
       system2: number; // Reflective/Slow
     };
   };
+  'teaching-style'?: {
+    primaryStyle: string;
+    secondaryStyle: string;
+    scores: {
+      authority: number;
+      facilitation: number;
+      transmission: number;
+      construction: number;
+      extrinsic: number;
+      intrinsic: number;
+      judgment: number;
+      growth: number;
+      fixed: number;
+      adaptive: number;
+      fearBased: number;
+      safe: number;
+      // Axis scores (0-100)
+      axisAuthority: number;
+      axisKnowledge: number;
+      axisMotivation: number;
+      axisAssessment: number;
+      axisAdaptability: number;
+      axisClimate: number;
+    };
+  };
   'jhs-thinking'?: {
     personalityType: string;
+    primaryStyle: string;
+    secondaryStyle: string;
+    profileType: 'single' | 'dual' | 'balanced';
     scores: Record<string, number>;
   };
   'shs-thinking'?: {
     personalityType: string;
+    primaryStyle: string;
+    secondaryStyle: string;
+    profileType: 'single' | 'dual' | 'balanced';
     scores: Record<string, number>;
   };
   'adult-thinking'?: {
     dominantStyle: string;
     scores: Record<string, number>;
   };
-  'children-thinking'?: {
+  'child-thinking'?: {
     personalityType: string;
+    primaryStyle: string;
     scores: Record<string, number>;
   };
 }
@@ -122,7 +160,7 @@ export interface Question {
 
 export interface AssessmentProgress {
   userId: string;
-  assessmentType: 'kolb' | 'sternberg' | 'dual-process';
+  assessmentType: 'kolb' | 'sternberg' | 'dual-process' | 'teaching-style';
   isOrganizational: boolean;
   currentQuestion: number;
   responses: number[];
