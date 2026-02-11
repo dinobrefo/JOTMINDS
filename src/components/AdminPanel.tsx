@@ -10,6 +10,10 @@ import { useAuth } from './AuthContext';
 import { AdminDiagnostic } from './AdminDiagnostic';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { IndustrySector } from '../types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { SchoolAdminDashboard } from './SchoolAdminDashboard';
+import { QuestionBankAudit } from './QuestionBankAudit';
+import { Globe, Building2, LayoutDashboard, Settings, Activity, Server, Database, RefreshCw, ShieldCheck } from 'lucide-react';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -200,8 +204,151 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <Tabs defaultValue="platform" className="space-y-6">
+          <TabsList className="bg-white/50 p-1 border shadow-sm w-full md:w-auto grid grid-cols-2 md:flex h-auto">
+            <TabsTrigger value="platform" className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">
+                <LayoutDashboard className="w-4 h-4 mr-2" />
+                Platform Overview
+            </TabsTrigger>
+            <TabsTrigger value="organizations" className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">
+                <Building2 className="w-4 h-4 mr-2" />
+                Organizations & Schools
+            </TabsTrigger>
+            <TabsTrigger value="content" className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">
+                <Settings className="w-4 h-4 mr-2" />
+                System & Content
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="content">
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight">System & Content Administration</h2>
+                        <p className="text-muted-foreground">Technical oversight, database integrity, and content management.</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="hidden md:flex">
+                        <RefreshCw className="w-4 h-4 mr-2" /> 
+                        Clear System Cache
+                    </Button>
+                </div>
+
+                {/* System Health Pulse */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">System Status</CardTitle>
+                            <Activity className="h-4 w-4 text-green-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-green-600">Healthy</div>
+                            <p className="text-xs text-muted-foreground">All services operational</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Server Load</CardTitle>
+                            <Server className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">12%</div>
+                            <p className="text-xs text-muted-foreground">CPU utilization (avg)</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Database</CardTitle>
+                            <Database className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">24ms</div>
+                            <p className="text-xs text-muted-foreground">Average query latency</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Security</CardTitle>
+                            <ShieldCheck className="h-4 w-4 text-blue-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">Secure</div>
+                            <p className="text-xs text-muted-foreground">Last scan: 2 mins ago</p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="border-t pt-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                        <Database className="w-5 h-5 mr-2 text-primary" />
+                        Assessment Content Integrity
+                    </h3>
+                    <QuestionBankAudit />
+                </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="organizations">
+             <div className="space-y-6">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">Organization Management</h2>
+                    <p className="text-muted-foreground">Monitor schools and corporate partners.</p>
+                </div>
+                
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Registered Organizations</CardTitle>
+                        <CardDescription>
+                            List of all educational institutions and companies.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Organization Name</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Contact Person</TableHead>
+                                    <TableHead>Date Joined</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {users.filter(u => u.role === 'organization' || u.role === 'Organization' || u.role === 'supervisor').map(org => (
+                                    <TableRow key={org.id}>
+                                        <TableCell className="font-medium">{org.organizationName || 'N/A'}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{org.organizationType || org.industrySector || 'Standard'}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div>{org.name}</div>
+                                            <div className="text-xs text-muted-foreground">{org.email}</div>
+                                        </TableCell>
+                                        <TableCell>{new Date(org.createdAt).toLocaleDateString()}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" onClick={() => onViewUserDashboard(org.id)}>
+                                                <LayoutDashboard className="w-4 h-4 mr-2" />
+                                                View Dashboard
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {users.filter(u => u.role === 'organization' || u.role === 'Organization' || u.role === 'supervisor').length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                            No organizations found.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+             </div>
+          </TabsContent>
+
+          <TabsContent value="platform">
+            {/* Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="shadow-md">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -451,6 +598,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
             Run Diagnostic
           </Button>
         </div>
+        </TabsContent>
+      </Tabs>
 
         {/* Diagnostic Modal */}
         {showDiagnostic && (

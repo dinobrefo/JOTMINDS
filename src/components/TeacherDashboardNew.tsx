@@ -5,7 +5,10 @@ import { getUserAssessmentResults, getStudentsForTeacher } from '../utils/api';
 import { getStudentsBySchool, getAllUsers, getAllAssessments, getAssessmentsByUserId, saveAssessment, generateId, saveAssessmentProgress, getAssessmentProgress, clearAssessmentProgress } from '../utils/storage';
 import { toast } from 'sonner';
 import { Alert, AlertTitle, AlertDescription } from './ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { ArrowRight, History, RefreshCcw, Calendar, AlertCircle, Eye, ArrowLeft } from 'lucide-react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Badge } from './ui/badge';
 import { 
   TeacherAppHeader, 
   TeacherTabBar, 
@@ -16,6 +19,7 @@ import { TeachingStyleAssessment } from './TeachingStyleAssessment';
 import { TeachingStyleResults } from './TeachingStyleResults';
 import { calculateTeachingStyleScore } from '../utils/teachingStyleScoring';
 import { teachingStyleQuestions } from '../utils/teachingStyleQuestions';
+import { generateDeepDiveQuestions } from '../utils/teachingStyleData';
 
 interface TeacherDashboardNewProps {
   user: User;
@@ -32,6 +36,7 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
   const [isTakingAssessment, setIsTakingAssessment] = useState(false);
   const [initialResponses, setInitialResponses] = useState<number[]>([]);
   const [initialQuestions, setInitialQuestions] = useState<any[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     loadClassData();
@@ -82,8 +87,6 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
         const { results: assessmentResults } = await getUserAssessmentResults(user.id);
         assessmentsForStats = assessmentResults || [];
         
-        // For teachers viewed by admin, we'd need to fetch their students from API
-        // For now, use localStorage fallback
         if (user.school) {
           studentUsers = getStudentsBySchool(user.school);
         } else {
@@ -118,7 +121,8 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
       setAllAssessments(assessmentsForStats);
     } catch (error) {
       console.error('Error loading class data:', error);
-      toast.error('Failed to load class data');
+      // Don't show toast for JSON error to avoid spamming user if LS is messy
+      // toast.error('Failed to load class data');
     } finally {
       setLoading(false);
     }
@@ -146,16 +150,38 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
     toast.success('Assessment completed successfully!');
   };
 
-  const teachingStyleAssessment = useMemo(() => 
-    myAssessments.find(a => a.type === 'teaching-style'),
+  const teachingStyleAssessments = useMemo(() => 
+    myAssessments
+      .filter(a => a.type === 'teaching-style')
+      .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0)),
     [myAssessments]
   );
 
+  const displayedAssessment = useMemo(() => {
+    if (selectedHistoryId) {
+        return teachingStyleAssessments.find(a => a.id === selectedHistoryId) || teachingStyleAssessments[0];
+    }
+    return teachingStyleAssessments[0];
+  }, [teachingStyleAssessments, selectedHistoryId]);
+
   const handleDeepDive = () => {
-    if (teachingStyleAssessment) {
-        setInitialResponses(teachingStyleAssessment.responses);
-        setInitialQuestions(teachingStyleQuestions);
+    if (displayedAssessment) {
+        setInitialResponses(displayedAssessment.responses);
+        // Generate a smart subset of ~48 questions for deep dive instead of full 140
+        const deepDiveQuestions = generateDeepDiveQuestions(8);
+        setInitialQuestions(deepDiveQuestions);
         setIsTakingAssessment(true);
+    }
+  };
+
+  const handleRetakeAssessment = () => {
+    if (window.confirm("Are you sure you want to start a new assessment? Your previous results will be saved in your history.")) {
+        // Clear any saved progress to start fresh
+        clearAssessmentProgress(user.id, 'teaching-style', !!user.organizationName);
+        setInitialResponses([]);
+        setInitialQuestions([]);
+        setIsTakingAssessment(true);
+        setSelectedHistoryId(null); // Ensure we aren't viewing history when retaking
     }
   };
 
@@ -211,16 +237,89 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
       )}
 
       {activeTab === 'my-style' && (
-        <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-6">
-          {teachingStyleAssessment ? (
-            <TeachingStyleResults 
-                score={teachingStyleAssessment.score['teaching-style']} 
-                onDeepDive={
-                    teachingStyleAssessment.responses.filter(r => r > 0).length < teachingStyleQuestions.length
-                    ? handleDeepDive
-                    : undefined
-                }
-            />
+        <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-8">
+          {displayedAssessment ? (
+            <div className="space-y-8">
+                {selectedHistoryId && (
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" onClick={() => setSelectedHistoryId(null)}>
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to Latest Result
+                        </Button>
+                        <Badge variant="outline" className="text-sm">
+                            Viewing Historical Result: {new Date(displayedAssessment.completedAt || "").toLocaleDateString()}
+                        </Badge>
+                    </div>
+                )}
+
+                <TeachingStyleResults 
+                    score={displayedAssessment.score['teaching-style']} 
+                    onDeepDive={
+                        // Only show Deep Dive for LATEST assessment and if incomplete
+                        (!selectedHistoryId && displayedAssessment.responses.filter(r => r > 0).length < 40)
+                        ? handleDeepDive
+                        : undefined
+                    }
+                />
+                
+                {!selectedHistoryId && (
+                    <div className="flex justify-center">
+                        <Button 
+                            onClick={handleRetakeAssessment} 
+                            size="lg" 
+                            variant="outline"
+                            className="gap-2 border-indigo-200 hover:bg-indigo-50 text-indigo-700"
+                        >
+                            <RefreshCcw className="h-4 w-4" />
+                            Retake Teaching Style Assessment
+                        </Button>
+                    </div>
+                )}
+
+                {teachingStyleAssessments.length > 1 && !selectedHistoryId && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <History className="h-5 w-5 text-muted-foreground" />
+                                Assessment History
+                            </CardTitle>
+                            <CardDescription>
+                                Track how your teaching style has evolved over time.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {teachingStyleAssessments.slice(1).map((assessment) => (
+                                    <div key={assessment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <Calendar className="h-5 w-5 text-slate-500" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-slate-900">
+                                                    {assessment.score['teaching-style'].primaryStyle}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Completed on {new Date(assessment.completedAt || "").toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary">
+                                                {new Date(assessment.completedAt || "").toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </Badge>
+                                            <Button variant="ghost" size="sm" onClick={() => setSelectedHistoryId(assessment.id)}>
+                                                <Eye className="h-4 w-4 mr-2" />
+                                                View Report
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
           ) : (
              <div className="text-center py-12 bg-white rounded-xl shadow-sm border p-8">
                 <div className="h-16 w-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">

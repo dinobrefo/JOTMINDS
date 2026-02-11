@@ -1,15 +1,20 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { User } from '../types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Brain, Lightbulb, Scale, BookOpen, Info, TrendingUp, Users } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Brain, Lightbulb, Scale, BookOpen, Info, TrendingUp, Users, AlertCircle, Search, ChevronRight, Zap } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
 import { getAssessmentsByUserId } from '../utils/storage';
+import { axisDescriptions, teachingStyleProfiles } from '../utils/teachingStyleData';
+import { ScrollArea } from './ui/scroll-area';
 
 interface SchoolInsightsProps {
   professionals: User[];
@@ -19,7 +24,9 @@ interface SchoolInsightsProps {
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
 export function SchoolInsights({ professionals, organizationName }: SchoolInsightsProps) {
-  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterProfile, setFilterProfile] = useState("All");
+
   const stats = useMemo(() => {
     const kolbDistribution: Record<string, number> = {};
     const sternbergDistribution: Record<string, number> = {};
@@ -34,11 +41,25 @@ export function SchoolInsights({ professionals, organizationName }: SchoolInsigh
     let totalDual = 0;
     let totalTeaching = 0;
 
-    professionals.forEach(prof => {
-      // Use assessments from prop or storage
-      const assessments = prof.assessments || getAssessmentsByUserId(prof.id);
-      
-      assessments.forEach(assessment => {
+    // Processed list of professionals with their teaching style data
+    const processedProfessionals = professionals.map(prof => {
+        const assessments = prof.assessments || getAssessmentsByUserId(prof.id);
+        const teachingAssessment = assessments.find(a => a.type === 'teaching-style' && a.completedAt);
+        
+        let teachingData = null;
+        if (teachingAssessment?.score?.['teaching-style']) {
+            teachingData = teachingAssessment.score['teaching-style'];
+        }
+
+        return {
+            ...prof,
+            teachingData,
+            assessments
+        };
+    });
+
+    processedProfessionals.forEach(prof => {
+      prof.assessments.forEach(assessment => {
         if (!assessment.completedAt || !assessment.score) return;
 
         if (assessment.type === 'kolb' && assessment.score.kolb) {
@@ -71,22 +92,64 @@ export function SchoolInsights({ professionals, organizationName }: SchoolInsigh
 
     const averageAxes = teachingAxesTotals.count > 0 ? [
         { subject: 'Authority', A: Math.round(teachingAxesTotals.authority / teachingAxesTotals.count), fullMark: 100 },
-        { subject: 'Construction', A: Math.round(teachingAxesTotals.knowledge / teachingAxesTotals.count), fullMark: 100 },
+        { subject: 'Knowledge', A: Math.round(teachingAxesTotals.knowledge / teachingAxesTotals.count), fullMark: 100 },
         { subject: 'Motivation', A: Math.round(teachingAxesTotals.motivation / teachingAxesTotals.count), fullMark: 100 },
-        { subject: 'Growth', A: Math.round(teachingAxesTotals.assessment / teachingAxesTotals.count), fullMark: 100 },
+        { subject: 'Assessment', A: Math.round(teachingAxesTotals.assessment / teachingAxesTotals.count), fullMark: 100 },
         { subject: 'Adaptability', A: Math.round(teachingAxesTotals.adaptability / teachingAxesTotals.count), fullMark: 100 },
         { subject: 'Climate', A: Math.round(teachingAxesTotals.climate / teachingAxesTotals.count), fullMark: 100 },
     ] : [];
+
+    const sortedTeachingStyles = Object.entries(teachingStyleDistribution)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+    // Insights Generator
+    const generateInsights = () => {
+        if (teachingAxesTotals.count === 0) return [];
+        
+        const dominantProfile = sortedTeachingStyles[0]?.name;
+        const lowestAxis = [...averageAxes].sort((a, b) => a.A - b.A)[0];
+        const highestAxis = [...averageAxes].sort((a, b) => b.A - a.A)[0];
+
+        return [
+            {
+                title: "Dominant Style",
+                desc: `Your faculty leans towards "${dominantProfile}", indicating a strong culture of ${dominantProfile === 'Structured Educator' ? 'organization and clarity' : 'student engagement'}.`,
+                icon: <Users className="h-5 w-5 text-blue-500" />
+            },
+            {
+                title: "Key Strength",
+                desc: `The school excels in "${highestAxis.subject}" (${highestAxis.A}%), showing high capability in ${axisDescriptions[`axis${highestAxis.subject}` as keyof typeof axisDescriptions]?.title || 'this area'}.`,
+                icon: <TrendingUp className="h-5 w-5 text-green-500" />
+            },
+            {
+                title: "Growth Area",
+                desc: `Scores for "${lowestAxis.subject}" are lower (${lowestAxis.A}%). Consider professional development focused on ${lowestAxis.subject === 'Adaptability' ? 'flexible teaching strategies' : 'student autonomy'}.`,
+                icon: <AlertCircle className="h-5 w-5 text-amber-500" />
+            }
+        ];
+    };
 
     return {
       kolb: Object.entries(kolbDistribution).map(([name, value]) => ({ name, value })),
       sternberg: Object.entries(sternbergDistribution).map(([name, value]) => ({ name, value })),
       dualProcess: Object.entries(dualProcessDistribution).map(([name, value]) => ({ name, value })),
-      teachingStyle: Object.entries(teachingStyleDistribution).map(([name, value]) => ({ name, value })),
+      teachingStyle: sortedTeachingStyles,
       averageAxes,
+      insights: generateInsights(),
+      processedProfessionals,
       totals: { kolb: totalKolb, sternberg: totalSternberg, dual: totalDual, teaching: totalTeaching }
     };
   }, [professionals]);
+
+  // Filtering for the Faculty List
+  const filteredProfessionals = stats.processedProfessionals.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesProfile = filterProfile === "All" || p.teachingData?.primaryStyle === filterProfile;
+    const hasTeachingData = !!p.teachingData; // Only show teachers with data in this specific list? Or all? 
+    // Let's show all but highlight missing data
+    return matchesSearch && matchesProfile;
+  });
 
   if (professionals.length === 0) {
     return (
@@ -102,150 +165,266 @@ export function SchoolInsights({ professionals, organizationName }: SchoolInsigh
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* High Level Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Teachers
+              Total Faculty
             </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{professionals.length}</div>
             <p className="text-xs text-muted-foreground">
-              Registered in {organizationName}
+              Registered members
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Assessments Completed
+              Assessment Completion
             </CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats.totals.kolb + stats.totals.sternberg + stats.totals.dual + stats.totals.teaching}
+                {stats.totals.teaching > 0 ? Math.round((stats.totals.teaching / professionals.length) * 100) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">
-              Across all frameworks
+              {professionals.length - stats.totals.teaching} pending completion
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Participation Rate
+              Dominant Style
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold truncate">
+                {stats.teachingStyle[0]?.name || "N/A"}
+            </div>
+            <p className="text-xs text-muted-foreground">
+                {stats.totals.teaching > 0 
+                 ? Math.round((stats.teachingStyle[0]?.value / stats.totals.teaching) * 100) 
+                 : 0}% of staff
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cognitive Diversity</CardTitle>
+            <Brain className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {professionals.length > 0 
-                ? Math.round(((stats.totals.kolb / professionals.length) * 100)) 
-                : 0}%
+                {stats.teachingStyle.length > 3 ? "High" : "Moderate"}
             </div>
             <p className="text-xs text-muted-foreground">
-              Based on Learning Styles (Kolb)
+                Balanced across 6 axes
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="thinking" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="teaching">Teaching Styles</TabsTrigger>
-          <TabsTrigger value="thinking">Cognitive Styles</TabsTrigger>
-          <TabsTrigger value="learning">Learning Approaches</TabsTrigger>
-          <TabsTrigger value="decision">Decision Making</TabsTrigger>
+      <Tabs defaultValue="teaching" className="space-y-4">
+        <TabsList className="bg-white/50 p-1 border shadow-sm w-full md:w-auto grid grid-cols-2 md:flex h-auto">
+          <TabsTrigger value="teaching" className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">Teaching Styles</TabsTrigger>
+          <TabsTrigger value="thinking" className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">Cognitive Styles</TabsTrigger>
+          <TabsTrigger value="learning" className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">Learning Approaches</TabsTrigger>
+          <TabsTrigger value="decision" className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">Decision Making</TabsTrigger>
         </TabsList>
 
         <TabsContent value="teaching" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            {/* Main Chart: Aggregate Radar */}
+            <Card className="col-span-4">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-indigo-600" />
-                  Teaching Style Distribution
-                </CardTitle>
+                <CardTitle>School Aggregate Profile</CardTitle>
                 <CardDescription>
-                   Breakdown of dominant teaching styles across faculty.
+                  Average cognitive axes across all {stats.totals.teaching} assessed faculty members.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                {stats.teachingStyle.length > 0 ? (
+              <CardContent className="pl-2">
+                 {stats.averageAxes.length > 0 ? (
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={stats.teachingStyle}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {stats.teachingStyle.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
+                        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats.averageAxes}>
+                            <PolarGrid />
+                            <PolarAngleAxis dataKey="subject" />
+                            <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                            <Radar
+                                name="School Average"
+                                dataKey="A"
+                                stroke="#8884d8"
+                                fill="#8884d8"
+                                fillOpacity={0.6}
+                            />
+                            <Tooltip />
+                        </RadarChart>
                     </ResponsiveContainer>
                   </div>
-                ) : (
-                  <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                    No teaching style data available yet
-                  </div>
-                )}
+                 ) : (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                        Not enough data to generate aggregate profile.
+                    </div>
+                 )}
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Insights Panel */}
+            <Card className="col-span-3">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                  Average School Profile
-                </CardTitle>
+                <CardTitle>Strategic Insights</CardTitle>
                 <CardDescription>
-                  Aggregate view of the school's teaching "engines" (Authority, Motivation, etc.)
+                  AI-driven observations based on current data.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {stats.averageAxes.length > 0 ? (
-                   <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats.averageAxes}>
-                        <PolarGrid />
-                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                        <Radar
-                          name="School Average"
-                          dataKey="A"
-                          stroke="#82ca9d"
-                          strokeWidth={2}
-                          fill="#82ca9d"
-                          fillOpacity={0.6}
-                        />
-                        <Tooltip />
-                        <Legend />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                   <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                    No data available yet
-                  </div>
-                )}
+                <div className="space-y-6">
+                    {stats.insights.length > 0 ? stats.insights.map((insight, idx) => (
+                        <div key={idx} className="flex gap-4">
+                            <div className="mt-1 bg-muted p-2 rounded-full h-fit">
+                                {insight.icon}
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-sm">{insight.title}</h4>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    {insight.desc}
+                                </p>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="text-muted-foreground text-center py-8">
+                            Insights will appear once more faculty complete assessments.
+                        </div>
+                    )}
+                </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Faculty Directory Section */}
+          <Card>
+            <CardHeader>
+                <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div>
+                        <CardTitle>Faculty Directory</CardTitle>
+                        <CardDescription>
+                            View individual teaching style results.
+                        </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Search faculty..." 
+                                className="pl-8 w-[200px]" 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <select 
+                            className="h-10 w-[180px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            value={filterProfile}
+                            onChange={(e) => setFilterProfile(e.target.value)}
+                        >
+                            <option value="All">All Styles</option>
+                            {Object.keys(teachingStyleProfiles).map(p => (
+                                <option key={p} value={p}>{p}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <ScrollArea className="h-[400px]">
+                    <div className="divide-y">
+                        {filteredProfessionals.map((teacher) => (
+                            <div key={teacher.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                        {teacher.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium leading-none">{teacher.name}</p>
+                                        <p className="text-sm text-muted-foreground mt-1">{teacher.position || 'Teacher'} • {teacher.email}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-6">
+                                    <div className="hidden md:block text-right">
+                                        {teacher.teachingData ? (
+                                            <>
+                                                <p className="text-sm font-medium text-primary">{teacher.teachingData.primaryStyle}</p>
+                                                <p className="text-xs text-muted-foreground">Active Profile</p>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground italic">Pending Assessment</p>
+                                        )}
+                                    </div>
+                                    <Button size="sm" variant="ghost" disabled={!teacher.teachingData}>
+                                        View Report <ChevronRight className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                        {filteredProfessionals.length === 0 && (
+                            <div className="text-center py-8 text-muted-foreground">
+                                No teachers found matching your criteria.
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Style Distribution Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Teaching Style Distribution</CardTitle>
+              <CardDescription>
+                 Breakdown of dominant teaching styles across faculty.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats.teachingStyle.length > 0 ? (
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                        data={stats.teachingStyle}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                        <XAxis type="number" />
+                        <YAxis dataKey="name" type="category" width={150} tick={{fontSize: 12}} />
+                        <Tooltip 
+                            cursor={{fill: 'transparent'}}
+                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        />
+                        <Bar dataKey="value" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                            {stats.teachingStyle.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                  No teaching style data available yet
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
+        {/* Keeping existing tabs (thinking, learning, decision) with their original content */}
         <TabsContent value="thinking" className="space-y-4">
           <Card>
             <CardHeader>
@@ -254,8 +433,7 @@ export function SchoolInsights({ professionals, organizationName }: SchoolInsigh
                 Cognitive Style Distribution (Sternberg)
               </CardTitle>
               <CardDescription>
-                Breakdown of Analytical, Creative, and Practical thinking styles across your teaching staff.
-                Diverse thinking styles foster a more comprehensive problem-solving environment.
+                Breakdown of Analytical, Creative, and Practical thinking styles.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -289,38 +467,6 @@ export function SchoolInsights({ professionals, organizationName }: SchoolInsigh
               )}
             </CardContent>
           </Card>
-          <div className="grid gap-4 md:grid-cols-3">
-             <Card>
-               <CardHeader>
-                 <CardTitle className="text-sm">Analytical Impact</CardTitle>
-               </CardHeader>
-               <CardContent>
-                 <p className="text-xs text-muted-foreground">
-                   Teachers with this style excel at analyzing curriculum effectiveness and student performance data.
-                 </p>
-               </CardContent>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <CardTitle className="text-sm">Creative Impact</CardTitle>
-               </CardHeader>
-               <CardContent>
-                 <p className="text-xs text-muted-foreground">
-                   These teachers bring innovation to lesson planning and find novel ways to engage students.
-                 </p>
-               </CardContent>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <CardTitle className="text-sm">Practical Impact</CardTitle>
-               </CardHeader>
-               <CardContent>
-                 <p className="text-xs text-muted-foreground">
-                   Practical thinkers are great at classroom management and connecting lessons to real-world applications.
-                 </p>
-               </CardContent>
-             </Card>
-          </div>
         </TabsContent>
 
         <TabsContent value="learning" className="space-y-4">
@@ -332,7 +478,6 @@ export function SchoolInsights({ professionals, organizationName }: SchoolInsigh
               </CardTitle>
               <CardDescription>
                 How your teachers process information (Learning Style) often influences how they teach.
-                A balanced mix ensures all student learning styles are catered to.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -370,7 +515,7 @@ export function SchoolInsights({ professionals, organizationName }: SchoolInsigh
                 Decision Making Patterns (Dual Process)
               </CardTitle>
               <CardDescription>
-                Understanding the balance between Intuitive (System 1) and Reflective (System 2) decision making in your school.
+                Understanding the balance between Intuitive and Reflective decision making.
               </CardDescription>
             </CardHeader>
             <CardContent>

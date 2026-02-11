@@ -17,6 +17,17 @@ const STORAGE_KEYS = {
   ADULT_RESULTS: 'ts_adult_results',
 };
 
+// Helper for safe JSON parsing
+function safeParse<T>(key: string, fallback: T): T {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch (error) {
+    console.error(`Error parsing localStorage key "${key}":`, error);
+    return fallback;
+  }
+}
+
 // User management
 export function saveCurrentUser(user: User | null) {
   if (user) {
@@ -27,13 +38,11 @@ export function saveCurrentUser(user: User | null) {
 }
 
 export function getCurrentUser(): User | null {
-  const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-  return data ? JSON.parse(data) : null;
+  return safeParse<User | null>(STORAGE_KEYS.CURRENT_USER, null);
 }
 
 export function getAllUsers(): User[] {
-  const data = localStorage.getItem(STORAGE_KEYS.USERS);
-  return data ? JSON.parse(data) : [];
+  return safeParse<User[]>(STORAGE_KEYS.USERS, []);
 }
 
 export function saveUser(user: User) {
@@ -221,8 +230,7 @@ export function getLinkedChildren(parentId: string): User[] {
 
 // Assessment management
 export function getAllAssessments(): Assessment[] {
-  const data = localStorage.getItem(STORAGE_KEYS.ASSESSMENTS);
-  return data ? JSON.parse(data) : [];
+  return safeParse<Assessment[]>(STORAGE_KEYS.ASSESSMENTS, []);
 }
 
 export function saveAssessment(assessment: Assessment) {
@@ -243,8 +251,7 @@ export function getAssessmentById(id: string): Assessment | undefined {
 
 // Reflection management
 export function getAllReflections(): Reflection[] {
-  const data = localStorage.getItem(STORAGE_KEYS.REFLECTIONS);
-  return data ? JSON.parse(data) : [];
+  return safeParse<Reflection[]>(STORAGE_KEYS.REFLECTIONS, []);
 }
 
 export function saveReflection(reflection: Reflection) {
@@ -284,23 +291,16 @@ export function saveAssessmentProgress(progress: AssessmentProgress) {
 
 export function getAssessmentProgress(
   userId: string, 
-  assessmentType: 'kolb' | 'sternberg' | 'dual-process',
+  assessmentType: 'kolb' | 'sternberg' | 'dual-process' | 'teaching-style',
   isOrganizational: boolean
 ): AssessmentProgress | null {
   const key = `${STORAGE_KEYS.ASSESSMENT_PROGRESS}_${userId}_${assessmentType}_${isOrganizational}`;
-  try {
-    const data = localStorage.getItem(key);
-    console.log('Getting progress from localStorage with key:', key, 'found:', !!data);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error('Error reading progress from localStorage:', error);
-    return null;
-  }
+  return safeParse<AssessmentProgress | null>(key, null);
 }
 
 export function clearAssessmentProgress(
   userId: string, 
-  assessmentType: 'kolb' | 'sternberg' | 'dual-process',
+  assessmentType: 'kolb' | 'sternberg' | 'dual-process' | 'teaching-style',
   isOrganizational: boolean
 ) {
   const key = `${STORAGE_KEYS.ASSESSMENT_PROGRESS}_${userId}_${assessmentType}_${isOrganizational}`;
@@ -309,8 +309,7 @@ export function clearAssessmentProgress(
 
 // Supervisor review management
 export function getAllReviews(): SupervisorReviewData[] {
-  const data = localStorage.getItem(STORAGE_KEYS.SUPERVISOR_REVIEWS);
-  return data ? JSON.parse(data) : [];
+  return safeParse<SupervisorReviewData[]>(STORAGE_KEYS.SUPERVISOR_REVIEWS, []);
 }
 
 export function saveReview(reviewData: Omit<SupervisorReviewData, 'id' | 'createdAt'>) {
@@ -341,8 +340,7 @@ export function getAssessmentsByUserId(userId: string): Assessment[] {
 
 // Parent observation management
 export function getAllParentObservations(): ParentObservationAssessment[] {
-  const data = localStorage.getItem(STORAGE_KEYS.PARENT_OBSERVATIONS);
-  return data ? JSON.parse(data) : [];
+  return safeParse<ParentObservationAssessment[]>(STORAGE_KEYS.PARENT_OBSERVATIONS, []);
 }
 
 export function saveParentObservation(observation: ParentObservationAssessment) {
@@ -368,8 +366,7 @@ export function getParentObservationById(id: string): ParentObservationAssessmen
 
 // Child sharing consent management
 export function getAllSharingConsents(): ChildSharingConsent[] {
-  const data = localStorage.getItem(STORAGE_KEYS.SHARING_CONSENTS);
-  return data ? JSON.parse(data) : [];
+  return safeParse<ChildSharingConsent[]>(STORAGE_KEYS.SHARING_CONSENTS, []);
 }
 
 export function saveSharingConsent(consent: ChildSharingConsent) {
@@ -409,14 +406,12 @@ export function generateId(): string {
 
 // JHS/SHS/Adult Result Management
 export function getJHSResults(userId: string): any[] {
-  const data = localStorage.getItem(STORAGE_KEYS.JHS_RESULTS);
-  const results = data ? JSON.parse(data) : [];
+  const results = safeParse<any[]>(STORAGE_KEYS.JHS_RESULTS, []);
   return results.filter((r: any) => r.userId === userId);
 }
 
 export function saveJHSResult(result: any) {
-  const data = localStorage.getItem(STORAGE_KEYS.JHS_RESULTS);
-  const results = data ? JSON.parse(data) : [];
+  const results = safeParse<any[]>(STORAGE_KEYS.JHS_RESULTS, []);
   const index = results.findIndex((r: any) => r.id === result.id || (r.completedAt === result.completedAt && r.userId === result.userId));
   if (index >= 0) {
     results[index] = result;
@@ -427,14 +422,12 @@ export function saveJHSResult(result: any) {
 }
 
 export function getSHSResults(userId: string): any[] {
-  const data = localStorage.getItem(STORAGE_KEYS.SHS_RESULTS);
-  const results = data ? JSON.parse(data) : [];
+  const results = safeParse<any[]>(STORAGE_KEYS.SHS_RESULTS, []);
   return results.filter((r: any) => r.userId === userId);
 }
 
 export function saveSHSResult(result: any) {
-  const data = localStorage.getItem(STORAGE_KEYS.SHS_RESULTS);
-  const results = data ? JSON.parse(data) : [];
+  const results = safeParse<any[]>(STORAGE_KEYS.SHS_RESULTS, []);
   const index = results.findIndex((r: any) => r.id === result.id || (r.completedAt === result.completedAt && r.userId === result.userId));
   if (index >= 0) {
     results[index] = result;
@@ -445,14 +438,12 @@ export function saveSHSResult(result: any) {
 }
 
 export function getAdultResults(userId: string): any[] {
-  const data = localStorage.getItem(STORAGE_KEYS.ADULT_RESULTS);
-  const results = data ? JSON.parse(data) : [];
+  const results = safeParse<any[]>(STORAGE_KEYS.ADULT_RESULTS, []);
   return results.filter((r: any) => r.userId === userId);
 }
 
 export function saveAdultResult(result: any) {
-  const data = localStorage.getItem(STORAGE_KEYS.ADULT_RESULTS);
-  const results = data ? JSON.parse(data) : [];
+  const results = safeParse<any[]>(STORAGE_KEYS.ADULT_RESULTS, []);
   const index = results.findIndex((r: any) => r.id === result.id || (r.completedAt === result.completedAt && r.userId === result.userId));
   if (index >= 0) {
     results[index] = result;

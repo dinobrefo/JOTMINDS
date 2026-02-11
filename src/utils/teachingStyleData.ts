@@ -1,3 +1,7 @@
+import { teachingStyleQuestions } from './teachingStyleQuestions';
+import { Question } from '../types';
+
+// ... (keep existing exports)
 export const teachingStyleProfiles = {
   "Authoritative Instructor": {
     strengths: ["Clear classroom structure", "Effective discipline management", "Direct instruction"],
@@ -78,4 +82,70 @@ export const axisDescriptions = {
     high: "Safe",
     description: "Measures the psychological safety and relationship quality."
   }
+};
+
+export const generateDeepDiveQuestions = (countPerAxis = 8): Question[] => {
+    // Pools definition based on Axes (Aligned with scoring logic)
+    const pools = {
+        authorityPos: [7, 18, 20, 22, 24, 93, 94, 96, 97, 99, 100, 101, 103, 104, 106, 162],
+        authorityNeg: [1, 2, 6, 17, 19, 21, 23, 95, 98, 102, 105, 143, 158],
+        
+        knowledgePos: [11, 12, 13, 15, 16, 92, 163],
+        knowledgeNeg: [9, 10, 14, 91, 130],
+        
+        assessmentPos: [34, 35, 36, 38, 40, 121, 122, 124, 125, 126, 128, 129, 131, 132, 133, 138, 146, 150],
+        assessmentNeg: [33, 37, 39, 123, 127],
+        
+        climatePos: [50, 51, 53, 54, 55, 137, 155, 156, 157, 159],
+        climateNeg: [49, 52, 56, 148],
+        
+        adaptPos: [42, 43, 44, 45, 47, 48, 107, 108, 110, 111, 112, 114, 115, 117, 118, 119, 120, 134, 144, 160],
+        adaptNeg: [41, 46, 109, 113, 116, 140, 141, 145],
+        
+        motivationAll: [25, 26, 27, 28, 29, 30, 31, 32, 161, 164],
+        
+        // Innovation is a derived secondary metric but useful to include
+        innovationAll: [57, 58, 59, 60, 61, 62, 63, 64, 135, 136, 139, 142, 147, 149, 151, 152, 153, 154]
+    };
+
+    const getRandomSubset = (arr: number[], count: number) => {
+        const shuffled = [...arr].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, count);
+    };
+
+    // Calculate how many positive vs negative to take for balanced axes
+    // We aim for countPerAxis total per axis.
+    const split = Math.floor(countPerAxis / 2);
+    
+    let selectedIds = [
+        ...getRandomSubset(pools.authorityPos, split),
+        ...getRandomSubset(pools.authorityNeg, split),
+        
+        ...getRandomSubset(pools.knowledgePos, split),
+        ...getRandomSubset(pools.knowledgeNeg, split),
+        
+        ...getRandomSubset(pools.assessmentPos, split),
+        ...getRandomSubset(pools.assessmentNeg, split),
+        
+        ...getRandomSubset(pools.climatePos, split),
+        ...getRandomSubset(pools.climateNeg, split),
+        
+        ...getRandomSubset(pools.adaptPos, split),
+        ...getRandomSubset(pools.adaptNeg, split),
+        
+        // Motivation and Innovation are often "All" pools in this simplified structure, 
+        // but we can just pick countPerAxis from them directly
+        ...getRandomSubset(pools.motivationAll, countPerAxis),
+        ...getRandomSubset(pools.innovationAll, countPerAxis)
+    ];
+
+    // Remove duplicates (though pools are mostly distinct, some might overlap in theory if design changes)
+    selectedIds = Array.from(new Set(selectedIds));
+
+    // Map to actual question objects
+    return selectedIds
+        .map(id => teachingStyleQuestions.find(q => q.id === id)!)
+        .filter(Boolean)
+        .sort((a, b) => a.id - b.id); // Sort by ID or shuffle? Shuffle is better for test taking.
+        // .sort(() => Math.random() - 0.5);
 };
