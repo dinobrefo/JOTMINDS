@@ -7647,6 +7647,10 @@
     }
   }
 
+  .dark\:bg-slate-900:is(.dark *) {
+    background-color: var(--color-slate-900);
+  }
+
   .dark\:bg-teal-900\/30:is(.dark *) {
     background-color: color-mix(in srgb, oklch(.386 .063 188.416) 30%, transparent);
   }

@@ -33,8 +33,10 @@ export function ResetPasswordForm({ onSuccess, onBack }: ResetPasswordFormProps)
         
         // Check if this is a password recovery session
         if (session?.user) {
+          console.log('[ResetPassword] Valid session found for user:', session.user.email);
           setValidSession(true);
         } else {
+          console.warn('[ResetPassword] No active session found during recovery flow');
           setError('Invalid or expired password reset link. Please request a new one.');
         }
       } catch (err) {
