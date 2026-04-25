@@ -32,11 +32,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
       const supabase = createClient();
       
       // Get the current URL origin for the redirect
-      // We redirect to the root because App.tsx handles the 'recovery' type in the hash
-      // regardless of the path. This avoids 404s if /reset-password isn't a real route.
-      const redirectUrl = `${window.location.origin}`;
-      console.log('[ForgotPassword] Sending reset email to:', email);
-      console.log('[ForgotPassword] Using redirect URL:', redirectUrl);
+      const redirectUrl = `${window.location.origin}/reset-password`;
       
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
@@ -100,13 +96,10 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
                   </AlertDescription>
                 </Alert>
 
-                <div className="space-y-4 text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border">
-                  <p>📧 <strong>Check your email</strong> (including Spam/Junk folders)</p>
-                  <p>⏳ <strong>Wait a few minutes</strong> if it doesn't arrive immediately</p>
-                  <p>🔗 <strong>Click the reset link</strong> in the email to create a new password</p>
-                  <p className="text-xs mt-2 text-slate-500">
-                    Note: If you are testing on localhost, ensure your URL is whitelisted in your Supabase project settings.
-                  </p>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>📧 <strong>Check your email</strong> (including spam folder)</p>
+                  <p>🔗 <strong>Click the reset link</strong> in the email</p>
+                  <p>🔐 <strong>Create a new password</strong> on the next page</p>
                 </div>
 
                 <Button

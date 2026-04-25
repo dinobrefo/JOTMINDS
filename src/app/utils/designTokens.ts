@@ -5,7 +5,7 @@
  * All components should reference these tokens instead of hardcoded values.
  * 
  * Usage:
- * import { tokens } from '../utils/designTokens';
+ * import { tokens } from './designTokens';
  * className={`${tokens.spacing.card} ${tokens.shadow.medium}`}
  */
 

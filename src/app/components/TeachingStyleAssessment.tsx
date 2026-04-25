@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { teachingStyleQuestions } from '../utils/teachingStyleQuestions';
 import { Question } from '../types';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface TeachingStyleAssessmentProps {
   onComplete: (responses: number[]) => void;

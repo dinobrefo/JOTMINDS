@@ -99,22 +99,28 @@ app.post('/make-server-fc8eb847/validate-org-code', async (c) => {
   try {
     const { code } = await c.req.json();
     
+    console.log(`[validate-org-code] Validating code: ${code}`);
+    
     if (!code) {
+      console.log(`[validate-org-code] ✗ No code provided`);
       return c.json({ error: 'Organization code is required' }, 400);
     }
 
     const organization = await kv.get(`organization:${code}`);
     
     if (!organization) {
+      console.log(`[validate-org-code] ✗ Organization not found for code: ${code}`);
       return c.json({ valid: false, error: 'Invalid organization code' }, 200);
     }
 
+    console.log(`[validate-org-code] ✓ Organization found: ${organization.name}`);
     return c.json({ 
       valid: true, 
-      organizationName: organization.name 
+      organizationName: organization.name,
+      organizationType: organization.type 
     });
   } catch (error) {
-    console.log(`Error validating org code: ${error}`);
+    console.log(`[validate-org-code] Error validating org code: ${error}`);
     return c.json({ error: 'Failed to validate organization code' }, 500);
   }
 });
@@ -145,8 +151,8 @@ app.post('/make-server-fc8eb847/signup', async (c) => {
         createdAt: new Date().toISOString(),
         createdBy: email
       });
-    } else if (role === 'professional' && organizationCode) {
-      // Professional can optionally provide an organization code
+    } else if ((role === 'professional' || role === 'teacher') && organizationCode) {
+      // Professional or Teacher can optionally provide an organization code
       const organization = await kv.get(`organization:${organizationCode}`);
       if (!organization) {
         return c.json({ error: 'Invalid organization code' }, 400);
@@ -2517,6 +2523,125 @@ app.get('/make-server-fc8eb847/review/supervisor/:supervisorId', async (c) => {
   } catch (error) {
     console.error('Error fetching supervisor reviews:', error);
     return c.json({ error: 'Failed to fetch reviews' }, 500);
+  }
+});
+
+// ============= ADMIN ORGANIZATION MANAGEMENT ENDPOINTS =============
+
+// Admin endpoint: Create a test organization
+app.post('/make-server-fc8eb847/admin/create-organization', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check if user is admin
+    if (user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403);
+    }
+
+    const { name, type, industrySector } = await c.req.json();
+    
+    if (!name) {
+      return c.json({ error: 'Organization name is required' }, 400);
+    }
+
+    // Generate unique organization code
+    const orgCode = generateOrgCode();
+    
+    // Store organization
+    await kv.set(`organization:${orgCode}`, {
+      code: orgCode,
+      name: name,
+      type: type || 'School',
+      industrySector: industrySector || null,
+      createdAt: new Date().toISOString(),
+      createdBy: user.email
+    });
+
+    console.log(`[Admin] Created organization: ${name} with code: ${orgCode}`);
+
+    return c.json({ 
+      success: true, 
+      organization: {
+        code: orgCode,
+        name: name,
+        type: type || 'School'
+      }
+    });
+  } catch (error) {
+    console.log(`Error creating organization: ${error}`);
+    return c.json({ error: 'Failed to create organization' }, 500);
+  }
+});
+
+// Admin endpoint: List all organizations
+app.get('/make-server-fc8eb847/admin/list-organizations', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check if user is admin
+    if (user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403);
+    }
+
+    // Get all organizations
+    const organizations = await kv.getByPrefix('organization:');
+    
+    console.log(`[Admin] Found ${organizations.length} organizations`);
+
+    return c.json({ 
+      success: true, 
+      count: organizations.length,
+      organizations: organizations
+    });
+  } catch (error) {
+    console.log(`Error listing organizations: ${error}`);
+    return c.json({ error: 'Failed to list organizations' }, 500);
+  }
+});
+
+// Admin endpoint: Delete an organization
+app.delete('/make-server-fc8eb847/admin/delete-organization/:code', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Check if user is admin
+    if (user.email !== 'Alex.Attachey@gmail.com') {
+      return c.json({ error: 'Forbidden - Admin access required' }, 403);
+    }
+
+    const code = c.req.param('code');
+    
+    if (!code) {
+      return c.json({ error: 'Organization code is required' }, 400);
+    }
+
+    // Check if organization exists
+    const organization = await kv.get(`organization:${code}`);
+    if (!organization) {
+      return c.json({ error: 'Organization not found' }, 404);
+    }
+
+    // Delete organization
+    await kv.del(`organization:${code}`);
+    
+    console.log(`[Admin] Deleted organization: ${code}`);
+
+    return c.json({ 
+      success: true, 
+      message: `Organization ${code} deleted successfully`
+    });
+  } catch (error) {
+    console.log(`Error deleting organization: ${error}`);
+    return c.json({ error: 'Failed to delete organization' }, 500);
   }
 });
 

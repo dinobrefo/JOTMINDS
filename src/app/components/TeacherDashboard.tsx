@@ -6,7 +6,7 @@ import { EducationalResources } from './EducationalResources';
 import { useAuth } from './AuthContext';
 import { useState, useEffect } from 'react';
 import { MobileHeaderMenu } from './MobileHeaderMenu';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertTitle, AlertDescription } from './ui/alert';

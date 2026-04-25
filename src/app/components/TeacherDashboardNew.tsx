@@ -3,7 +3,7 @@ import { User, Assessment } from '../types';
 import { useAuth } from './AuthContext';
 import { getUserAssessmentResults, getStudentsForTeacher } from '../utils/api';
 import { getStudentsBySchool, getAllUsers, getAllAssessments, getAssessmentsByUserId, saveAssessment, generateId, saveAssessmentProgress, getAssessmentProgress, clearAssessmentProgress } from '../utils/storage';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 import { ArrowRight, History, RefreshCcw, Calendar, AlertCircle, Eye, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from './ui/alert';
 import { PasswordStrengthIndicator, checkPasswordStrength } from './PasswordStrengthIndicator';
 import { Checkbox } from './ui/checkbox';
+import { OrganizationCodeHelp } from './OrganizationCodeHelp';
 
 interface AuthFormProps {
   onLogin: () => void;
@@ -77,6 +78,19 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
         body: JSON.stringify({ code: organizationCode.toUpperCase() })
       });
 
+      // Check for network/connection errors
+      if (!response.ok) {
+        if (response.status === 403) {
+          setError('Connection error (403): Please ensure Supabase is connected in the integrations panel.');
+        } else if (response.status >= 500) {
+          setError(`Server error (${response.status}): Unable to validate code. Please try again later.`);
+        } else {
+          setError(`Error ${response.status}: Unable to validate organization code.`);
+        }
+        setVerifiedOrgName('');
+        return;
+      }
+
       const data = await response.json();
       
       if (data.valid) {
@@ -88,7 +102,7 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
       }
     } catch (error) {
       console.error('Error validating org code:', error);
-      setError('Failed to validate organization code');
+      setError('Failed to validate organization code. Please check your connection and try again.');
       setVerifiedOrgName('');
     } finally {
       setVerifyingCode(false);
@@ -296,10 +310,10 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
           password,
           name,
           role: role,
-          organizationName: role === 'professional' ? organizationName : undefined,
+          organizationName: (role === 'professional' || role === 'teacher') ? organizationName : undefined,
           organizationType: role === 'professional' ? organizationType : undefined,
           position: role === 'professional' ? position : undefined,
-          organizationCode: role === 'professional' && organizationCode ? organizationCode.toUpperCase() : undefined,
+          organizationCode: (role === 'professional' || role === 'teacher') && organizationCode ? organizationCode.toUpperCase() : undefined,
           phone,
           school: role === 'student' || role === 'teacher' ? school : undefined,
           educationLevel: role === 'student' ? educationLevel : undefined,
@@ -643,6 +657,54 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                     </div>
                   )}
 
+                  {role === 'teacher' && (
+                    <div className="space-y-2 mt-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="teacherOrgCode">Organization Invitation Code (Optional)</Label>
+                        <OrganizationCodeHelp />
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          id="teacherOrgCode"
+                          type="text"
+                          placeholder="JOTM-XXXXXX"
+                          value={organizationCode}
+                          onChange={(e) => {
+                            setOrganizationCode(e.target.value.toUpperCase());
+                            setVerifiedOrgName('');
+                          }}
+                          disabled={!!verifiedOrgName}
+                        />
+                        <Button
+                          type="button"
+                          onClick={validateOrgCode}
+                          disabled={verifyingCode || !!verifiedOrgName || !organizationCode}
+                          className="whitespace-nowrap"
+                          aria-label="Verify organization code"
+                        >
+                          {verifyingCode ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : verifiedOrgName ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            'Verify'
+                          )}
+                        </Button>
+                      </div>
+                      {verifiedOrgName && (
+                        <Alert>
+                          <CheckCircle2 className="h-4 w-4" style={{ color: '#10B981' }} />
+                          <AlertDescription>
+                            Verified Institution: <strong>{verifiedOrgName}</strong>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        If your school or institution provided you with an invitation code, enter it here to link your account.
+                      </p>
+                    </div>
+                  )}
+
                   {role === 'student' && (
                     <>
                       <div className="space-y-2">
@@ -679,7 +741,10 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                   {role === 'professional' && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="organizationCode">Organization Code (Optional)</Label>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="organizationCode">Organization Code (Optional)</Label>
+                          <OrganizationCodeHelp />
+                        </div>
                         <div className="flex gap-2">
                           <Input
                             id="organizationCode"

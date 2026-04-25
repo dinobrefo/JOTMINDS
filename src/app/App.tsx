@@ -79,19 +79,7 @@ function AppContent() {
       console.log('[App] Checking localStorage...');
       console.log('[App] admin_token:', adminToken ? adminToken.substring(0, 30) + '...' : 'NOT FOUND');
       console.log('[App] admin_user:', adminUser ? 'FOUND' : 'NOT FOUND');
-
-      // Check URL parameters for direct view navigation (e.g., ?view=consent)
-      const searchParams = new URLSearchParams(window.location.search);
-      const viewParam = searchParams.get('view');
-      const pathname = window.location.pathname;
       
-      if (viewParam === 'consent' || pathname === '/oauth/consent') {
-        console.log('[App] Deep link to consent flow detected');
-        setCurrentView('consent');
-        // If we found a view param, we might want to skip other checks or handle them carefully
-        // But we'll let auth checks run in case user is already logged in
-      }
-
       if (adminToken) {
         console.log('[App] ✓ Admin token found in localStorage, using it');
         setAuthToken(adminToken);

@@ -13,6 +13,7 @@ import { IndustrySector } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { SchoolAdminDashboard } from './SchoolAdminDashboard';
 import { QuestionBankAudit } from './QuestionBankAudit';
+import { OrganizationManager } from './OrganizationManager';
 import { Globe, Building2, LayoutDashboard, Settings, Activity, Server, Database, RefreshCw, ShieldCheck } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -291,14 +292,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
              <div className="space-y-6">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Organization Management</h2>
-                    <p className="text-muted-foreground">Monitor schools and corporate partners.</p>
+                    <p className="text-muted-foreground">Create invitation codes and monitor schools and corporate partners.</p>
                 </div>
+                
+                {/* Organization Manager - Create and manage invitation codes */}
+                <OrganizationManager />
                 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Registered Organizations</CardTitle>
+                        <CardTitle>Registered Organizations (Account Holders)</CardTitle>
                         <CardDescription>
-                            List of all educational institutions and companies.
+                            List of users who have registered with the "Organization" role.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

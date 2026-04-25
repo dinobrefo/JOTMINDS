@@ -32,7 +32,7 @@ import {
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
 import { formatDate } from '../utils/dateFormat';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { MobileHeaderMenu } from './MobileHeaderMenu';
 
 interface SupervisorDashboardProps {

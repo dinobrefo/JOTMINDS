@@ -43,7 +43,7 @@ import {
   Target,
   RefreshCw,
   Clock,
-  User,
+  User as UserIcon,
   Settings,
   ChevronDown
 } from 'lucide-react';
@@ -602,7 +602,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
+                  <UserIcon className="h-4 w-4" />
                   <span className="hidden lg:inline">{user.name}</span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
@@ -695,7 +695,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 <span className="text-sm font-semibold">Assess</span>
               </TabsTrigger>
               <TabsTrigger value="profile" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
-                <User className="h-5 w-5" />
+                <UserIcon className="h-5 w-5" />
                 <span className="text-sm font-semibold">Profile</span>
               </TabsTrigger>
             </TabsList>

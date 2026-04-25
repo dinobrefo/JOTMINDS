@@ -12,7 +12,7 @@ import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { ArrowLeft, ArrowRight, CheckCircle, BookOpen, Brain, Target, Info, Clock, Save } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface AssessmentTakingProps {
   userId: string;
