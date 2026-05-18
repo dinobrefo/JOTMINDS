@@ -56,6 +56,7 @@ import { AssessmentHistory } from './AssessmentHistory';
 import { ReflectionsViewer } from './ReflectionsViewer';
 import { MobileHeaderMenu } from './MobileHeaderMenu';
 import { GamificationDashboard } from './GamificationDashboard';
+import { SkillBuilder } from './SkillBuilder';
 
 interface StudentDashboardProps {
   user: User;
@@ -81,6 +82,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const [brainGymProgress, setBrainGymProgress] = useState(() => getBrainGymProgress(user.id));
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showingSkillBuilder, setShowingSkillBuilder] = useState(false);
 
   useEffect(() => {
     loadAssessments();
@@ -406,6 +408,15 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
           setBrainGymResults(null);
           setShowingBrainGym(true);
         }}
+      />
+    );
+  }
+
+  // Show Skill Builder
+  if (showingSkillBuilder) {
+    return (
+      <SkillBuilder
+        onBack={() => setShowingSkillBuilder(false)}
       />
     );
   }
@@ -872,6 +883,93 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
 
                 <p className="text-xs text-center text-muted-foreground">
                   🎯 Build mental agility • Train daily • Level up your brain!
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Skill Builder - Personalized Learning Plans */}
+            <Card className="border-2 border-gradient-to-r from-teal-200 to-cyan-200 dark:from-teal-700 dark:to-cyan-700 bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 dark:from-teal-900/20 dark:via-cyan-900/20 dark:to-blue-900/20 overflow-hidden relative shadow-xl">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-teal-400/20 to-cyan-400/20 rounded-full blur-3xl" />
+              <CardHeader className="relative">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-14 w-14 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
+                    <Target className="h-7 w-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <CardTitle className="text-xl sm:text-2xl">🎯 Skill Builder</CardTitle>
+                      <Badge className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white border-0">
+                        New!
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-sm sm:text-base">
+                      7-day personalized plans to strengthen your weakest cognitive dimensions
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="relative space-y-4">
+                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-lg p-4 border-2 border-teal-200 dark:border-teal-700">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">How it works:</h3>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-500 font-bold">1.</span>
+                      <span>Complete an assessment to identify areas for growth</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-500 font-bold">2.</span>
+                      <span>Get a personalized 7-day plan auto-generated for your weakest dimension</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-500 font-bold">3.</span>
+                      <span>Each day: play a Brain Gym game, reflect, and complete a real-world challenge</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-500 font-bold">4.</span>
+                      <span>Track your progress and build stronger cognitive skills!</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 border border-teal-200 dark:border-teal-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <Brain className="h-6 w-6 text-teal-500" />
+                      <p className="text-xs text-teal-600 dark:text-teal-400 text-center font-medium">Metacognition</p>
+                    </div>
+                  </div>
+                  <div className="bg-cyan-50 dark:bg-cyan-900/20 rounded-lg p-3 border border-cyan-200 dark:border-cyan-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <Target className="h-6 w-6 text-cyan-500" />
+                      <p className="text-xs text-cyan-600 dark:text-cyan-400 text-center font-medium">Problem Solving</p>
+                    </div>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <Sparkles className="h-6 w-6 text-blue-500" />
+                      <p className="text-xs text-blue-600 dark:text-blue-400 text-center font-medium">Curiosity</p>
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <Flame className="h-6 w-6 text-purple-500" />
+                      <p className="text-xs text-purple-600 dark:text-purple-400 text-center font-medium">Emotional Regulation</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => setShowingSkillBuilder(true)}
+                  className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg hover:shadow-xl transition-all"
+                  size="lg"
+                >
+                  <Target className="mr-2 h-5 w-5" />
+                  View My Skill Plans
+                  <Sparkles className="ml-2 h-5 w-5" />
+                </Button>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  💡 Plans are auto-created when you score low on assessments
                 </p>
               </CardContent>
             </Card>

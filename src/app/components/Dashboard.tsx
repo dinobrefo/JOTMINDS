@@ -13,13 +13,15 @@ interface DashboardProps {
   onViewProfile: () => void;
   onViewAdmin?: () => void;
   onViewChildProfile?: (childId: string) => void;
+  onViewSkillBuilder?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ 
-  onStartAssessment, 
+export const Dashboard: React.FC<DashboardProps> = ({
+  onStartAssessment,
   onViewProfile,
   onViewAdmin,
-  onViewChildProfile
+  onViewChildProfile,
+  onViewSkillBuilder
 }) => {
   const { user, signOut, impersonatedUser } = useAuth();
   const [assessmentResults, setAssessmentResults] = useState<any[]>([]);
@@ -192,6 +194,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   View Cognitive Profile
+                </Button>
+              )}
+              {onViewSkillBuilder && (
+                <Button
+                  variant="outline"
+                  onClick={onViewSkillBuilder}
+                >
+                  <Target className="w-4 h-4 mr-2" />
+                  Skill Builder
                 </Button>
               )}
               <Button

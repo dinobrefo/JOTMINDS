@@ -19,13 +19,16 @@ import { Toaster } from './components/ui/sonner';
 import { createClient } from './utils/supabase/client';
 import { setAuthToken, getUserData } from './utils/api';
 import { UserConsentFlow } from './components/consent/UserConsentFlow';
+import { OAuthConsentPage } from './components/OAuthConsentPage';
 import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TermsOfUsePage } from './components/TermsOfUsePage';
 import { ContactPage } from './components/ContactPage';
+import { SkillBuilder } from './components/SkillBuilder';
 
-type ViewType = 
+type ViewType =
   | 'landing'
   | 'consent'
+  | 'oauth-consent'
   | 'privacy-policy'
   | 'terms-of-use'
   | 'contact'
@@ -33,10 +36,11 @@ type ViewType =
   | 'forgot-password'
   | 'reset-password'
   | 'organization'
-  | 'dashboard' 
-  | 'assessment' 
-  | 'summary' 
-  | 'profile' 
+  | 'dashboard'
+  | 'assessment'
+  | 'summary'
+  | 'profile'
+  | 'skill-builder'
   | 'admin';
 
 type AssessmentType = 'learning' | 'thinking' | 'decision';
@@ -65,11 +69,24 @@ function AppContent() {
       // Check for password recovery in the URL hash
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const type = hashParams.get('type');
-      
+
       if (type === 'recovery') {
         console.log('[App] Password recovery detected, showing reset password page');
         setCurrentView('reset-password');
         return;
+      }
+
+      // Check for OAuth consent in the URL path
+      const path = window.location.pathname;
+      const searchParams = new URLSearchParams(window.location.search);
+      if (path.includes('/oauth/consent')) {
+        console.log('[App] OAuth consent flow detected');
+        const state = searchParams.get('state');
+        if (state) {
+          setConsentData({ type: 'oauth', state });
+          setCurrentView('oauth-consent');
+          return;
+        }
       }
       
       // Check for admin session first - don't override with Supabase session
@@ -323,7 +340,17 @@ function AppContent() {
     if (currentView === 'reset-password') {
       return <ResetPasswordForm onSuccess={() => setCurrentView('auth')} onBack={() => setCurrentView('auth')} />;
     }
-    
+
+    if (currentView === 'oauth-consent' && consentData?.state) {
+      return (
+        <OAuthConsentPage
+          state={consentData.state}
+          onApprove={() => setCurrentView('landing')}
+          onDeny={() => setCurrentView('landing')}
+        />
+      );
+    }
+
     if (currentView === 'organization') {
       return <OrganizationApp onBackToMain={handleBackToLanding} initialUser={user} />;
     }
@@ -386,6 +413,9 @@ function AppContent() {
       return (
         <CognitiveProfile onBack={handleBackToDashboard} />
       );
+
+    case 'skill-builder':
+      return <SkillBuilder onBack={handleBackToDashboard} />;
 
     case 'admin':
       return (
@@ -487,6 +517,7 @@ function AppContent() {
           onViewProfile={handleViewProfile}
           onViewAdmin={user.role === 'admin' ? handleViewAdmin : undefined}
           onViewChildProfile={handleViewChildProfile}
+          onViewSkillBuilder={() => setCurrentView('skill-builder')}
         />
       );
   }
