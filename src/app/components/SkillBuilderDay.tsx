@@ -5,6 +5,9 @@ import { Textarea } from './ui/textarea';
 import { ArrowLeft, Gamepad2, MessageSquareText, Trophy, CheckCircle2 } from 'lucide-react';
 import { completePlanDay, SkillPlan } from '../utils/skillPlanApi';
 import { toast } from 'sonner';
+import { recordSkillPlanCompletion } from '../utils/gamification';
+import { useAuth } from './AuthContext';
+import { celebrateLevelUp, celebrateBadgeUnlock } from '../utils/confettiAnimations';
 
 interface Props {
   plan: SkillPlan;
@@ -44,6 +47,7 @@ const GAME_LABEL: Record<string, string> = {
 };
 
 export function SkillBuilderDay({ plan, day, onBack }: Props) {
+  const { user } = useAuth();
   const activity = plan.activities.find(a => a.day === day);
   const [gameDone, setGameDone] = useState(activity?.completed ?? false);
   const [reflection, setReflection] = useState('');
@@ -67,6 +71,34 @@ export function SkillBuilderDay({ plan, day, onBack }: Props) {
     try {
       await completePlanDay(plan.planId, day);
       toast.success(`Day ${day} complete!`);
+
+      // Check if this was the last day - if so, award XP for completing the plan
+      const isLastDay = day === plan.lengthDays;
+      const wasAllDone = plan.activities.filter(a => a.completed).length === plan.lengthDays - 1; // All except this one
+
+      if (user && isLastDay && wasAllDone) {
+        const reward = recordSkillPlanCompletion(user.id);
+        if (reward) {
+          toast.success(reward.message, {
+            description: `+${reward.xpEarned} XP earned`,
+            duration: 4000,
+          });
+          if (reward.leveledUp) {
+            celebrateLevelUp();
+            toast.success(`🎉 Level Up! You're now ${reward.levelTitle}`, {
+              duration: 5000,
+            });
+          }
+          reward.newBadges.forEach(badge => {
+            celebrateBadgeUnlock(badge.rarity);
+            toast.success(`🏆 Badge Unlocked: ${badge.name}`, {
+              description: badge.description,
+              duration: 5000,
+            });
+          });
+        }
+      }
+
       onBack();
     } catch (e: any) {
       toast.error(e.message || 'Could not save progress');

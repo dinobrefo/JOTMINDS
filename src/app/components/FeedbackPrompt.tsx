@@ -14,11 +14,11 @@ export const FeedbackPrompt = ({ className = '', variant = 'default' }: Feedback
   };
 
   return (
-    <Card className={`border-[#1FC8E1]/30 bg-gradient-to-br from-cyan-50/50 to-blue-50/50 dark:border-[#1FC8E1]/20 dark:from-cyan-950/30 dark:to-blue-950/30 ${className}`}>
+    <Card className={`border-[#6B4C9A]/30 bg-gradient-to-br from-cyan-50/50 to-blue-50/50 dark:border-[#6B4C9A]/20 dark:from-cyan-950/30 dark:to-blue-950/30 ${className}`}>
       <CardContent className="p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
           <div className="flex items-start sm:items-center gap-3 flex-1">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center flex-shrink-0">
               <MessageSquare className="h-6 w-6 text-white" />
             </div>
             <div className="flex-1">
@@ -32,7 +32,7 @@ export const FeedbackPrompt = ({ className = '', variant = 'default' }: Feedback
           </div>
           <Button
             onClick={handleExternalFeedbackClick}
-            className="bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770] w-full sm:w-auto whitespace-nowrap h-12 px-6 text-base font-medium"
+            className="bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:from-[#1AB5CC] hover:to-[#252770] w-full sm:w-auto whitespace-nowrap h-12 px-6 text-base font-medium"
           >
             <ExternalLink className="h-4 w-4 mr-2" />
             Share Feedback

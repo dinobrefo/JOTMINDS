@@ -145,7 +145,7 @@ export function ParentObservationResults({
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">
             Parent Observation Assessment Results
           </h1>
           <p className="text-muted-foreground">
@@ -156,10 +156,10 @@ export function ParentObservationResults({
 
       <div className="max-w-6xl mx-auto p-4 space-y-6">
         {/* Overall Summary Card */}
-        <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-white to-cyan-50">
+        <Card className="border-2 border-[#6B4C9A] bg-gradient-to-br from-white to-cyan-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center">
                 <Eye className="h-5 w-5 text-white" />
               </div>
               Overall Cognitive Profile

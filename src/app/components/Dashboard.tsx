@@ -3,10 +3,12 @@ import { useAuth } from './AuthContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { LogOut, Brain, Target, Lightbulb, CheckCircle2, Lock, TrendingUp, Users, ArrowLeft, UserPlus, X, Eye, MessageSquare, RefreshCw } from 'lucide-react';
+import { LogOut, Brain, Target, Lightbulb, CheckCircle2, Lock, TrendingUp, Users, ArrowLeft, UserPlus, X, Eye, MessageSquare, RefreshCw, Trophy, Zap } from 'lucide-react';
 import { getAllAssessmentResults, getOrganizationMembers, getUserAssessmentResults, getLinkedChildren, linkChildByEmail, unlinkChild } from '../utils/api';
 import { Input } from './ui/input';
 import { ClearOldResults } from './ClearOldResults';
+import { recordDailyLogin } from '../utils/gamification';
+import { Logo } from './Logo';
 
 interface DashboardProps {
   onStartAssessment: (type: 'learning' | 'thinking' | 'decision') => void;
@@ -14,6 +16,12 @@ interface DashboardProps {
   onViewAdmin?: () => void;
   onViewChildProfile?: (childId: string) => void;
   onViewSkillBuilder?: () => void;
+  onViewGamification?: () => void;
+  onViewEngagement?: () => void;
+  onViewPrivacyDashboard?: () => void;
+  onViewProfileImprovement?: () => void;
+  onViewCognitiveWorkout?: () => void;
+  onViewAICoach?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -21,7 +29,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onViewProfile,
   onViewAdmin,
   onViewChildProfile,
-  onViewSkillBuilder
+  onViewSkillBuilder,
+  onViewGamification,
+  onViewEngagement,
+  onViewPrivacyDashboard,
+  onViewProfileImprovement,
+  onViewCognitiveWorkout,
+  onViewAICoach
 }) => {
   const { user, signOut, impersonatedUser } = useAuth();
   const [assessmentResults, setAssessmentResults] = useState<any[]>([]);
@@ -77,6 +91,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     if (displayUser) {
       fetchData();
+
+      // Record daily login for gamification (only for real user, not when impersonating)
+      if (!impersonatedUser && displayUser.id) {
+        recordDailyLogin(displayUser.id);
+      }
     }
   }, [displayUser, impersonatedUser]);
 
@@ -88,7 +107,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       title: 'Your Learning Style',
       description: 'Discover how you learn best',
       icon: Brain,
-      color: '#2C2E83',
+      color: '#5B7DB1',
       bgColor: '#F0F0FF'
     },
     {
@@ -96,7 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       title: 'Your Thinking Style',
       description: 'Understand your cognitive approach',
       icon: Lightbulb,
-      color: '#1FC8E1',
+      color: '#6B4C9A',
       bgColor: '#E0F9FF'
     },
     {
@@ -173,9 +192,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <header className="border-b bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl mb-1" style={{ color: '#2C2E83' }}>JotMinds</h1>
-              <p className="text-sm" style={{ color: '#1FC8E1' }}>Discover How You Think</p>
+            <div className="flex flex-col items-start">
+              <Logo size="md" />
+              <p className="text-xs mt-1" style={{ color: '#6B4C9A' }}>Discover How You Think</p>
             </div>
             <div className="flex items-center gap-3">
               {!impersonatedUser && user?.role === 'admin' && (
@@ -190,7 +209,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <Button
                   variant="outline"
                   onClick={onViewProfile}
-                  style={{ borderColor: '#1FC8E1', color: '#1FC8E1' }}
+                  style={{ borderColor: '#6B4C9A', color: '#6B4C9A' }}
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   View Cognitive Profile
@@ -203,6 +222,63 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 >
                   <Target className="w-4 h-4 mr-2" />
                   Skill Builder
+                </Button>
+              )}
+              {onViewCognitiveWorkout && (
+                <Button
+                  variant="outline"
+                  onClick={onViewCognitiveWorkout}
+                  style={{ borderColor: '#6B4C9A', color: '#6B4C9A' }}
+                >
+                  <Brain className="w-4 h-4 mr-2" />
+                  Brain Workout
+                </Button>
+              )}
+              {onViewAICoach && allAssessmentsCompleted && (
+                <Button
+                  variant="outline"
+                  onClick={onViewAICoach}
+                  style={{ borderColor: '#8B5CF6', color: '#8B5CF6' }}
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  AI Coach
+                </Button>
+              )}
+              {onViewGamification && (
+                <Button
+                  variant="outline"
+                  onClick={onViewGamification}
+                  style={{ borderColor: '#FFD700', color: '#FFD700' }}
+                >
+                  <Trophy className="w-4 h-4 mr-2" />
+                  Progress & Badges
+                </Button>
+              )}
+              {onViewProfileImprovement && allAssessmentsCompleted && (
+                <Button
+                  variant="outline"
+                  onClick={onViewProfileImprovement}
+                  style={{ borderColor: '#10b981', color: '#10b981' }}
+                >
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  My Growth
+                </Button>
+              )}
+              {onViewEngagement && (
+                <Button
+                  variant="outline"
+                  onClick={onViewEngagement}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Engagement
+                </Button>
+              )}
+              {onViewPrivacyDashboard && (
+                <Button
+                  variant="outline"
+                  onClick={onViewPrivacyDashboard}
+                >
+                  Privacy
                 </Button>
               )}
               <Button
@@ -279,7 +355,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         )}
 
         {/* Progress Overview */}
-        <Card className="mb-8 shadow-md" style={{ borderLeft: '4px solid #1FC8E1' }}>
+        <Card className="mb-8 shadow-md" style={{ borderLeft: '4px solid #6B4C9A' }}>
           <CardHeader>
             <CardTitle>Your Progress</CardTitle>
             <CardDescription>Track your assessment completion</CardDescription>
@@ -298,7 +374,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${(assessmentResults.length / assessments.length) * 100}%`,
-                      background: 'linear-gradient(90deg, #2C2E83 0%, #1FC8E1 100%)'
+                      background: 'linear-gradient(90deg, #5B7DB1 0%, #6B4C9A 100%)'
                     }}
                   />
                 </div>
@@ -387,7 +463,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg" style={{ backgroundColor: '#F0F9FF' }}>
                     <p className="text-sm text-gray-600 mb-1">Team Members</p>
-                    <p className="text-2xl" style={{ color: '#2C2E83' }}>
+                    <p className="text-2xl" style={{ color: '#5B7DB1' }}>
                       {organizationMembers.length}
                     </p>
                   </div>
@@ -439,7 +515,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg" style={{ backgroundColor: '#F0F9FF' }}>
                     <p className="text-sm text-gray-600 mb-1">Linked Children</p>
-                    <p className="text-2xl" style={{ color: '#2C2E83' }}>
+                    <p className="text-2xl" style={{ color: '#5B7DB1' }}>
                       {linkedChildren.length}
                     </p>
                   </div>
@@ -466,13 +542,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 )}
                 <div className="space-y-2">
                   {linkedChildren.map(child => (
-                    <div key={child.id} className="flex items-center justify-between p-3 rounded-lg border" style={{ backgroundColor: '#F0F9FF', borderColor: '#2C2E83' }}>
+                    <div key={child.id} className="flex items-center justify-between p-3 rounded-lg border" style={{ backgroundColor: '#F0F9FF', borderColor: '#5B7DB1' }}>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#2C2E83' }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#5B7DB1' }}>
                           <span className="text-white text-sm">{child.name?.charAt(0)}</span>
                         </div>
                         <div>
-                          <p className="text-sm" style={{ color: '#2C2E83' }}>{child.name}</p>
+                          <p className="text-sm" style={{ color: '#5B7DB1' }}>{child.name}</p>
                           <p className="text-xs text-gray-500">{child.email}</p>
                         </div>
                       </div>
@@ -482,7 +558,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             variant="outline"
                             size="sm"
                             onClick={() => onViewChildProfile(child.id)}
-                            style={{ borderColor: '#1FC8E1', color: '#1FC8E1' }}
+                            style={{ borderColor: '#6B4C9A', color: '#6B4C9A' }}
                           >
                             <Eye className="w-4 h-4 mr-1" />
                             View Profile

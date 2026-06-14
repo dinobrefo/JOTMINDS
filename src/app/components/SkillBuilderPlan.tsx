@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Skeleton } from './ui/skeleton';
 import { Badge } from './ui/badge';
-import { ArrowLeft, CheckCircle2, Circle, Lock } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Circle, Lock, Briefcase } from 'lucide-react';
 import { getSkillPlan, SkillPlan } from '../utils/skillPlanApi';
 import { SkillBuilderDay } from './SkillBuilderDay';
 
@@ -68,6 +68,20 @@ export function SkillBuilderPlan({ planId, onBack }: Props) {
       </header>
 
       <main className="max-w-2xl mx-auto p-4 space-y-4">
+        {plan.sourceCareer && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
+            <Briefcase className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-semibold text-blue-900 dark:text-blue-100">
+                Created from Career Match
+              </p>
+              <p className="text-blue-800 dark:text-blue-200">
+                {plan.sourceCareer}
+              </p>
+            </div>
+          </div>
+        )}
+
         <Card>
           <CardContent className="p-4 space-y-2">
             <div className="flex justify-between text-sm">

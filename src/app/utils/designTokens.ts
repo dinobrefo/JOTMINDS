@@ -69,15 +69,15 @@ export const tokens = {
   colors: {
     // JotMinds Brand Colors
     brand: {
-      indigo: '#2C2E83',      // Primary brand color
-      aqua: '#1FC8E1',        // Secondary brand color
+      indigo: '#5B7DB1',      // Primary brand color
+      aqua: '#6B4C9A',        // Secondary brand color
       coral: '#FF715B',       // Accent color
       violet: '#7B61FF',      // Purple accent
     },
     
     // Semantic Colors
-    primary: 'bg-[#2C2E83]',
-    primaryText: 'text-[#2C2E83]',
+    primary: 'bg-[#5B7DB1]',
+    primaryText: 'text-[#5B7DB1]',
     primaryHover: 'hover:bg-[#232063]',
     
     // Background Colors
@@ -198,7 +198,7 @@ export const tokens = {
    */
   button: {
     base: 'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
-    primary: 'bg-[#2C2E83] text-white hover:bg-[#232063]',
+    primary: 'bg-[#5B7DB1] text-white hover:bg-[#232063]',
     secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200',
     outline: 'border-2 border-gray-300 bg-white hover:bg-gray-50',
     ghost: 'hover:bg-gray-100',
@@ -323,7 +323,7 @@ export const colors: {
   gradients: { primary: string; success: string; warning: string; info: string };
 } = {
   primary: {
-    main: '#2C2E83',
+    main: '#5B7DB1',
     light: '#4147A3',
     dark: '#1F2063',
     bg: '#EEF2FF',
@@ -351,7 +351,7 @@ export const colors: {
     border: '#FECACA',
   },
   info: {
-    main: '#1FC8E1',
+    main: '#6B4C9A',
     light: '#67E8F9',
     dark: '#0891B2',
     bg: '#E0F8FB',
@@ -371,7 +371,7 @@ export const colors: {
     gray900: '#111827',
   },
   gradients: {
-    primary: 'linear-gradient(135deg, #1FC8E1 0%, #7B61FF 100%)',
+    primary: 'linear-gradient(135deg, #6B4C9A 0%, #7B61FF 100%)',
     success: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
     warning: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
     info: 'linear-gradient(135deg, #E0F8FB 0%, #FFFFFF 100%)',

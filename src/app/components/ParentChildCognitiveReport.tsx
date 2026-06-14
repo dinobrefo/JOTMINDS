@@ -631,10 +631,10 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
         </Card>
 
         {/* Feedback Prompt */}
-        <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-blue-50 to-cyan-50">
+        <Card className="border-2 border-[#6B4C9A] bg-gradient-to-br from-blue-50 to-cyan-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-[#1FC8E1]" />
+              <MessageCircle className="h-5 w-5 text-[#6B4C9A]" />
               Help Us Improve JotMinds
             </CardTitle>
             <CardDescription>
@@ -642,29 +642,29 @@ export function ParentChildCognitiveReport({ child, assessments, onBack }: Paren
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-[#1FC8E1]/30">
+            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-[#6B4C9A]/30">
               <p className="text-sm text-gray-700 mb-4">
                 We'd love to hear your thoughts about JotMinds and your child's cognitive profile report. 
                 Your feedback helps us improve the platform and make it more valuable for parents supporting their children's learning journey.
               </p>
               <ul className="text-sm text-gray-600 space-y-2 mb-4">
                 <li className="flex items-start gap-2">
-                  <span className="text-[#1FC8E1] mt-1">•</span>
+                  <span className="text-[#6B4C9A] mt-1">•</span>
                   <span>Were the insights and recommendations helpful?</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-[#1FC8E1] mt-1">•</span>
+                  <span className="text-[#6B4C9A] mt-1">•</span>
                   <span>Did the parenting tips align with your child's behavior?</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-[#1FC8E1] mt-1">•</span>
+                  <span className="text-[#6B4C9A] mt-1">•</span>
                   <span>What would make JotMinds more useful for you?</span>
                 </li>
               </ul>
             </div>
             <Button 
               onClick={() => window.open('https://forms.gle/SXPFj29PxUbmYVQq7', '_blank')}
-              className="w-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770]"
+              className="w-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:from-[#1AB5CC] hover:to-[#252770]"
             >
               <MessageCircle className="mr-2 h-4 w-4" />
               Share Your Feedback

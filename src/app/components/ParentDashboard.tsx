@@ -385,7 +385,7 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
               {user.name.charAt(0)}
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">JotMinds</h1>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">JotMinds</h1>
               <p className="text-sm text-muted-foreground">Welcome, {user.name}!</p>
             </div>
           </div>
@@ -529,11 +529,11 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
                       const completedCount = childAssessments.filter(a => a.completed).length;
                       
                       return (
-                        <Card key={child.id} className="border-2 border-[#1FC8E1]/30">
+                        <Card key={child.id} className="border-2 border-[#6B4C9A]/30">
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center text-white text-lg font-bold">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center text-white text-lg font-bold">
                                   {child.name.charAt(0)}
                                 </div>
                                 <div>
@@ -913,7 +913,7 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
               </Card>
             ) : (
               <>
-                <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-2 border-[#1FC8E1]">
+                <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-2 border-[#6B4C9A]">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Eye className="h-5 w-5" />
@@ -942,7 +942,7 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
                         <CardHeader>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center text-white text-lg font-bold">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center text-white text-lg font-bold">
                                 {child.name.charAt(0)}
                               </div>
                               <div>
@@ -957,7 +957,7 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
                         <CardContent className="space-y-3">
                           <Button
                             onClick={() => setTakingObservation({ child })}
-                            className="w-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:opacity-90"
+                            className="w-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:opacity-90"
                           >
                             <FileText className="mr-2 h-4 w-4" />
                             {childObservations.length > 0 ? 'Complete New Observation' : 'Start Observation Assessment'}
@@ -1057,10 +1057,10 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
 
           <TabsContent value="feedback" className="space-y-6">
             <div className="max-w-3xl mx-auto">
-              <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-cyan-50 to-blue-50">
+              <Card className="border-2 border-[#6B4C9A] bg-gradient-to-br from-cyan-50 to-blue-50">
                 <CardHeader className="text-center">
                   <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center">
                       <MessageSquare className="h-8 w-8 text-white" />
                     </div>
                   </div>
@@ -1072,38 +1072,38 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
                 <CardContent className="space-y-6">
                   <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 space-y-4">
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-[#1FC8E1]" />
+                      <Sparkles className="h-5 w-5 text-[#6B4C9A]" />
                       We'd love to hear from you about:
                     </h3>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">How JotMinds helps you support your child</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">Insights gained about your child's learning</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">Usefulness of parenting tips and resources</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">How well it fits your family's needs</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">Communication with teachers/school</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">Suggestions for improvement</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-[#1FC8E1]/10 to-[#2C2E83]/10 rounded-lg p-4 border border-[#1FC8E1]/30">
+                  <div className="bg-gradient-to-r from-[#6B4C9A]/10 to-[#5B7DB1]/10 rounded-lg p-4 border border-[#6B4C9A]/30">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
                         <span className="text-white font-bold">✓</span>
@@ -1121,7 +1121,7 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
                     <Button
                       onClick={() => window.open('https://forms.gle/SXPFj29PxUbmYVQq7', '_blank')}
                       size="lg"
-                      className="w-full max-w-md bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all"
+                      className="w-full max-w-md bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:from-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all"
                     >
                       <MessageSquare className="mr-2 h-5 w-5" />
                       Complete Feedback Form
@@ -1134,11 +1134,11 @@ export function ParentDashboard({ user, onLogout }: ParentDashboardProps) {
 
                   <div className="grid md:grid-cols-2 gap-3 pt-4">
                     <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-2xl font-bold text-[#1FC8E1]">2-3</p>
+                      <p className="text-2xl font-bold text-[#6B4C9A]">2-3</p>
                       <p className="text-xs text-gray-600">Minutes to complete</p>
                     </div>
                     <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-2xl font-bold text-[#2C2E83]">100%</p>
+                      <p className="text-2xl font-bold text-[#5B7DB1]">100%</p>
                       <p className="text-xs text-gray-600">Confidential</p>
                     </div>
                   </div>

@@ -17,7 +17,7 @@ export const ConfettiCelebration: React.FC<ConfettiCelebrationProps> = ({
       delay: Math.random() * 0.5,
       duration: 2 + Math.random() * 2,
       rotation: Math.random() * 360,
-      color: ['#FF715B', '#1FC8E1', '#2C2E83', '#FFD700', '#FF69B4', '#00CED1'][
+      color: ['#FF715B', '#6B4C9A', '#5B7DB1', '#FFD700', '#FF69B4', '#00CED1'][
         Math.floor(Math.random() * 6)
       ],
       size: 8 + Math.random() * 8

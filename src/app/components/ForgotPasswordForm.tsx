@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { createClient } from '../utils/supabase/client';
+import { Logo } from './Logo';
 
 interface ForgotPasswordFormProps {
   onBack: () => void;
@@ -69,10 +70,8 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
 
         <Card className="w-full border-2 shadow-large">
           <CardHeader className="space-y-3 text-center pb-6">
-            <div className="mx-auto">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-2">
-                JotMinds
-              </h1>
+            <div className="mx-auto flex flex-col items-center">
+              <Logo size="lg" className="mb-2" />
               <p className="text-sm text-muted-foreground">Discover How You Think</p>
             </div>
             <CardDescription className="text-center text-base">
@@ -117,7 +116,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
                       setSuccess(false);
                       setEmail('');
                     }}
-                    className="text-[#7B61FF] hover:text-[#2C2E83] underline"
+                    className="text-[#7B61FF] hover:text-[#5B7DB1] underline"
                   >
                     Try again
                   </button>
@@ -171,7 +170,7 @@ export function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) {
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Remember your password?{' '}
-                    <span className="text-[#7B61FF] hover:text-[#2C2E83] underline">
+                    <span className="text-[#7B61FF] hover:text-[#5B7DB1] underline">
                       Login
                     </span>
                   </button>

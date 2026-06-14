@@ -96,17 +96,17 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ backgroundColor: '#E8F9FF' }}>
-            <CheckCircle2 className="w-8 h-8" style={{ color: '#1FC8E1' }} />
+            <CheckCircle2 className="w-8 h-8" style={{ color: '#6B4C9A' }} />
           </div>
-          <h1 className="text-3xl mb-2" style={{ color: '#2C2E83' }}>Assessment Complete!</h1>
+          <h1 className="text-3xl mb-2" style={{ color: '#5B7DB1' }}>Assessment Complete!</h1>
           <p className="text-lg" style={{ color: '#6B7280' }}>{getAssessmentTitle()}</p>
         </div>
 
         {/* Dominant Style */}
-        <Card className="mb-6 shadow-lg" style={{ borderTop: '4px solid #2C2E83' }}>
+        <Card className="mb-6 shadow-lg" style={{ borderTop: '4px solid #5B7DB1' }}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" style={{ color: '#2C2E83' }} />
+              <TrendingUp className="w-5 h-5" style={{ color: '#5B7DB1' }} />
               Your Primary Style: {insights.dominantStyle}
             </CardTitle>
             <CardDescription>
@@ -124,7 +124,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
                       style={{
                         width: `${percentage}%`,
                         background: style === insights.dominantStyle 
-                          ? 'linear-gradient(90deg, #2C2E83 0%, #1FC8E1 100%)'
+                          ? 'linear-gradient(90deg, #5B7DB1 0%, #6B4C9A 100%)'
                           : '#E5E7EB'
                       }}
                     />
@@ -189,7 +189,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
         {/* Recommendations */}
         <Card className="mb-6 shadow-md">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2" style={{ color: '#1FC8E1' }}>
+            <CardTitle className="flex items-center gap-2" style={{ color: '#6B4C9A' }}>
               <Lightbulb className="w-5 h-5" />
               Personalized Recommendations
             </CardTitle>
@@ -200,7 +200,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({
               {insights.recommendations.map((recommendation, index) => (
                 <li key={index} className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: '#E0F2FE' }}>
-                    <Lightbulb className="w-4 h-4" style={{ color: '#1FC8E1' }} />
+                    <Lightbulb className="w-4 h-4" style={{ color: '#6B4C9A' }} />
                   </div>
                   <span>{recommendation}</span>
                 </li>

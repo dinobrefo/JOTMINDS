@@ -446,32 +446,35 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                     {/* Radar Chart */}
                     <div className="h-64 sm:h-80 md:h-96 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-gray-800/50 dark:to-gray-700/50 rounded-xl p-2 sm:p-4">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart 
+                        <BarChart
                           data={chartData}
                           layout="vertical"
                           margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
                         >
                           <defs>
                             {chartData.map((item: any, index: number) => (
-                              <linearGradient key={index} id={`kolb-gradient-${index}`} x1="0" y1="0" x2="1" y2="0">
+                              <linearGradient key={`kolb-gradient-def-${index}`} id={`kolb-gradient-${index}`} x1="0" y1="0" x2="1" y2="0">
                                 <stop offset="0%" stopColor={item.color} stopOpacity={0.8} />
                                 <stop offset="100%" stopColor={item.color} stopOpacity={0.4} />
                               </linearGradient>
                             ))}
                           </defs>
-                          <CartesianGrid 
-                            strokeDasharray="3 3" 
+                          <CartesianGrid
+                            key="kolb-grid"
+                            strokeDasharray="3 3"
                             stroke="hsl(var(--border))"
                             strokeOpacity={0.3}
                             horizontal={false}
                           />
-                          <XAxis 
+                          <XAxis
+                            key="kolb-x-axis"
                             type="number"
                             domain={[0, Math.ceil(maxValue * 1.2)]}
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                             stroke="hsl(var(--border))"
                           />
-                          <YAxis 
+                          <YAxis
+                            key="kolb-y-axis-desktop"
                             type="category"
                             dataKey="shortName"
                             width={40}
@@ -479,7 +482,8 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                             stroke="hsl(var(--border))"
                             className="hidden sm:block"
                           />
-                          <YAxis 
+                          <YAxis
+                            key="kolb-y-axis-mobile"
                             type="category"
                             dataKey="shortName"
                             width={35}
@@ -487,19 +491,21 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                             stroke="hsl(var(--border))"
                             className="block sm:hidden"
                           />
-                          <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
-                          <Bar 
-                            dataKey="value" 
+                          <RechartsTooltip key="kolb-tooltip" content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
+                          <Bar
+                            key="kolb-bar"
+                            dataKey="value"
                             radius={[0, 8, 8, 0]}
                             animationDuration={1500}
                             animationBegin={0}
                           >
                             {chartData.map((item: any, index: number) => (
-                              <Cell key={index} fill={`url(#kolb-gradient-${index})`} />
+                              <Cell key={`kolb-cell-${index}`} fill={`url(#kolb-gradient-${index})`} />
                             ))}
-                            <LabelList 
-                              dataKey="value" 
-                              position="right" 
+                            <LabelList
+                              key="kolb-label-list"
+                              dataKey="value"
+                              position="right"
                               style={{ fill: 'hsl(var(--foreground))', fontWeight: 'bold', fontSize: 11 }}
                             />
                           </Bar>
@@ -538,51 +544,56 @@ export function AssessmentReport({ assessment, userName, onBack, isOrganizationa
                     {/* Modern Bar Chart - Improved for mobile with vertical orientation */}
                     <div className="h-64 sm:h-80 md:h-96 rounded-xl p-2 sm:p-4" style={{ background: colors.gradients.info }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart 
+                        <BarChart
                           data={chartData}
                           layout="vertical"
                           margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
                         >
                           <defs>
                             {chartData.map((item: any, index: number) => (
-                              <linearGradient key={index} id={`gradient-${index}`} x1="0" y1="0" x2="1" y2="0">
+                              <linearGradient key={`other-gradient-def-${index}`} id={`gradient-${index}`} x1="0" y1="0" x2="1" y2="0">
                                 <stop offset="0%" stopColor={item.color} stopOpacity={0.9} />
                                 <stop offset="100%" stopColor={item.color} stopOpacity={0.6} />
                               </linearGradient>
                             ))}
                           </defs>
-                          <CartesianGrid 
-                            strokeDasharray="3 3" 
+                          <CartesianGrid
+                            key="other-grid"
+                            strokeDasharray="3 3"
                             stroke="hsl(var(--border))"
                             strokeOpacity={0.3}
                             horizontal={false}
                           />
-                          <XAxis 
+                          <XAxis
+                            key="other-x-axis"
                             type="number"
                             domain={[0, Math.ceil(maxValue * 1.2)]}
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                             stroke="hsl(var(--border))"
                           />
-                          <YAxis 
+                          <YAxis
+                            key="other-y-axis"
                             type="category"
                             dataKey="name"
                             width={110}
                             tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
                             stroke="hsl(var(--border))"
                           />
-                          <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
-                          <Bar 
-                            dataKey="value" 
+                          <RechartsTooltip key="other-tooltip" content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }} />
+                          <Bar
+                            key="other-bar"
+                            dataKey="value"
                             radius={[0, 12, 12, 0]}
                             animationDuration={1500}
                             animationBegin={0}
                           >
                             {chartData.map((item: any, index: number) => (
-                              <Cell key={index} fill={`url(#gradient-${index})`} />
+                              <Cell key={`other-cell-${index}`} fill={`url(#gradient-${index})`} />
                             ))}
-                            <LabelList 
-                              dataKey="value" 
-                              position="right" 
+                            <LabelList
+                              key="other-label-list"
+                              dataKey="value"
+                              position="right"
                               style={{ fill: 'hsl(var(--foreground))', fontWeight: 'bold', fontSize: 12 }}
                             />
                           </Bar>

@@ -157,14 +157,14 @@ export const THINKING_STYLES: Record<string, ThinkingStyle> = {
     emoji: '🔍',
     friendlyName: 'The Smart Detective',
     description: 'Solves problems with logic, patterns, and facts.',
-    color: '#1FC8E1'
+    color: '#6B4C9A'
   },
   practical: {
     name: 'Practical',
     emoji: '🛠️',
     friendlyName: 'The Real-World Builder',
     description: 'Turns ideas into real results; loves to make things work.',
-    color: '#2C2E83'
+    color: '#5B7DB1'
   },
   reflective: {
     name: 'Reflective',

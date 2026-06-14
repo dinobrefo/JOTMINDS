@@ -410,7 +410,7 @@ export const adultThinkingStyles = {
   analytical: {
     name: 'Analytical Thinking',
     emoji: '🔍',
-    color: '#1FC8E1',
+    color: '#6B4C9A',
     description: 'You have exceptional ability to analyze data, identify patterns, and make evidence-based decisions.',
     strengths: [
       'Data-driven decision making',

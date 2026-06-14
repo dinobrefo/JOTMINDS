@@ -333,7 +333,7 @@ export function ProfessionalAssessmentReport({
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">
                     JotMinds
                   </h1>
                   <Badge variant="secondary" className="text-xs">Professional Report</Badge>
@@ -347,7 +347,7 @@ export function ProfessionalAssessmentReport({
                 </p>
               </div>
               <div className="text-right">
-                <div className="text-5xl font-bold text-[#2C2E83] mb-1">87%</div>
+                <div className="text-5xl font-bold text-[#5B7DB1] mb-1">87%</div>
                 <p className="text-sm text-muted-foreground">Overall Profile Match</p>
               </div>
             </div>
@@ -355,7 +355,7 @@ export function ProfessionalAssessmentReport({
             {/* Executive Summary */}
             <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border-2 border-violet-200">
               <p className="text-base text-gray-700 leading-relaxed">
-                <strong className="text-[#2C2E83]">{getOverallCognitiveProfile()}</strong> — {getDetailedProfileDescription()}. 
+                <strong className="text-[#5B7DB1]">{getOverallCognitiveProfile()}</strong> — {getDetailedProfileDescription()}. 
                 Ideal for {userPosition.toLowerCase().includes('marketing') ? 'marketing strategy and leadership roles' : 'strategic leadership positions'}.
               </p>
             </div>
@@ -368,7 +368,7 @@ export function ProfessionalAssessmentReport({
               {assessment.score.kolb && (
                 <Card className="border-2 border-cyan-200 bg-gradient-to-br from-cyan-50/50 to-white">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg text-[#1FC8E1]">Learning Style</CardTitle>
+                    <CardTitle className="text-lg text-[#6B4C9A]">Learning Style</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="font-semibold text-gray-900">{getLearningStyleDetail()}</div>
@@ -396,8 +396,8 @@ export function ProfessionalAssessmentReport({
                             />
                             <Radar 
                               dataKey="value" 
-                              stroke="#1FC8E1" 
-                              fill="#1FC8E1"
+                              stroke="#6B4C9A" 
+                              fill="#6B4C9A"
                               fillOpacity={0.3}
                               strokeWidth={2}
                             />
@@ -445,7 +445,7 @@ export function ProfessionalAssessmentReport({
                         </div>
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-[#7B61FF] to-[#1FC8E1] transition-all"
+                            className="h-full bg-gradient-to-r from-[#7B61FF] to-[#6B4C9A] transition-all"
                             style={{ width: `${(assessment.score.sternberg.scores.creative / 48) * 100}%` }}
                           />
                         </div>
@@ -457,7 +457,7 @@ export function ProfessionalAssessmentReport({
                         </div>
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-[#2C2E83] to-[#7B61FF] transition-all"
+                            className="h-full bg-gradient-to-r from-[#5B7DB1] to-[#7B61FF] transition-all"
                             style={{ width: `${(assessment.score.sternberg.scores.analytical / 48) * 100}%` }}
                           />
                         </div>
@@ -469,7 +469,7 @@ export function ProfessionalAssessmentReport({
                         </div>
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-[#FF715B] to-[#2C2E83] transition-all"
+                            className="h-full bg-gradient-to-r from-[#FF715B] to-[#5B7DB1] transition-all"
                             style={{ width: `${(assessment.score.sternberg.scores.practical / 48) * 100}%` }}
                           />
                         </div>
@@ -483,7 +483,7 @@ export function ProfessionalAssessmentReport({
               {assessment.score.dualProcess && (
                 <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-white">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg text-[#2C2E83]">Decision-Making Style</CardTitle>
+                    <CardTitle className="text-lg text-[#5B7DB1]">Decision-Making Style</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="font-semibold text-gray-900">{assessment.score.dualProcess.style}</div>
@@ -504,7 +504,7 @@ export function ProfessionalAssessmentReport({
                         </div>
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-[#FF715B] to-[#1FC8E1] transition-all"
+                            className="h-full bg-gradient-to-r from-[#FF715B] to-[#6B4C9A] transition-all"
                             style={{ width: `${(assessment.score.dualProcess.scores.system1 / 48) * 100}%` }}
                           />
                         </div>
@@ -516,7 +516,7 @@ export function ProfessionalAssessmentReport({
                         </div>
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-[#2C2E83] to-[#7B61FF] transition-all"
+                            className="h-full bg-gradient-to-r from-[#5B7DB1] to-[#7B61FF] transition-all"
                             style={{ width: `${(assessment.score.dualProcess.scores.system2 / 48) * 100}%` }}
                           />
                         </div>
@@ -609,10 +609,10 @@ export function ProfessionalAssessmentReport({
         </Card>
 
         {/* Feedback Prompt */}
-        <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-blue-50 to-cyan-50">
+        <Card className="border-2 border-[#6B4C9A] bg-gradient-to-br from-blue-50 to-cyan-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-[#1FC8E1]" />
+              <MessageSquare className="h-5 w-5 text-[#6B4C9A]" />
               Help Us Improve JotMinds
             </CardTitle>
             <CardDescription>
@@ -620,29 +620,29 @@ export function ProfessionalAssessmentReport({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-[#1FC8E1]/30">
+            <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-[#6B4C9A]/30">
               <p className="text-sm text-gray-700 mb-4">
                 We'd love to hear your thoughts about your assessment experience. Your feedback helps us improve 
                 JotMinds and make it more valuable for professionals and organizations across Ghana.
               </p>
               <ul className="text-sm text-gray-600 space-y-2 mb-4">
                 <li className="flex items-start gap-2">
-                  <span className="text-[#1FC8E1] mt-1">•</span>
+                  <span className="text-[#6B4C9A] mt-1">•</span>
                   <span>How well do your results align with your professional experience?</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-[#1FC8E1] mt-1">•</span>
+                  <span className="text-[#6B4C9A] mt-1">•</span>
                   <span>Did the competency mapping provide valuable insights?</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-[#1FC8E1] mt-1">•</span>
+                  <span className="text-[#6B4C9A] mt-1">•</span>
                   <span>How can we make JotMinds more useful for your organization?</span>
                 </li>
               </ul>
             </div>
             <Button 
               onClick={() => window.open('https://forms.gle/SXPFj29PxUbmYVQq7', '_blank')}
-              className="w-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770]"
+              className="w-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:from-[#1AB5CC] hover:to-[#252770]"
             >
               <MessageSquare className="mr-2 h-4 w-4" />
               Share Your Feedback

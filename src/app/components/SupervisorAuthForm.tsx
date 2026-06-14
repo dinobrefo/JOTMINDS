@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, ShieldCheck, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { Logo } from './Logo';
 
 interface SupervisorAuthFormProps {
   onLogin: (user: User) => void;
@@ -217,13 +218,11 @@ export function SupervisorAuthForm({ onLogin, onBackToMain }: SupervisorAuthForm
         
         <Card className="w-full border-2 shadow-large">
           <CardHeader className="space-y-3 text-center pb-6">
-            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-              <ShieldCheck className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                JotMinds Supervisor Portal
-              </h1>
+            <div className="mx-auto flex flex-col items-center gap-2">
+              <Logo size="lg" />
+              <h2 className="text-xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                Supervisor Portal
+              </h2>
               <p className="text-sm text-muted-foreground">Organizational Assessment Management</p>
             </div>
             <CardDescription className="text-center text-base">

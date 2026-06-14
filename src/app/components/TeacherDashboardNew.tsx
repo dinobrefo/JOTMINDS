@@ -18,15 +18,24 @@ import {
 import { TeachingStyleAssessment } from './TeachingStyleAssessment';
 import { TeachingStyleResults } from './TeachingStyleResults';
 import { calculateTeachingStyleScore } from '../utils/teachingStyleScoring';
+import { getUserJotsCode } from '../utils/jotsCode';
+import { AdultThinkingContainer } from './AdultThinkingContainer';
 import { teachingStyleQuestions } from '../utils/teachingStyleQuestions';
 import { generateDeepDiveQuestions } from '../utils/teachingStyleData';
 
 interface TeacherDashboardNewProps {
   user: User;
   onLogout: () => void;
+  onViewAnalytics?: () => void;
+  onViewPrivacy?: () => void;
+  onViewEngagement?: () => void;
+  onViewTeacherIntelligence?: () => void;
+  onViewSchoolAnalytics?: () => void;
+  onViewPlatformEssentials?: () => void;
+  onStartAssessment?: (type: 'learning' | 'thinking' | 'decision') => void;
 }
 
-export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps) {
+export function TeacherDashboardNew({ user, onLogout, onViewAnalytics, onViewPrivacy, onViewEngagement, onViewTeacherIntelligence, onViewSchoolAnalytics, onViewPlatformEssentials, onStartAssessment }: TeacherDashboardNewProps) {
   const { impersonatedUser } = useAuth();
   const [students, setStudents] = useState<User[]>([]);
   const [allAssessments, setAllAssessments] = useState<any[]>([]);
@@ -37,6 +46,7 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
   const [initialResponses, setInitialResponses] = useState<number[]>([]);
   const [initialQuestions, setInitialQuestions] = useState<any[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [showingThinkingAssessment, setShowingThinkingAssessment] = useState(false);
 
   useEffect(() => {
     loadClassData();
@@ -196,6 +206,18 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
     );
   }
 
+  // Show thinking style (Adult) assessment full screen
+  if (showingThinkingAssessment) {
+    return (
+      <AdultThinkingContainer
+        userId={user.id}
+        userName={user.name}
+        onComplete={() => { setShowingThinkingAssessment(false); loadMyAssessments(); }}
+        onCancel={() => setShowingThinkingAssessment(false)}
+      />
+    );
+  }
+
   // If taking assessment, show it full screen or within layout
   if (activeTab === 'my-style' && isTakingAssessment) {
     return (
@@ -211,7 +233,14 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
 
   return (
     <div className="min-h-screen bg-[#F5F7FF]">
-      <TeacherAppHeader user={user} onLogout={onLogout} />
+      <TeacherAppHeader
+        user={user}
+        onLogout={onLogout}
+        onViewAnalytics={onViewAnalytics}
+        onViewPrivacy={onViewPrivacy}
+        onViewEngagement={onViewEngagement}
+        onViewTeacherIntelligence={onViewTeacherIntelligence}
+      />
       <TeacherTabBar activeTab={activeTab} onTabChange={setActiveTab} />
       
       {/* Onboarding Info for New Teachers */}
@@ -238,6 +267,141 @@ export function TeacherDashboardNew({ user, onLogout }: TeacherDashboardNewProps
 
       {activeTab === 'my-style' && (
         <div className="max-w-4xl mx-auto p-4 lg:p-6 space-y-8">
+          {/* Jots Code — school linkage info for teacher */}
+          {(() => {
+            const jc = getUserJotsCode(user);
+            if (!jc) return null;
+            return (
+              <div className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap" style={{ background: 'linear-gradient(135deg, #5B7DB1, #6B4C9A)' }}>
+                <div className="text-white">
+                  <p className="text-xs text-white/70 mb-0.5">Your School Jots Code (Organisation Code)</p>
+                  <div className="text-xl tracking-widest">{jc}</div>
+                  <p className="text-xs text-white/60 mt-0.5">Your head teacher uses this code to view your teaching style alongside other staff.</p>
+                </div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(jc)}
+                  className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-lg border border-white/30 transition-colors"
+                >
+                  Copy Code
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* Cognitive Profile — all 3 core assessments */}
+          {(() => {
+            const completed = myAssessments.filter(a => a.completedAt && a.score);
+
+            // Learning Style (Kolb)
+            const kolbA = completed.filter(a => a.type === 'kolb').sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
+            const kolb = kolbA?.score?.kolb;
+
+            // Thinking Style
+            const thinkA = completed.filter(a => ['sternberg','adult-thinking','shs-thinking','jhs-thinking'].includes(a.type)).sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
+            const thinkRaw = thinkA?.score?.sternberg || thinkA?.score?.['adult-thinking'] || thinkA?.score?.['shs-thinking'] || thinkA?.score?.['jhs-thinking'];
+            const thinkStyle = thinkRaw?.style || thinkRaw?.primaryStyle || thinkRaw?.dominantStyle || null;
+            const thinkScores: Record<string, number> = thinkRaw?.scores || {};
+
+            // Decision Style
+            const dualA = completed.filter(a => a.type === 'dual-process').sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0];
+            const dual = dualA?.score?.dualProcess;
+
+            const THINK_COLORS: Record<string, string> = { Analytical: '#5B7DB1', Creative: '#6B4C9A', Practical: '#1E8A6E', Reflective: '#E0A020' };
+            const KOLB_COLORS: Record<string, string> = { Diverging: '#EC4899', Assimilating: '#5B7DB1', Converging: '#1E8A6E', Accommodating: '#E0A020' };
+            const DUAL_COLORS: Record<string, string> = { Intuitive: '#F97316', Reflective: '#6B4C9A', Balanced: '#1E8A6E' };
+
+            const doneCount = [!!kolb, !!thinkStyle, !!dual].filter(Boolean).length;
+
+            return (
+              <Card className="border-2 border-[#6B4C9A]/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-base">
+                      <span>🧬</span> Cognitive Profile
+                    </div>
+                    <Badge style={{ backgroundColor: doneCount === 3 ? '#1E8A6E20' : '#E0A02020', color: doneCount === 3 ? '#1E8A6E' : '#E0A020' }}>
+                      {doneCount}/3 complete
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    All 3 core assessments — visible to your school in their Combined Analysis report. Complete all three to unlock your full educator profile.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+
+                  {/* 1. Learning Style */}
+                  <div className="p-3 rounded-lg border" style={{ borderColor: kolb ? KOLB_COLORS[kolb.style] + '40' : '#e5e7eb', backgroundColor: kolb ? KOLB_COLORS[kolb.style] + '06' : '#f9fafb' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-gray-800">📚 Learning Style (Kolb)</p>
+                      {kolb
+                        ? <Badge style={{ backgroundColor: KOLB_COLORS[kolb.style] + '20', color: KOLB_COLORS[kolb.style] }} className="text-[10px]">{kolb.style}</Badge>
+                        : <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => onStartAssessment?.('learning')}>Take Assessment</Button>}
+                    </div>
+                    {kolb && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {[['CE', kolb.scores.CE, 48], ['RO', kolb.scores.RO, 48], ['AC', kolb.scores.AC, 48], ['AE', kolb.scores.AE, 48]].map(([k, v, max]) => (
+                          <div key={String(k)}>
+                            <div className="flex justify-between text-[10px] text-gray-500 mb-0.5"><span>{String(k)}</span><span>{Number(v)}/{max}</span></div>
+                            <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="h-1.5 rounded-full" style={{ width: `${Math.round((Number(v) / Number(max)) * 100)}%`, backgroundColor: KOLB_COLORS[kolb.style] }} /></div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Thinking Style */}
+                  <div className="p-3 rounded-lg border" style={{ borderColor: thinkStyle ? THINK_COLORS[thinkStyle] + '40' : '#e5e7eb', backgroundColor: thinkStyle ? THINK_COLORS[thinkStyle] + '06' : '#f9fafb' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-gray-800">🧠 Thinking Style</p>
+                      {thinkStyle
+                        ? <Badge style={{ backgroundColor: THINK_COLORS[thinkStyle] + '20', color: THINK_COLORS[thinkStyle] }} className="text-[10px]">{thinkStyle}</Badge>
+                        : <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setShowingThinkingAssessment(true)}>Take Assessment</Button>}
+                    </div>
+                    {thinkStyle && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(thinkScores).filter(([k]) => ['analytical','creative','practical','reflective'].includes(k)).map(([dim, val]) => {
+                          const v = Number(val); const max = v > 1 ? 30 : 100;
+                          return (
+                            <div key={dim}>
+                              <div className="flex justify-between text-[10px] text-gray-500 mb-0.5"><span className="capitalize">{dim}</span><span>{v}</span></div>
+                              <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, Math.round((v / max) * 100))}%`, backgroundColor: THINK_COLORS[dim.charAt(0).toUpperCase() + dim.slice(1)] || '#9ca3af' }} /></div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Decision Style */}
+                  <div className="p-3 rounded-lg border" style={{ borderColor: dual ? DUAL_COLORS[dual.style] + '40' : '#e5e7eb', backgroundColor: dual ? DUAL_COLORS[dual.style] + '06' : '#f9fafb' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-gray-800">⚡ Decision Style</p>
+                      {dual
+                        ? <Badge style={{ backgroundColor: DUAL_COLORS[dual.style] + '20', color: DUAL_COLORS[dual.style] }} className="text-[10px]">{dual.style}</Badge>
+                        : <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => onStartAssessment?.('decision')}>Take Assessment</Button>}
+                    </div>
+                    {dual?.scores && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {[['Intuitive', dual.scores.intuitive ?? dual.scores.System1 ?? 0], ['Reflective', dual.scores.reflective ?? dual.scores.System2 ?? 0]].map(([k, v]) => (
+                          <div key={String(k)}>
+                            <div className="flex justify-between text-[10px] text-gray-500 mb-0.5"><span>{String(k)}</span><span>{Number(v)}</span></div>
+                            <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, Math.round((Number(v) / 100) * 100))}%`, backgroundColor: DUAL_COLORS[dual.style] }} /></div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {doneCount < 3 && (
+                    <p className="text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                      Complete all 3 assessments to unlock your full Combined Analysis in your school's dashboard.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {displayedAssessment ? (
             <div className="space-y-8">
                 {selectedHistoryId && (

@@ -175,7 +175,7 @@ export const AdminDiagnostic: React.FC<AdminDiagnosticProps> = ({ onClose }) => 
           <Button
             onClick={runDiagnostics}
             disabled={running}
-            style={{ backgroundColor: '#2C2E83' }}
+            style={{ backgroundColor: '#5B7DB1' }}
           >
             {running ? 'Running Tests...' : 'Run Diagnostics'}
           </Button>
@@ -190,7 +190,7 @@ export const AdminDiagnostic: React.FC<AdminDiagnosticProps> = ({ onClose }) => 
 
         {running && (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#2C2E83' }}></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#5B7DB1' }}></div>
             <p className="text-gray-600">Running diagnostic tests...</p>
           </div>
         )}

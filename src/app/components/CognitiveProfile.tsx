@@ -68,7 +68,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#2C2E83' }}></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#5B7DB1' }}></div>
           <p>Loading cognitive profile...</p>
         </div>
       </div>
@@ -162,13 +162,13 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
       category: 'Learning',
       styleName: learningDominant.styleName,
       percentage: learningDominant.percentage,
-      color: '#2C2E83'
+      color: '#5B7DB1'
     },
     {
       category: 'Thinking',
       styleName: thinkingDominant.styleName,
       percentage: thinkingDominant.percentage,
-      color: '#1FC8E1'
+      color: '#6B4C9A'
     },
     {
       category: 'Decision',
@@ -258,11 +258,11 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
     .header {
       text-align: center;
       margin-bottom: 40px;
-      border-bottom: 4px solid #2C2E83;
+      border-bottom: 4px solid #5B7DB1;
       padding-bottom: 20px;
     }
     .header h1 {
-      color: #2C2E83;
+      color: #5B7DB1;
       font-size: 36px;
       margin: 0 0 10px 0;
     }
@@ -276,7 +276,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
       page-break-inside: avoid;
     }
     .section-title {
-      color: #2C2E83;
+      color: #5B7DB1;
       font-size: 24px;
       margin-bottom: 20px;
       border-bottom: 2px solid #E5E7EB;
@@ -296,11 +296,11 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
     }
     .style-card.learning {
       background-color: #F0F0FF;
-      border-color: #2C2E83;
+      border-color: #5B7DB1;
     }
     .style-card.thinking {
       background-color: #E0F9FF;
-      border-color: #1FC8E1;
+      border-color: #6B4C9A;
     }
     .style-card.decision {
       background-color: #FFF0EE;
@@ -317,17 +317,17 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
       margin: 0 0 10px 0;
     }
     .style-card.learning p {
-      color: #2C2E83;
+      color: #5B7DB1;
     }
     .style-card.thinking p {
-      color: #1FC8E1;
+      color: #6B4C9A;
     }
     .style-card.decision p {
       color: #FF715B;
     }
     .style-card .percentage {
       display: inline-block;
-      background: #2C2E83;
+      background: #5B7DB1;
       color: white;
       padding: 4px 12px;
       border-radius: 12px;
@@ -335,7 +335,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
     }
     .summary-box {
       background: linear-gradient(to bottom right, #FFFFFF, #F0FEFF);
-      border: 2px solid #1FC8E1;
+      border: 2px solid #6B4C9A;
       border-radius: 8px;
       padding: 20px;
       margin-bottom: 20px;
@@ -346,7 +346,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
     }
     .insight-box {
       background-color: #F0F0FF;
-      border: 1px solid #2C2E83;
+      border: 1px solid #5B7DB1;
       border-radius: 8px;
       padding: 15px;
       margin-top: 15px;
@@ -369,11 +369,11 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
     }
     .detail-header.learning {
       background-color: #F0F0FF;
-      color: #2C2E83;
+      color: #5B7DB1;
     }
     .detail-header.thinking {
       background-color: #E0F9FF;
-      color: #1FC8E1;
+      color: #6B4C9A;
     }
     .detail-header.decision {
       background-color: #FFF0EE;
@@ -402,10 +402,10 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
       border-radius: 4px;
     }
     .progress-fill.learning {
-      background-color: #2C2E83;
+      background-color: #5B7DB1;
     }
     .progress-fill.thinking {
-      background-color: #1FC8E1;
+      background-color: #6B4C9A;
     }
     .progress-fill.decision {
       background-color: #FF715B;
@@ -724,16 +724,16 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ backgroundColor: '#F0F0FF' }}>
-            <Brain className="w-8 h-8" style={{ color: '#2C2E83' }} />
+            <Brain className="w-8 h-8" style={{ color: '#5B7DB1' }} />
           </div>
-          <h1 className="text-3xl mb-2" style={{ color: '#2C2E83' }}>Your Cognitive Profile</h1>
+          <h1 className="text-3xl mb-2" style={{ color: '#5B7DB1' }}>Your Cognitive Profile</h1>
           <p className="text-lg" style={{ color: '#6B7280' }}>
             Discover How You Think - A comprehensive view of your cognitive patterns
           </p>
         </div>
 
         {/* Dominant Styles Overview */}
-        <Card className="mb-8 shadow-lg" style={{ borderTop: '4px solid #2C2E83' }}>
+        <Card className="mb-8 shadow-lg" style={{ borderTop: '4px solid #5B7DB1' }}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -764,10 +764,10 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
         </Card>
 
         {/* Executive Summary */}
-        <Card className="mb-8 shadow-lg border-2" style={{ borderColor: '#1FC8E1', background: 'linear-gradient(to bottom right, #FFFFFF, #F0FEFF)' }}>
+        <Card className="mb-8 shadow-lg border-2" style={{ borderColor: '#6B4C9A', background: 'linear-gradient(to bottom right, #FFFFFF, #F0FEFF)' }}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2" style={{ color: '#2C2E83' }}>
-              <Sparkles className="h-6 w-6" style={{ color: '#1FC8E1' }} />
+            <CardTitle className="flex items-center gap-2" style={{ color: '#5B7DB1' }}>
+              <Sparkles className="h-6 w-6" style={{ color: '#6B4C9A' }} />
               Executive Summary
             </CardTitle>
             <CardDescription>Your comprehensive cognitive profile at a glance</CardDescription>
@@ -777,39 +777,39 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
               <p className="text-base leading-relaxed" style={{ color: '#374151' }}>
                 {learningResult && thinkingResult && decisionResult ? (
                   <>
-                    Your cognitive profile reveals a <strong style={{ color: '#2C2E83' }}>{learningDominant.styleName}</strong> learning style, 
+                    Your cognitive profile reveals a <strong style={{ color: '#5B7DB1' }}>{learningDominant.styleName}</strong> learning style, 
                     indicating you excel at {learningDominant.styleName.toLowerCase()} approaches to acquiring knowledge. 
-                    Your thinking is characterized by a <strong style={{ color: '#1FC8E1' }}>{thinkingDominant.styleName}</strong> style 
+                    Your thinking is characterized by a <strong style={{ color: '#6B4C9A' }}>{thinkingDominant.styleName}</strong> style 
                     with {thinkingDominant.percentage}% preference, while your decision-making follows a <strong style={{ color: '#FF715B' }}>{decisionDominant.styleName}</strong> pattern 
                     at {decisionDominant.percentage}% strength.
                   </>
                 ) : learningResult && thinkingResult ? (
                   <>
-                    Your cognitive profile shows a <strong style={{ color: '#2C2E83' }}>{learningDominant.styleName}</strong> learning style 
-                    and a <strong style={{ color: '#1FC8E1' }}>{thinkingDominant.styleName}</strong> thinking pattern. 
+                    Your cognitive profile shows a <strong style={{ color: '#5B7DB1' }}>{learningDominant.styleName}</strong> learning style 
+                    and a <strong style={{ color: '#6B4C9A' }}>{thinkingDominant.styleName}</strong> thinking pattern. 
                     Complete the Decision Style assessment to get a comprehensive view of your cognitive profile.
                   </>
                 ) : learningResult && decisionResult ? (
                   <>
-                    Your cognitive profile demonstrates a <strong style={{ color: '#2C2E83' }}>{learningDominant.styleName}</strong> learning approach 
+                    Your cognitive profile demonstrates a <strong style={{ color: '#5B7DB1' }}>{learningDominant.styleName}</strong> learning approach 
                     and a <strong style={{ color: '#FF715B' }}>{decisionDominant.styleName}</strong> decision-making style. 
                     Complete the Thinking Style assessment to enhance your profile insights.
                   </>
                 ) : thinkingResult && decisionResult ? (
                   <>
-                    Your cognitive profile exhibits a <strong style={{ color: '#1FC8E1' }}>{thinkingDominant.styleName}</strong> thinking style 
+                    Your cognitive profile exhibits a <strong style={{ color: '#6B4C9A' }}>{thinkingDominant.styleName}</strong> thinking style 
                     and a <strong style={{ color: '#FF715B' }}>{decisionDominant.styleName}</strong> decision-making pattern. 
                     Complete the Learning Style assessment for a complete cognitive overview.
                   </>
                 ) : learningResult ? (
                   <>
-                    Your learning style assessment reveals a <strong style={{ color: '#2C2E83' }}>{learningDominant.styleName}</strong> preference 
+                    Your learning style assessment reveals a <strong style={{ color: '#5B7DB1' }}>{learningDominant.styleName}</strong> preference 
                     with {learningDominant.percentage}% strength. This indicates your natural approach to acquiring and processing new information. 
                     Complete the Thinking and Decision Style assessments to build your comprehensive cognitive profile.
                   </>
                 ) : thinkingResult ? (
                   <>
-                    Your thinking style assessment shows a <strong style={{ color: '#1FC8E1' }}>{thinkingDominant.styleName}</strong> pattern 
+                    Your thinking style assessment shows a <strong style={{ color: '#6B4C9A' }}>{thinkingDominant.styleName}</strong> pattern 
                     with {thinkingDominant.percentage}% preference. This reflects how you approach problem-solving and intellectual challenges. 
                     Complete the Learning and Decision Style assessments for complete insights.
                   </>
@@ -823,8 +823,8 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
               </p>
               
               {learningResult && thinkingResult && decisionResult && (
-                <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: '#F0F0FF', border: '1px solid #2C2E83' }}>
-                  <p className="text-sm" style={{ color: '#2C2E83' }}>
+                <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: '#F0F0FF', border: '1px solid #5B7DB1' }}>
+                  <p className="text-sm" style={{ color: '#5B7DB1' }}>
                     <strong>Key Insight:</strong> This unique combination of cognitive styles suggests you have a {
                       (learningDominant.percentage + thinkingDominant.percentage + decisionDominant.percentage) / 3 > 50 
                         ? 'strong and well-defined' 
@@ -841,7 +841,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
               <div className="flex-1">
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span style={{ color: '#6B7280' }}>Profile Completion</span>
-                  <span style={{ color: '#2C2E83' }}>
+                  <span style={{ color: '#5B7DB1' }}>
                     {[learningResult, thinkingResult, decisionResult].filter(Boolean).length} / 3 Assessments
                   </span>
                 </div>
@@ -850,7 +850,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${([learningResult, thinkingResult, decisionResult].filter(Boolean).length / 3) * 100}%`,
-                      background: 'linear-gradient(to right, #2C2E83, #1FC8E1, #FF715B)'
+                      background: 'linear-gradient(to right, #5B7DB1, #6B4C9A, #FF715B)'
                     }}
                   />
                 </div>
@@ -866,7 +866,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" style={{ color: '#1FC8E1' }} />
+                  <Sparkles className="h-5 w-5" style={{ color: '#6B4C9A' }} />
                   Multi-Dimensional Profile
                 </CardTitle>
                 <CardDescription>Compare your styles across all frameworks</CardDescription>
@@ -885,16 +885,16 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
                       <Radar 
                         name="Learning" 
                         dataKey="learning" 
-                        stroke="#2C2E83" 
-                        fill="#2C2E83" 
+                        stroke="#5B7DB1" 
+                        fill="#5B7DB1" 
                         fillOpacity={0.3}
                         strokeWidth={2}
                       />
                       <Radar 
                         name="Thinking" 
                         dataKey="thinking" 
-                        stroke="#1FC8E1" 
-                        fill="#1FC8E1" 
+                        stroke="#6B4C9A" 
+                        fill="#6B4C9A" 
                         fillOpacity={0.3}
                         strokeWidth={2}
                       />
@@ -910,7 +910,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: 'white', 
-                          border: '2px solid #1FC8E1',
+                          border: '2px solid #6B4C9A',
                           borderRadius: '8px'
                         }}
                       />
@@ -926,7 +926,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" style={{ color: '#2C2E83' }} />
+                  <TrendingUp className="h-5 w-5" style={{ color: '#5B7DB1' }} />
                   Dominant Style Strength
                 </CardTitle>
                 <CardDescription>Your primary style in each framework</CardDescription>
@@ -945,7 +945,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: 'white', 
-                          border: '2px solid #2C2E83',
+                          border: '2px solid #5B7DB1',
                           borderRadius: '8px'
                         }}
                       />
@@ -985,7 +985,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
                             className="h-full rounded-full transition-all duration-500"
                             style={{
                               width: `${percentage}%`,
-                              backgroundColor: '#2C2E83'
+                              backgroundColor: '#5B7DB1'
                             }}
                           />
                         </div>
@@ -1017,7 +1017,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
                             className="h-full rounded-full transition-all duration-500"
                             style={{
                               width: `${percentage}%`,
-                              backgroundColor: '#1FC8E1'
+                              backgroundColor: '#6B4C9A'
                             }}
                           />
                         </div>
@@ -1120,7 +1120,7 @@ export const CognitiveProfile: React.FC<CognitiveProfileProps> = ({ onBack }) =>
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" style={{ color: '#2C2E83' }} />
+                <FileText className="h-5 w-5" style={{ color: '#5B7DB1' }} />
                 Reflections
               </CardTitle>
               <CardDescription>Share your thoughts on your cognitive profile</CardDescription>

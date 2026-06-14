@@ -14,7 +14,77 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { SchoolAdminDashboard } from './SchoolAdminDashboard';
 import { QuestionBankAudit } from './QuestionBankAudit';
 import { OrganizationManager } from './OrganizationManager';
+import { QuestionSeeder } from './QuestionSeeder';
+import { forceRerunMigration, getMigrationPreview } from '../utils/accountMigration';
 import { Globe, Building2, LayoutDashboard, Settings, Activity, Server, Database, RefreshCw, ShieldCheck } from 'lucide-react';
+
+function AccountMigrationPanel() {
+  const [status, setStatus] = React.useState<'idle' | 'running' | 'done'>('idle');
+  const [preview, setPreview] = React.useState(() => getMigrationPreview());
+
+  const run = () => {
+    setStatus('running');
+    setTimeout(() => {
+      forceRerunMigration();
+      setPreview(getMigrationPreview());
+      setStatus('done');
+    }, 400);
+  };
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <RefreshCw className="w-5 h-5 text-primary" />
+        Account Data Migration
+      </h3>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Backfill new fields onto existing accounts</CardTitle>
+          <CardDescription>
+            Links teachers and school admins by school Jots Code, infers education levels for students, and bootstraps Cognitive XP from existing assessments.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total accounts', value: preview.total },
+              { label: 'Need org code', value: preview.needsOrgCode },
+              { label: 'Need education level', value: preview.needsEducationLevel },
+            ].map(s => (
+              <div key={s.label} className="text-center p-3 bg-gray-50 rounded-lg border">
+                <div className="text-2xl font-bold text-gray-800">{s.value}</div>
+                <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {status === 'done' && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <span className="text-green-600">✓</span>
+              <p className="text-sm text-green-800">Migration complete — all accounts updated.</p>
+            </div>
+          )}
+
+          <Button
+            onClick={run}
+            disabled={status === 'running'}
+            className="w-full"
+            style={{ backgroundColor: '#5B7DB1' }}
+          >
+            {status === 'running' ? (
+              <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Running migration...</>
+            ) : status === 'done' ? (
+              <><RefreshCw className="w-4 h-4 mr-2" />Re-run Migration</>
+            ) : (
+              <><RefreshCw className="w-4 h-4 mr-2" />Run Account Migration</>
+            )}
+          </Button>
+          <p className="text-xs text-gray-500">Safe to run multiple times — idempotent. Runs automatically on every app load for accounts that haven't been migrated yet.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -97,7 +167,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#2C2E83' }}></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#5B7DB1' }}></div>
           <p>Loading admin panel...</p>
         </div>
       </div>
@@ -130,7 +200,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
               <Button
                 onClick={() => window.location.reload()}
                 className="flex-1"
-                style={{ backgroundColor: '#2C2E83' }}
+                style={{ backgroundColor: '#5B7DB1' }}
               >
                 Refresh Page
               </Button>
@@ -150,7 +220,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
   }
 
   const roleColors: { [key: string]: string } = {
-    'Student': '#1FC8E1',
+    'Student': '#6B4C9A',
     'Teacher': '#7B61FF',
     'Parent': '#10B981',
     'Professional': '#FF715B',
@@ -181,7 +251,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
               A
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">Admin Panel</h1>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">Admin Panel</h1>
               <p className="text-sm text-muted-foreground">Manage platform users and statistics</p>
             </div>
           </div>
@@ -285,6 +355,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
                     </h3>
                     <QuestionBankAudit />
                 </div>
+
+                <div className="border-t pt-6">
+                    <QuestionSeeder />
+                </div>
+
+                <div className="border-t pt-6">
+                    <AccountMigrationPanel />
+                </div>
             </div>
           </TabsContent>
 
@@ -357,11 +435,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Total Users</CardDescription>
-                <Users className="w-5 h-5 text-[#2C2E83] dark:text-[#1FC8E1]" />
+                <Users className="w-5 h-5 text-[#5B7DB1] dark:text-[#6B4C9A]" />
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-[#2C2E83] dark:text-[#1FC8E1]">{stats?.totalUsers || 0}</p>
+              <p className="text-3xl font-bold text-[#5B7DB1] dark:text-[#6B4C9A]">{stats?.totalUsers || 0}</p>
             </CardContent>
           </Card>
 
@@ -369,11 +447,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, onLogout, onView
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription>Total Assessments</CardDescription>
-                <ClipboardList className="w-5 h-5 text-[#1FC8E1]" />
+                <ClipboardList className="w-5 h-5 text-[#6B4C9A]" />
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-[#1FC8E1]">{stats?.totalAssessments || 0}</p>
+              <p className="text-3xl font-bold text-[#6B4C9A]">{stats?.totalAssessments || 0}</p>
             </CardContent>
           </Card>
 

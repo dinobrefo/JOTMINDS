@@ -14,9 +14,9 @@ export function ThinkingStylesTab({ onStartJHS, onStartSHS, onStartAdult }: Thin
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="border-4 border-[#1FC8E1] bg-gradient-to-r from-cyan-50 to-indigo-50 shadow-xl">
+      <Card className="border-4 border-[#6B4C9A] bg-gradient-to-r from-cyan-50 to-indigo-50 shadow-xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] bg-clip-text text-transparent">
+          <CardTitle className="text-3xl bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] bg-clip-text text-transparent">
             🧠 Thinking Styles Assessments
           </CardTitle>
           <CardDescription className="text-base">
@@ -36,7 +36,7 @@ export function ThinkingStylesTab({ onStartJHS, onStartSHS, onStartAdult }: Thin
               </Badge>
               <div className="text-3xl">🎨</div>
             </div>
-            <CardTitle className="text-xl bg-gradient-to-r from-[#FF715B] to-[#2C2E83] bg-clip-text text-transparent">
+            <CardTitle className="text-xl bg-gradient-to-r from-[#FF715B] to-[#5B7DB1] bg-clip-text text-transparent">
               JHS Thinking Styles
             </CardTitle>
             <CardDescription>
@@ -67,7 +67,7 @@ export function ThinkingStylesTab({ onStartJHS, onStartSHS, onStartAdult }: Thin
             </div>
             <Button
               onClick={onStartJHS}
-              className="w-full bg-gradient-to-r from-[#FF715B] to-[#2C2E83] hover:from-[#E6644F] hover:to-[#252770] text-white"
+              className="w-full bg-gradient-to-r from-[#FF715B] to-[#5B7DB1] hover:from-[#E6644F] hover:to-[#252770] text-white"
             >
               <Sparkles className="mr-2 h-4 w-4" />
               Start JHS Assessment
@@ -182,10 +182,10 @@ export function ThinkingStylesTab({ onStartJHS, onStartSHS, onStartAdult }: Thin
       </div>
 
       {/* Info Section */}
-      <Card className="border-2 border-[#1FC8E1] shadow-lg">
+      <Card className="border-2 border-[#6B4C9A] shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-[#1FC8E1]" />
+            <Sparkles className="h-5 w-5 text-[#6B4C9A]" />
             Why Take Multiple Assessments?
           </CardTitle>
         </CardHeader>

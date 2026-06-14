@@ -86,7 +86,7 @@ export const DebugPanel: React.FC = () => {
           onClick={updateDebugInfo}
           className="w-full"
           size="sm"
-          style={{ backgroundColor: '#2C2E83' }}
+          style={{ backgroundColor: '#5B7DB1' }}
         >
           Refresh Now
         </Button>

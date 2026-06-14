@@ -28,15 +28,18 @@ export function PeerComparison({ data, title = "How You Compare to Other Student
             data={data}
             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis 
-              dataKey="trait" 
+            <CartesianGrid key="grid" strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis
+              key="x-axis"
+              dataKey="trait"
               tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
             />
-            <YAxis 
+            <YAxis
+              key="y-axis"
               tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
             />
             <Tooltip
+              key="tooltip"
               contentStyle={{
                 backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
@@ -44,21 +47,24 @@ export function PeerComparison({ data, title = "How You Compare to Other Student
                 color: 'hsl(var(--foreground))'
               }}
             />
-            <Legend 
+            <Legend
+              key="legend"
               wrapperStyle={{
                 paddingTop: '20px',
                 fontSize: '14px'
               }}
             />
-            <Bar 
-              dataKey="yourScore" 
-              name="Your Score" 
+            <Bar
+              key="bar-your-score"
+              dataKey="yourScore"
+              name="Your Score"
               fill="hsl(var(--primary))"
               radius={[8, 8, 0, 0]}
             />
-            <Bar 
-              dataKey="average" 
-              name="Average" 
+            <Bar
+              key="bar-average"
+              dataKey="average"
+              name="Average"
               fill="#60a5fa"
               radius={[8, 8, 0, 0]}
             />

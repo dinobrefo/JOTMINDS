@@ -37,7 +37,7 @@ export function SHSThinkingResults({
 
   const barData = [
     { name: 'Creative 🎨', percentage: percentages.creative, fill: '#FF715B' },
-    { name: 'Analytical 🔍', percentage: percentages.analytical, fill: '#1FC8E1' },
+    { name: 'Analytical 🔍', percentage: percentages.analytical, fill: '#6B4C9A' },
     { name: 'Practical 🛠️', percentage: percentages.practical, fill: '#C1E1C1' },
     { name: 'Reflective 💭', percentage: percentages.reflective, fill: '#8E7CC3' }
   ];

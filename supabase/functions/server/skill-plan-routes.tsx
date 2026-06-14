@@ -84,7 +84,7 @@ const FALLBACK = ACTIVITY_BANK.metacognition;
 
 function generatePlan(opts: {
   userId: string; dimensionId: string; tier: string;
-  lengthDays: 7 | 14; sourceResultId: string;
+  lengthDays: 7 | 14; sourceResultId: string; sourceCareer?: string;
 }) {
   const bank = ACTIVITY_BANK[opts.dimensionId] ?? FALLBACK;
   const pick = <T,>(arr: T[], day: number): T => arr[day % arr.length];
@@ -107,6 +107,7 @@ function generatePlan(opts: {
     status: 'active' as const,
     activities,
     sourceResultId: opts.sourceResultId,
+    sourceCareer: opts.sourceCareer,
     createdAt: now,
     updatedAt: now,
   };
@@ -130,7 +131,7 @@ app.get('/:planId', async (c) => {
   return c.json({ plan });
 });
 
-// POST /skill-plan/generate — body: { dimensionId, tier, lengthDays, sourceResultId }
+// POST /skill-plan/generate — body: { dimensionId, tier, lengthDays, sourceResultId, sourceCareer? }
 app.post('/generate', async (c) => {
   const user = await verifyAuth(c.req.raw);
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
@@ -142,6 +143,7 @@ app.post('/generate', async (c) => {
     tier: body.tier ?? 'adult',
     lengthDays,
     sourceResultId: body.sourceResultId ?? '',
+    sourceCareer: body.sourceCareer,
   });
   await kv.set(`skillplan:${user.id}:${plan.planId}`, plan);
   return c.json({ plan });

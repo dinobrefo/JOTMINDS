@@ -6,6 +6,9 @@ import * as kv from './kv_store.tsx';
 import dailyChallengeRoutes from './daily-challenge-routes.tsx';
 import assessmentRoutes from './assessment-routes.tsx';
 import skillPlanRoutes from './skill-plan-routes.tsx';
+import cognitiveProfileRoutes from './cognitive-profile-routes.tsx';
+import careerMatchRoutes from './career-match-routes.tsx';
+import seedQuestionsRoutes from './seed-questions-routes.tsx';
 
 const app = new Hono();
 
@@ -17,6 +20,9 @@ app.use('*', logger(console.log));
 app.route('/make-server-fc8eb847/daily-challenge', dailyChallengeRoutes);
 app.route('/make-server-fc8eb847', assessmentRoutes);
 app.route('/make-server-fc8eb847/skill-plan', skillPlanRoutes);
+app.route('/make-server-fc8eb847/cognitive-profile', cognitiveProfileRoutes);
+app.route('/make-server-fc8eb847/career', careerMatchRoutes);
+app.route('/make-server-fc8eb847/admin', seedQuestionsRoutes);
 
 // Health check and diagnostics endpoint
 app.get('/make-server-fc8eb847/health', async (c) => {

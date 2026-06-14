@@ -33,13 +33,13 @@ const SECTION_INFO = {
     title: '🔍 ANALYTICAL THINKING',
     subtitle: '"I like figuring out how things work."',
     description: 'These questions show how your brain notices details and uses logic.',
-    color: '#1FC8E1'
+    color: '#6B4C9A'
   },
   practical: {
     title: '🛠️ PRACTICAL THINKING',
     subtitle: '"I use what I know to make things work."',
     description: 'These questions explore how you turn ideas into action and solve real-life challenges.',
-    color: '#2C2E83'
+    color: '#5B7DB1'
   },
   reflective: {
     title: '💭 REFLECTIVE THINKING',
@@ -133,7 +133,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white">
         <DialogHeader>
           <DialogTitle className="text-2xl text-gray-900">
-            <Eye className="inline-block mr-2 h-6 w-6" style={{ color: '#2C2E83' }} />
+            <Eye className="inline-block mr-2 h-6 w-6" style={{ color: '#5B7DB1' }} />
             Preview All Questions
           </DialogTitle>
           <DialogDescription className="text-gray-600">
@@ -161,7 +161,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
           })}
         </div>
         <div className="flex justify-end mt-4">
-          <Button onClick={() => setShowPreview(false)} style={{ backgroundColor: '#2C2E83' }}>
+          <Button onClick={() => setShowPreview(false)} style={{ backgroundColor: '#5B7DB1' }}>
             Got it! Let's start
           </Button>
         </div>
@@ -211,7 +211,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
             <Button 
               onClick={handleContinueAfterSummary}
               className="w-full"
-              style={{ backgroundColor: '#2C2E83' }}
+              style={{ backgroundColor: '#5B7DB1' }}
             >
               Continue to Next Section <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -225,14 +225,14 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
         <div className="max-w-3xl mx-auto py-8">
-          <Card className="border-4 bg-white" style={{ borderColor: '#2C2E83' }}>
+          <Card className="border-4 bg-white" style={{ borderColor: '#5B7DB1' }}>
             <CardHeader className="text-center space-y-4">
               <div className="flex justify-center">
                 <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
                   <Sparkles className="h-10 w-10 text-white" />
                 </div>
               </div>
-              <CardTitle className="text-3xl" style={{ color: '#2C2E83' }}>
+              <CardTitle className="text-3xl" style={{ color: '#5B7DB1' }}>
                 🧠 JOTMINDS – THINKING STYLES ADVENTURE
               </CardTitle>
               <CardDescription className="text-lg text-gray-700">
@@ -251,7 +251,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
 
               {/* How to Answer */}
               <div className="space-y-3">
-                <h3 className="font-bold text-xl" style={{ color: '#2C2E83' }}>
+                <h3 className="font-bold text-xl" style={{ color: '#5B7DB1' }}>
                   🌈 HOW TO ANSWER
                 </h3>
                 <p className="text-gray-700">
@@ -269,7 +269,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
 
               {/* What You'll Discover */}
               <div className="space-y-3">
-                <h3 className="font-bold text-xl" style={{ color: '#2C2E83' }}>
+                <h3 className="font-bold text-xl" style={{ color: '#5B7DB1' }}>
                   ⭐ WHAT YOU'LL DISCOVER
                 </h3>
                 <p className="text-gray-700">
@@ -293,7 +293,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
                   onClick={() => setShowPreview(true)}
                   variant="outline"
                   className="w-full py-6 border-2"
-                  style={{ borderColor: '#2C2E83', color: '#2C2E83' }}
+                  style={{ borderColor: '#5B7DB1', color: '#5B7DB1' }}
                 >
                   <Eye className="mr-2 h-5 w-5" />
                   Preview All Questions
@@ -301,7 +301,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
                 <Button 
                   onClick={() => setShowIntro(false)}
                   className="w-full text-sm sm:text-base py-6"
-                  style={{ backgroundColor: '#2C2E83' }}
+                  style={{ backgroundColor: '#5B7DB1' }}
                 >
                   Let's Start My Thinking Adventure! 🚀
                 </Button>
@@ -414,7 +414,7 @@ export function JHSThinkingAssessment({ userId, onComplete, onCancel }: JHSThink
                 <Button
                   onClick={handleSubmit}
                   disabled={!canProceed}
-                  style={{ backgroundColor: canProceed ? '#2C2E83' : undefined }}
+                  style={{ backgroundColor: canProceed ? '#5B7DB1' : undefined }}
                   className="min-w-[120px]"
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />

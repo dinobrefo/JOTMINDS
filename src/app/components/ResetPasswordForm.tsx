@@ -7,6 +7,7 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { PasswordStrengthIndicator, checkPasswordStrength } from './PasswordStrengthIndicator';
 import { createClient } from '../utils/supabase/client';
+import { Logo } from './Logo';
 
 interface ResetPasswordFormProps {
   onSuccess: () => void;
@@ -137,10 +138,8 @@ export function ResetPasswordForm({ onSuccess, onBack }: ResetPasswordFormProps)
 
         <Card className="w-full border-2 shadow-large">
           <CardHeader className="space-y-3 text-center pb-6">
-            <div className="mx-auto">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-2">
-                JotMinds
-              </h1>
+            <div className="mx-auto flex flex-col items-center">
+              <Logo size="lg" className="mb-2" />
               <p className="text-sm text-muted-foreground">Discover How You Think</p>
             </div>
             <CardDescription className="text-center text-base">

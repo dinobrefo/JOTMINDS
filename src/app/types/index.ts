@@ -1,4 +1,4 @@
-export type UserRole = 'student' | 'teacher' | 'parent' | 'professional' | 'organization';
+export type UserRole = 'student' | 'teacher' | 'parent' | 'professional' | 'organization' | 'school_admin' | 'admin';
 
 export type EducationLevel = 'Elementary' | 'JHS' | 'SHS' | 'Tertiary';
 
@@ -40,6 +40,7 @@ export interface User {
   industrySector?: IndustrySector; // For organizations/supervisors only
   position?: string; // For professionals and supervisors
   parentPin?: string; // PIN for Kids Mode parental controls (hashed)
+  jotsCode?: string; // legacy alias — use organizationCode instead
   createdAt: string;
   assessments?: Assessment[]; // Full assessment objects (legacy)
   assessmentsCompleted?: string[]; // Array of completed assessment types (backend standard)

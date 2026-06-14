@@ -411,7 +411,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                 </TooltipContent>
               </Tooltip>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">JotMinds</h1>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">JotMinds</h1>
                 <p className="text-sm text-muted-foreground">{user.name} - {user.position}</p>
               </div>
             </div>
@@ -522,7 +522,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
               <>
                 {/* Overall Cognitive Strength Score */}
                 <Card className="border-2 border-violet-200 bg-gradient-to-br from-violet-50/50 via-cyan-50/30 to-white overflow-hidden relative">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#1FC8E1]/10 to-[#7B61FF]/10 rounded-full blur-3xl" />
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#6B4C9A]/10 to-[#7B61FF]/10 rounded-full blur-3xl" />
                   <CardHeader className="relative">
                     <div className="flex items-start justify-between">
                       <div>
@@ -567,14 +567,14 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                             />
                             <defs>
                               <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#1FC8E1" />
+                                <stop offset="0%" stopColor="#6B4C9A" />
                                 <stop offset="50%" stopColor="#7B61FF" />
-                                <stop offset="100%" stopColor="#2C2E83" />
+                                <stop offset="100%" stopColor="#5B7DB1" />
                               </linearGradient>
                             </defs>
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-5xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+                            <span className="text-5xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">
                               {getCognitiveStrengthScore()}
                             </span>
                             <span className="text-sm text-muted-foreground">Overall Score</span>
@@ -739,9 +739,9 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                         />
                         <defs>
                           <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#1FC8E1" />
+                            <stop offset="0%" stopColor="#6B4C9A" />
                             <stop offset="50%" stopColor="#7B61FF" />
-                            <stop offset="100%" stopColor="#2C2E83" />
+                            <stop offset="100%" stopColor="#5B7DB1" />
                           </linearGradient>
                         </defs>
                       </BarChart>
@@ -1153,10 +1153,10 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
 
           <TabsContent value="feedback" className="space-y-6">
             <div className="max-w-3xl mx-auto">
-              <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-cyan-50 to-blue-50">
+              <Card className="border-2 border-[#6B4C9A] bg-gradient-to-br from-cyan-50 to-blue-50">
                 <CardHeader className="text-center">
                   <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center">
                       <MessageSquare className="h-8 w-8 text-white" />
                     </div>
                   </div>
@@ -1168,38 +1168,38 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                 <CardContent className="space-y-6">
                   <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 space-y-4">
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-[#1FC8E1]" />
+                      <Sparkles className="h-5 w-5 text-[#6B4C9A]" />
                       We'd love to hear from you about:
                     </h3>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">How JotMinds supports your professional development</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">Insights gained about your cognitive strengths</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">Application to your workplace and career</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">Relevance to Ghana's professional context</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">Team and organizational applications</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">Suggestions for improvement</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-[#1FC8E1]/10 to-[#2C2E83]/10 rounded-lg p-4 border border-[#1FC8E1]/30">
+                  <div className="bg-gradient-to-r from-[#6B4C9A]/10 to-[#5B7DB1]/10 rounded-lg p-4 border border-[#6B4C9A]/30">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
                         <span className="text-white font-bold">✓</span>
@@ -1217,7 +1217,7 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
                     <Button
                       onClick={() => window.open('https://forms.gle/SXPFj29PxUbmYVQq7', '_blank')}
                       size="lg"
-                      className="w-full max-w-md bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all"
+                      className="w-full max-w-md bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:from-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all"
                     >
                       <MessageSquare className="mr-2 h-5 w-5" />
                       Complete Feedback Form
@@ -1230,11 +1230,11 @@ export function ProfessionalDashboard({ user, onLogout }: ProfessionalDashboardP
 
                   <div className="grid md:grid-cols-2 gap-3 pt-4">
                     <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-2xl font-bold text-[#1FC8E1]">2-3</p>
+                      <p className="text-2xl font-bold text-[#6B4C9A]">2-3</p>
                       <p className="text-xs text-gray-600">Minutes to complete</p>
                     </div>
                     <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-2xl font-bold text-[#2C2E83]">100%</p>
+                      <p className="text-2xl font-bold text-[#5B7DB1]">100%</p>
                       <p className="text-xs text-gray-600">Confidential</p>
                     </div>
                   </div>

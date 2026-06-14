@@ -332,11 +332,11 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] flex items-center justify-center">
                 <Brain className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">
                   Complete Cognitive Profile
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -438,7 +438,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[#1FC8E1]" />
+              <Sparkles className="h-5 w-5 text-[#6B4C9A]" />
               Your Complete Cognitive Map
             </CardTitle>
             <CardDescription>
@@ -449,27 +449,36 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
             <div className="h-[500px]">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={radarData}>
-                  <PolarGrid stroke="#e0e0e0" />
-                  <PolarAngleAxis 
-                    dataKey="dimension" 
+                  <PolarGrid key="polar-grid-combined" stroke="#e0e0e0" />
+                  <PolarAngleAxis
+                    key="polar-angle-combined"
+                    dataKey="dimension"
                     tick={{ fill: '#666', fontSize: 12 }}
                     stroke="#999"
                   />
-                  <PolarRadiusAxis angle={90} domain={[0, 'auto']} />
+                  <PolarRadiusAxis key="polar-radius-combined" angle={90} domain={[0, 'auto']} />
                   <Radar
+                    key="radar-combined"
                     name="Your Profile"
                     dataKey="value"
-                    stroke="#1FC8E1"
-                    fill="#1FC8E1"
+                    stroke="#6B4C9A"
+                    fill="#6B4C9A"
                     fillOpacity={0.3}
                     strokeWidth={2}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '2px solid #1FC8E1',
-                      borderRadius: '8px'
+                  <Tooltip
+                    key="tooltip-combined"
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '2px solid #6B4C9A',
+                      borderRadius: '8px',
+                      maxWidth: '280px',
+                      padding: '12px'
                     }}
+                    wrapperStyle={{ zIndex: 1000 }}
+                    formatter={(value: any) => [
+                      <span key="value" className="whitespace-normal break-words">{value}</span>
+                    ]}
                   />
                 </RadarChart>
               </ResponsiveContainer>
@@ -481,7 +490,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-[#2C2E83]" />
+              <TrendingUp className="h-5 w-5 text-[#5B7DB1]" />
               Your Cognitive Balance
             </CardTitle>
             <CardDescription>
@@ -489,28 +498,99 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={balanceData} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={120} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '2px solid #2C2E83',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="abstract" fill="#3b82f6" name="Abstract/Analytical" stackId="a" />
-                  <Bar dataKey="concrete" fill="#10b981" name="Concrete/Intuitive" stackId="a" />
-                  <Bar dataKey="active" fill="#f59e0b" name="Active" stackId="b" />
-                  <Bar dataKey="reflective" fill="#8b5cf6" name="Reflective" stackId="b" />
-                  <Bar dataKey="analytical" fill="#06b6d4" name="Analytical" stackId="c" />
-                  <Bar dataKey="intuitive" fill="#ec4899" name="Intuitive" stackId="c" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="space-y-8">
+              {/* Learning Balance */}
+              <div>
+                <h4 className="font-semibold mb-3 text-blue-900">Learning Style Balance</h4>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-blue-600 font-medium">Abstract Thinking</span>
+                      <span className="font-bold">{latestKolb.score.kolb?.scores.AC || 0}/48</span>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
+                        style={{ width: `${((latestKolb.score.kolb?.scores.AC || 0) / 48) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-green-600 font-medium">Concrete Experience</span>
+                      <span className="font-bold">{latestKolb.score.kolb?.scores.CE || 0}/48</span>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full transition-all duration-500"
+                        style={{ width: `${((latestKolb.score.kolb?.scores.CE || 0) / 48) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Balance */}
+              <div>
+                <h4 className="font-semibold mb-3 text-purple-900">Action Style Balance</h4>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-orange-600 font-medium">Active Experimentation</span>
+                      <span className="font-bold">{latestKolb.score.kolb?.scores.AE || 0}/48</span>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full transition-all duration-500"
+                        style={{ width: `${((latestKolb.score.kolb?.scores.AE || 0) / 48) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-purple-600 font-medium">Reflective Observation</span>
+                      <span className="font-bold">{latestKolb.score.kolb?.scores.RO || 0}/48</span>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-500"
+                        style={{ width: `${((latestKolb.score.kolb?.scores.RO || 0) / 48) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Decision Balance */}
+              <div>
+                <h4 className="font-semibold mb-3 text-cyan-900">Decision Style Balance</h4>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-cyan-600 font-medium">Analytical Processing</span>
+                      <span className="font-bold">{normalizedDualProcessScores.system2 || 0}/25</span>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-cyan-600 rounded-full transition-all duration-500"
+                        style={{ width: `${((normalizedDualProcessScores.system2 || 0) / 25) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-pink-600 font-medium">Intuitive Processing</span>
+                      <span className="font-bold">{normalizedDualProcessScores.system1 || 0}/25</span>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-pink-500 to-pink-600 rounded-full transition-all duration-500"
+                        style={{ width: `${((normalizedDualProcessScores.system1 || 0) / 25) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -590,16 +670,16 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                 <h4 className="font-semibold mb-3 text-orange-900">Decision Style Dimensions</h4>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
+                    <BarChart
                       data={[
-                        { 
-                          name: 'Intuitive\nProcessing', 
+                        {
+                          name: 'Intuitive\nProcessing',
                           value: normalizedDualProcessScores.system1 || 0,
                           fullName: 'Intuitive Processing (System 1)',
                           description: 'Quick, automatic, and emotional decision-making based on patterns and experience'
                         },
-                        { 
-                          name: 'Analytical\nProcessing', 
+                        {
+                          name: 'Analytical\nProcessing',
                           value: normalizedDualProcessScores.system2 || 0,
                           fullName: 'Analytical Processing (System 2)',
                           description: 'Slow, deliberate, and logical decision-making through careful analysis'
@@ -607,28 +687,33 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                       ]}
                       margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="name" 
+                      <CartesianGrid key="grid-decision" strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        key="x-axis-decision"
+                        dataKey="name"
                         tick={{ fill: '#78716c', fontSize: 14, fontWeight: 500 }}
                         height={60}
                         interval={0}
                       />
-                      <YAxis 
+                      <YAxis
+                        key="y-axis-decision"
                         domain={[0, 25]}
                         tick={{ fill: '#78716c', fontSize: 14 }}
                         label={{ value: 'Score', angle: -90, position: 'insideLeft', style: { fontSize: 14, fill: '#78716c' } }}
                       />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
+                      <Tooltip
+                        key="tooltip-decision"
+                        contentStyle={{
+                          backgroundColor: 'white',
                           border: '2px solid #f97316',
                           borderRadius: '12px',
                           padding: '12px',
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          maxWidth: '280px'
                         }}
-                        labelStyle={{ 
-                          fontSize: 14, 
+                        wrapperStyle={{ zIndex: 1000 }}
+                        labelStyle={{
+                          fontSize: 14,
                           fontWeight: 600,
                           color: '#1f2937',
                           marginBottom: '8px'
@@ -637,7 +722,9 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                           return [
                             <div key="tooltip-content" className="space-y-2">
                               <div className="font-semibold text-orange-600">Score: {value}/25</div>
-                              <div className="text-sm text-gray-600 max-w-[250px]">{props.payload.description}</div>
+                              <div className="text-sm text-gray-600 whitespace-normal break-words" style={{ maxWidth: '250px' }}>
+                                {props.payload.description}
+                              </div>
                             </div>,
                             ''
                           ];
@@ -650,9 +737,10 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                           return item?.fullName || label;
                         }}
                       />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#f97316" 
+                      <Bar
+                        key="bar-decision"
+                        dataKey="value"
+                        fill="#f97316"
                         radius={[8, 8, 0, 0]}
                         maxBarSize={120}
                       >
@@ -660,7 +748,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
                           { value: normalizedDualProcessScores.system1 || 0 },
                           { value: normalizedDualProcessScores.system2 || 0 }
                         ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 0 ? '#ec4899' : '#06b6d4'} />
+                          <Cell key={`decision-cell-${index}`} fill={index === 0 ? '#ec4899' : '#06b6d4'} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -723,10 +811,10 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
         </div>
 
         {/* Recommendations */}
-        <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-white to-cyan-50">
+        <Card className="border-2 border-[#6B4C9A] bg-gradient-to-br from-white to-cyan-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-[#1FC8E1]" />
+              <Lightbulb className="h-5 w-5 text-[#6B4C9A]" />
               Personalized Recommendations
             </CardTitle>
             <CardDescription>
@@ -737,7 +825,7 @@ export function CombinedCognitiveProfile({ assessments, userName, onBack }: Comb
             <div className="grid gap-4 md:grid-cols-2">
               {insights.recommendations.map((recommendation, index) => (
                 <div key={index} className="flex items-start gap-3 p-4 bg-white rounded-lg border border-cyan-200">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
                     {index + 1}
                   </div>
                   <p className="text-sm text-gray-700">{recommendation}</p>

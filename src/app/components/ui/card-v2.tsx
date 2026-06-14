@@ -29,8 +29,8 @@ interface CardV2Props {
  */
 export function CardV2({
   icon: Icon,
-  iconColor = 'text-[#1FC8E1]',
-  iconBgColor = 'bg-[#1FC8E1]/10',
+  iconColor = 'text-[#6B4C9A]',
+  iconBgColor = 'bg-[#6B4C9A]/10',
   title,
   subtitle,
   stats,
@@ -45,7 +45,7 @@ export function CardV2({
   const variantStyles = {
     default: 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md',
     gradient: 'bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-2 border-gradient-primary hover:shadow-lg',
-    outlined: 'bg-transparent border-2 border-gray-300 dark:border-gray-600 hover:border-[#1FC8E1] hover:bg-white/50 dark:hover:bg-gray-800/50'
+    outlined: 'bg-transparent border-2 border-gray-300 dark:border-gray-600 hover:border-[#6B4C9A] hover:bg-white/50 dark:hover:bg-gray-800/50'
   };
 
   return (

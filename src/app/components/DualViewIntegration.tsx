@@ -86,7 +86,7 @@ export function DualViewIntegration({
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">
             Cognitive Harmony Report
           </h1>
           <p className="text-muted-foreground">
@@ -110,7 +110,7 @@ export function DualViewIntegration({
                 </CardDescription>
               </div>
               <div className="text-center">
-                <div className="text-5xl font-bold bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] bg-clip-text text-transparent">
+                <div className="text-5xl font-bold bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] bg-clip-text text-transparent">
                   {harmonyScore}%
                 </div>
                 <Badge className={alignment.color + " text-white mt-2"}>
@@ -285,7 +285,7 @@ export function DualViewIntegration({
         </div>
 
         {/* Personalized Insights */}
-        <Card className="bg-gradient-to-r from-cyan-50 to-purple-50 border-2 border-[#1FC8E1]">
+        <Card className="bg-gradient-to-r from-cyan-50 to-purple-50 border-2 border-[#6B4C9A]">
           <CardHeader>
             <CardTitle>Personalized Insights for You</CardTitle>
             <CardDescription>

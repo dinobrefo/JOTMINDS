@@ -126,10 +126,10 @@ export function ParentObservationAssessmentComponent({
     return (
       <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-violet-50 to-indigo-50 p-4">
         <div className="max-w-3xl mx-auto pt-8">
-          <Card className="border-2 border-[#1FC8E1]">
+          <Card className="border-2 border-[#6B4C9A]">
             <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center">
                   <Eye className="h-10 w-10 text-white" />
                 </div>
               </div>
@@ -183,7 +183,7 @@ export function ParentObservationAssessmentComponent({
                 </Button>
                 <Button 
                   onClick={() => setShowIntro(false)}
-                  className="flex-1 bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:opacity-90"
+                  className="flex-1 bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:opacity-90"
                 >
                   Start Assessment
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -219,7 +219,7 @@ export function ParentObservationAssessmentComponent({
         </div>
 
         {/* Question Card */}
-        <Card className="border-2 border-[#1FC8E1]">
+        <Card className="border-2 border-[#6B4C9A]">
           <CardHeader>
             <div className="flex items-start gap-4">
               <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${sectionInfo[currentSection].color} flex items-center justify-center flex-shrink-0`}>
@@ -259,7 +259,7 @@ export function ParentObservationAssessmentComponent({
                   key={option.value}
                   className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer hover:bg-blue-50 ${
                     responses[currentQuestion]?.toString() === option.value
-                      ? 'border-[#1FC8E1] bg-blue-50'
+                      ? 'border-[#6B4C9A] bg-blue-50'
                       : 'border-gray-200 bg-white'
                   }`}
                   onClick={() => handleResponseChange(option.value)}
@@ -306,7 +306,7 @@ export function ParentObservationAssessmentComponent({
                 <Button
                   onClick={handleNext}
                   disabled={responses[currentQuestion] === 0}
-                  className="flex-1 bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:opacity-90"
+                  className="flex-1 bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:opacity-90"
                 >
                   Next
                   <ArrowRight className="ml-2 h-4 w-4" />

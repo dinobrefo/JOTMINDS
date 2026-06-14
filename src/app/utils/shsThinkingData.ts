@@ -400,7 +400,7 @@ export const shsThinkingStyles = {
   analytical: {
     name: 'Analytical Thinking',
     emoji: '🔍',
-    color: '#1FC8E1',
+    color: '#6B4C9A',
     description: 'You have strong logical reasoning skills and excel at breaking down complex problems systematically.',
     strengths: [
       'Logical reasoning and critical thinking',

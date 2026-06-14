@@ -246,7 +246,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#2C2E83' }}></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#5B7DB1' }}></div>
           <p>Loading assessment...</p>
         </div>
       </div>
@@ -342,7 +342,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
             
             {/* Title: 16px margin bottom */}
             <div className="flex items-center justify-between" style={{ marginBottom: '16px' }}>
-              <h1 className="text-2xl" style={{ color: '#2C2E83' }}>{getAssessmentTitle()}</h1>
+              <h1 className="text-2xl" style={{ color: '#5B7DB1' }}>{getAssessmentTitle()}</h1>
               <span className="text-sm" style={{ color: '#6B7280' }}>
                 Question {currentIndex + 1} of {questions.length}
               </span>
@@ -361,7 +361,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
             />
             
             {isSaving && (
-              <p className="text-xs" style={{ color: '#1FC8E1' }}>Saving progress...</p>
+              <p className="text-xs" style={{ color: '#6B4C9A' }}>Saving progress...</p>
             )}
           </div>
 
@@ -389,8 +389,8 @@ export const Assessment: React.FC<AssessmentProps> = ({
                       key={index}
                       className={`flex items-center rounded-lg border-2 transition-all cursor-pointer ${
                         selectedOption === index
-                          ? 'border-[#2C2E83] bg-[#F0F0FF]'
-                          : 'border-gray-200 hover:border-[#1FC8E1]'
+                          ? 'border-[#5B7DB1] bg-[#F0F0FF]'
+                          : 'border-gray-200 hover:border-[#6B4C9A]'
                       }`}
                       style={{ 
                         padding: '12px 16px',
@@ -431,7 +431,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
                     <Button
                       onClick={handleAnswer}
                       disabled={selectedOption === null}
-                      style={{ backgroundColor: selectedOption !== null ? '#2C2E83' : undefined }}
+                      style={{ backgroundColor: selectedOption !== null ? '#5B7DB1' : undefined }}
                     >
                       Save Answer
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -455,7 +455,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
                     <Button
                       onClick={handleAnswer}
                       disabled={selectedOption === null}
-                      style={{ backgroundColor: selectedOption !== null ? '#2C2E83' : undefined }}
+                      style={{ backgroundColor: selectedOption !== null ? '#5B7DB1' : undefined }}
                     >
                       Next
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -466,7 +466,7 @@ export const Assessment: React.FC<AssessmentProps> = ({
             </CardContent>
           </Card>
 
-          <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: '#F0F9FF', borderLeft: '4px solid #1FC8E1' }}>
+          <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: '#F0F9FF', borderLeft: '4px solid #6B4C9A' }}>
             <p className="text-sm">
               <strong>Note:</strong> Questions are randomized for each assessment attempt to ensure a fresh experience. 
               Your progress is automatically saved.

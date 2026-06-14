@@ -22,6 +22,7 @@ export interface SkillPlan {
   status: 'active' | 'completed' | 'abandoned';
   activities: SkillPlanActivity[];
   sourceResultId: string;
+  sourceCareer?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +58,7 @@ export const generateSkillPlan = (input: {
   tier: string;
   lengthDays: 7 | 14;
   sourceResultId: string;
+  sourceCareer?: string;
 }) =>
   request<{ plan: SkillPlan }>('/generate', {
     method: 'POST',

@@ -139,7 +139,7 @@ export function ProfessionalCognitiveResults({
             <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-3">
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">
                     JotMinds
                   </h1>
                   <Badge variant="secondary" className="text-xs">Professional Cognitive Assessment</Badge>
@@ -157,7 +157,7 @@ export function ProfessionalCognitiveResults({
                 </p>
               </div>
               <div className="text-center sm:text-right">
-                <div className="text-5xl sm:text-6xl font-bold text-[#2C2E83] dark:text-[#7B61FF] mb-1">
+                <div className="text-5xl sm:text-6xl font-bold text-[#5B7DB1] dark:text-[#7B61FF] mb-1">
                   {profile.matchScore}%
                 </div>
                 <p className="text-sm text-muted-foreground">Overall Profile Match</p>
@@ -167,7 +167,7 @@ export function ProfessionalCognitiveResults({
             {/* Executive Summary */}
             <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-lg p-4 border-2 border-violet-200 dark:border-violet-700">
               <p className="text-base text-gray-700 dark:text-gray-200 leading-relaxed">
-                <strong className="text-[#2C2E83] dark:text-[#7B61FF]">{profile.overallProfile}</strong> — {profile.summary}
+                <strong className="text-[#5B7DB1] dark:text-[#7B61FF]">{profile.overallProfile}</strong> — {profile.summary}
               </p>
             </div>
           </CardHeader>
@@ -179,8 +179,8 @@ export function ProfessionalCognitiveResults({
               <Card className="border-2 border-cyan-200 dark:border-cyan-700 bg-gradient-to-br from-cyan-50/50 to-white dark:from-cyan-900/10 dark:to-gray-800">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-5 w-5 text-[#1FC8E1]" />
-                    <CardTitle className="text-lg text-[#1FC8E1] dark:text-cyan-300">Learning Preferences</CardTitle>
+                    <Brain className="h-5 w-5 text-[#6B4C9A]" />
+                    <CardTitle className="text-lg text-[#6B4C9A] dark:text-cyan-300">Learning Preferences</CardTitle>
                   </div>
                   <div className="font-semibold text-gray-900 dark:text-gray-100">{profile.learning.style}</div>
                   <Badge variant="outline" className="text-xs w-fit">{profile.learning.anchors}</Badge>
@@ -206,8 +206,8 @@ export function ProfessionalCognitiveResults({
                         />
                         <Radar 
                           dataKey="value" 
-                          stroke="#1FC8E1" 
-                          fill="#1FC8E1"
+                          stroke="#6B4C9A" 
+                          fill="#6B4C9A"
                           fillOpacity={0.4}
                           strokeWidth={2}
                         />
@@ -224,7 +224,7 @@ export function ProfessionalCognitiveResults({
                   </div>
                   
                   <div className="text-center pt-2">
-                    <div className="text-2xl font-bold text-[#1FC8E1] dark:text-cyan-300">{profile.learning.score}/30</div>
+                    <div className="text-2xl font-bold text-[#6B4C9A] dark:text-cyan-300">{profile.learning.score}/30</div>
                     <div className="text-xs text-muted-foreground">Learning Score</div>
                   </div>
                 </CardContent>
@@ -283,8 +283,8 @@ export function ProfessionalCognitiveResults({
               <Card className="border-2 border-indigo-200 dark:border-indigo-700 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-900/10 dark:to-gray-800">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <Scale className="h-5 w-5 text-[#2C2E83]" />
-                    <CardTitle className="text-lg text-[#2C2E83] dark:text-indigo-300">Decision-Making Behavior</CardTitle>
+                    <Scale className="h-5 w-5 text-[#5B7DB1]" />
+                    <CardTitle className="text-lg text-[#5B7DB1] dark:text-indigo-300">Decision-Making Behavior</CardTitle>
                   </div>
                   <div className="font-semibold text-gray-900 dark:text-gray-100">{profile.decisionMaking.style}</div>
                   <Badge variant="outline" className="text-xs w-fit">{profile.decisionMaking.anchors}</Badge>
@@ -314,13 +314,13 @@ export function ProfessionalCognitiveResults({
                             borderRadius: '8px'
                           }}
                         />
-                        <Bar dataKey="value" fill="#2C2E83" radius={[0, 8, 8, 0]} />
+                        <Bar dataKey="value" fill="#5B7DB1" radius={[0, 8, 8, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                   
                   <div className="text-center pt-2">
-                    <div className="text-2xl font-bold text-[#2C2E83] dark:text-indigo-300">{profile.decisionMaking.score}/30</div>
+                    <div className="text-2xl font-bold text-[#5B7DB1] dark:text-indigo-300">{profile.decisionMaking.score}/30</div>
                     <div className="text-xs text-muted-foreground">Decision Score</div>
                   </div>
                 </CardContent>
@@ -437,10 +437,10 @@ export function ProfessionalCognitiveResults({
         </Card>
 
         {/* Feedback Prompt */}
-        <Card className="border-2 border-[#1FC8E1] dark:border-cyan-700 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-cyan-900/20 dark:to-blue-900/20">
+        <Card className="border-2 border-[#6B4C9A] dark:border-cyan-700 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-cyan-900/20 dark:to-blue-900/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-[#1FC8E1]" />
+              <MessageSquare className="h-5 w-5 text-[#6B4C9A]" />
               Help Us Improve JotMinds
             </CardTitle>
             <CardDescription>
@@ -450,7 +450,7 @@ export function ProfessionalCognitiveResults({
           <CardContent className="space-y-4">
             <Button 
               onClick={() => window.open('https://forms.gle/SXPFj29PxUbmYVQq7', '_blank')}
-              className="w-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770]"
+              className="w-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:from-[#1AB5CC] hover:to-[#252770]"
             >
               <MessageSquare className="mr-2 h-4 w-4" />
               Share Your Feedback

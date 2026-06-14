@@ -12,6 +12,7 @@ import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { PasswordStrengthIndicator, checkPasswordStrength } from './PasswordStrengthIndicator';
 import { Checkbox } from './ui/checkbox';
+import { Logo } from './Logo';
 
 interface OrganizationAuthFormProps {
   onLogin: (user: UserType) => void;
@@ -309,13 +310,11 @@ export function OrganizationAuthForm({ onLogin, onBackToMain }: OrganizationAuth
         
         <Card className="w-full border-2 shadow-large">
           <CardHeader className="space-y-3 text-center pb-8">
-            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-              <Building2 className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                JotMinds Organization Portal
-              </h1>
+            <div className="mx-auto flex flex-col items-center gap-2">
+              <Logo size="lg" />
+              <h2 className="text-xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                Organization Portal
+              </h2>
               <p className="text-sm text-muted-foreground">Organizational Assessment Management</p>
             </div>
             <CardDescription className="text-center text-base text-foreground/80 dark:text-foreground/90">

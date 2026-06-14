@@ -106,11 +106,73 @@ export function GamificationDashboard({ userId }: GamificationDashboardProps) {
         </CardContent>
       </Card>
 
-      {/* Weekly Challenges */}
-      <Card className="border-2 border-[#1FC8E1] bg-white">
+      {/* Daily Challenges */}
+      <Card className="border-2 border-[#5B7DB1] bg-white">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-[#1FC8E1]" />
+            <Zap className="h-5 w-5 text-[#5B7DB1]" />
+            Daily Challenges
+          </CardTitle>
+          <CardDescription>
+            Fresh challenges every day!
+            <br />
+            <span className="text-xs text-muted-foreground">
+              Resets at midnight
+            </span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {profile.dailyChallenges.map((challenge) => (
+            <div
+              key={challenge.id}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                challenge.completed
+                  ? 'bg-green-50 border-green-500'
+                  : 'bg-white border-gray-200'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">{challenge.icon}</div>
+                  <div>
+                    <h4 className="font-semibold">{challenge.title}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {challenge.description}
+                    </p>
+                  </div>
+                </div>
+                {challenge.completed ? (
+                  <Badge className="bg-green-500 text-white">
+                    ✓ Complete
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="font-semibold border-[#5B7DB1] text-[#5B7DB1]">
+                    +{challenge.reward} XP
+                  </Badge>
+                )}
+              </div>
+              <div className="mt-3">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-semibold">
+                    {Math.min(challenge.progress, challenge.target)} / {challenge.target}
+                  </span>
+                </div>
+                <Progress
+                  value={(challenge.progress / challenge.target) * 100}
+                  className="h-2"
+                />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Weekly Challenges */}
+      <Card className="border-2 border-[#6B4C9A] bg-white">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-[#6B4C9A]" />
             Weekly Challenges
           </CardTitle>
           <CardDescription>
@@ -146,7 +208,7 @@ export function GamificationDashboard({ userId }: GamificationDashboardProps) {
                     ✓ Complete
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="font-semibold border-[#1FC8E1] text-[#1FC8E1]">
+                  <Badge variant="outline" className="font-semibold border-[#6B4C9A] text-[#6B4C9A]">
                     +{challenge.reward} XP
                   </Badge>
                 )}
@@ -315,7 +377,7 @@ export function GamificationDashboard({ userId }: GamificationDashboardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
               <div className="text-3xl font-bold text-blue-600">
                 {profile.totalAssessments}
@@ -346,6 +408,22 @@ export function GamificationDashboard({ userId }: GamificationDashboardProps) {
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 Badges
+              </p>
+            </div>
+            <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg border border-indigo-200">
+              <div className="text-3xl font-bold text-indigo-600">
+                {profile.dailyChallengesCompleted || 0}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Daily Wins
+              </p>
+            </div>
+            <div className="text-center p-4 bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg border border-violet-200">
+              <div className="text-3xl font-bold text-violet-600">
+                {profile.weeklyChallengesCompleted || 0}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Weekly Wins
               </p>
             </div>
           </div>

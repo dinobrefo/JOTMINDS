@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AlertCircle, CheckCircle, HelpCircle, Database, Layers } from 'lucide-react';
 import { teachingStyleQuestions } from '../utils/teachingStyleQuestions';
-import { Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Cell } from 'recharts';
 
 export function QuestionBankAudit() {
   const analytics = useMemo(() => {
@@ -136,13 +136,14 @@ export function QuestionBankAudit() {
                 <CardContent className="h-[250px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={analytics.dimensionCounts} layout="vertical" margin={{ left: 20 }}>
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={80} tick={{fontSize: 12}} />
-                            <RechartsTooltip 
+                            <XAxis key="x-axis" type="number" hide />
+                            <YAxis key="y-axis" dataKey="name" type="category" width={80} tick={{fontSize: 12}} />
+                            <RechartsTooltip
+                                key="tooltip"
                                 cursor={{fill: 'transparent'}}
                                 contentStyle={{ borderRadius: '8px' }}
                             />
-                            <Bar dataKey="count" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                            <Bar key="bar" dataKey="count" fill="#8884d8" radius={[0, 4, 4, 0]}>
                                 {analytics.dimensionCounts.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}

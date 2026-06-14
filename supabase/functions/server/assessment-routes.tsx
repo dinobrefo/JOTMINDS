@@ -3,6 +3,10 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { kolbQuestions, sternbergQuestions, dualProcessQuestions } from './full-question-bank.tsx';
 
+// VERSION 2.1.1 - Fixed AutoPlan percentages calculation + naming mismatches + enhanced logging
+const moduleLoadTime = new Date().toISOString();
+console.log(`[AssessmentRoutes] v2.1.1.1 module loaded at ${moduleLoadTime} - AutoPlan fixes active`);
+
 // Helper to generate skill plan UUID
 function uuid() {
   return crypto.randomUUID();
@@ -224,7 +228,50 @@ app.get('/assessment/progress/:assessmentType', async (c) => {
  * Lower percentages indicate weaker areas that could benefit from targeted practice.
  */
 function mapAssessmentToSkillDimensions(assessmentType: string, results: any): Array<{ dimensionId: string; score: number }> {
-  const { percentages } = results;
+  console.log(`[AutoPlan] v2.1.1 - mapAssessmentToSkillDimensions called with type: ${assessmentType}`);
+
+  // Defensive check: ensure results exists
+  if (!results || typeof results !== 'object') {
+    console.error('[AutoPlan] v2.1.1 - Invalid results (null or not object):', results);
+    return [];
+  }
+
+  // Extract assessment data - handle nested structure and naming variations
+  // Try exact match first, then camelCase version, then direct results
+  const camelCaseType = assessmentType.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+  let assessmentData = results[assessmentType] || results[camelCaseType] || results;
+
+  console.log(`[AutoPlan] v2.1.1 - Assessment type: ${assessmentType}, camelCase: ${camelCaseType}`);
+  console.log(`[AutoPlan] v2.1.1 - Available keys in results:`, Object.keys(results));
+  console.log(`[AutoPlan] v2.1.1 - Extracted assessment data:`, JSON.stringify(assessmentData, null, 2));
+
+  // Get scores and calculate percentages if needed
+  let percentages: Record<string, number> = {};
+
+  console.log(`[AutoPlan] v2.1.1 - Checking for percentages:`, !!assessmentData.percentages);
+  console.log(`[AutoPlan] v2.1.1 - Checking for scores:`, !!assessmentData.scores);
+  console.log(`[AutoPlan] v2.1.1 - assessmentData type:`, typeof assessmentData);
+  console.log(`[AutoPlan] v2.1.1 - assessmentData keys:`, Object.keys(assessmentData || {}));
+
+  if (assessmentData.percentages) {
+    // Already has percentages
+    percentages = assessmentData.percentages;
+    console.log(`[AutoPlan] v2.1.1 - Using existing percentages:`, percentages);
+  } else if (assessmentData.scores) {
+    // Has raw scores, calculate percentages as proportion of total
+    const scores = assessmentData.scores;
+    const total = Object.values(scores).reduce((sum: number, score) => sum + (score as number), 0);
+
+    Object.keys(scores).forEach(key => {
+      percentages[key] = total > 0 ? Math.round(((scores[key] as number) / total) * 100) : 0;
+    });
+
+    console.log(`[AutoPlan] v2.1.1 - Calculated percentages from scores for ${assessmentType}:`, percentages);
+  } else {
+    console.error('[AutoPlan] v2.1.1 - No scores or percentages found in assessmentData:', JSON.stringify(assessmentData, null, 2));
+    console.error('[AutoPlan] v2.1.1 - Original results:', JSON.stringify(results, null, 2));
+    return [];
+  }
 
   // Map framework scores to skill dimensions
   // Lower scores = opportunity areas for growth
@@ -238,10 +285,16 @@ function mapAssessmentToSkillDimensions(assessmentType: string, results: any): A
     // Accommodating (doing + feeling) → curiosity + emotional_regulation
 
     dimensions.push(
-      { dimensionId: 'metacognition', score: percentages.Assimilating || 0 },
-      { dimensionId: 'problem_solving', score: percentages.Converging || 0 },
-      { dimensionId: 'curiosity', score: Math.max(percentages.Diverging || 0, percentages.Accommodating || 0) },
-      { dimensionId: 'emotional_regulation', score: Math.max(percentages.Diverging || 0, percentages.Accommodating || 0) }
+      { dimensionId: 'metacognition', score: (percentages.Assimilating ?? 0) as number },
+      { dimensionId: 'problem_solving', score: (percentages.Converging ?? 0) as number },
+      { dimensionId: 'curiosity', score: Math.max(
+        (percentages.Diverging ?? 0) as number,
+        (percentages.Accommodating ?? 0) as number
+      ) },
+      { dimensionId: 'emotional_regulation', score: Math.max(
+        (percentages.Diverging ?? 0) as number,
+        (percentages.Accommodating ?? 0) as number
+      ) }
     );
   } else if (assessmentType === 'sternberg') {
     // Sternberg thinking styles → skill dimensions
@@ -250,17 +303,20 @@ function mapAssessmentToSkillDimensions(assessmentType: string, results: any): A
     // Practical → problem_solving
 
     dimensions.push(
-      { dimensionId: 'metacognition', score: percentages.Analytical || 0 },
-      { dimensionId: 'problem_solving', score: Math.max(percentages.Analytical || 0, percentages.Practical || 0) },
-      { dimensionId: 'curiosity', score: percentages.Creative || 0 }
+      { dimensionId: 'metacognition', score: (percentages.analytical ?? percentages.Analytical ?? 0) as number },
+      { dimensionId: 'problem_solving', score: Math.max(
+        (percentages.analytical ?? percentages.Analytical ?? 0) as number,
+        (percentages.practical ?? percentages.Practical ?? 0) as number
+      ) },
+      { dimensionId: 'curiosity', score: (percentages.creative ?? percentages.Creative ?? 0) as number }
     );
   } else if (assessmentType === 'dual-process') {
     // Dual-process decision making → skill dimensions
     // Reflective (System 2) → metacognition + problem_solving
     // Intuitive (System 1) → emotional_regulation
 
-    const system2Score = percentages.system2 || 0;
-    const system1Score = percentages.system1 || 0;
+    const system2Score = (percentages.system2 ?? percentages.Reflective ?? 0) as number;
+    const system1Score = (percentages.system1 ?? percentages.Intuitive ?? 0) as number;
 
     dimensions.push(
       { dimensionId: 'metacognition', score: system2Score },
@@ -269,6 +325,7 @@ function mapAssessmentToSkillDimensions(assessmentType: string, results: any): A
     );
   }
 
+  console.log(`[AutoPlan] Mapped dimensions for ${assessmentType}:`, dimensions);
   return dimensions;
 }
 
@@ -278,7 +335,16 @@ function mapAssessmentToSkillDimensions(assessmentType: string, results: any): A
  */
 async function autoGenerateSkillPlan(userId: string, assessmentType: string, results: any, resultKey: string) {
   try {
+    console.log(`[AutoPlan] v2.1.1 - Starting auto-generation for user ${userId}, type: ${assessmentType}`);
+    console.log(`[AutoPlan] v2.1.1 - Input results:`, JSON.stringify(results, null, 2));
+
     const dimensions = mapAssessmentToSkillDimensions(assessmentType, results);
+
+    // Check if we have valid dimensions
+    if (!dimensions || dimensions.length === 0) {
+      console.log(`[AutoPlan] No dimensions mapped for user ${userId} assessment ${assessmentType}`);
+      return null;
+    }
 
     // Find weakest dimension (lowest score)
     const weakestDimension = dimensions.reduce((min, dim) =>
@@ -403,7 +469,31 @@ app.post('/assessment/submit', async (c) => {
     }
 
     const { assessmentType, answers, results, strengths, weaknesses, recommendations } = await c.req.json();
-    
+
+    // Calculate confidence metrics if confidence data is present
+    let confidenceMetrics = null;
+    if (answers && Array.isArray(answers) && answers.length > 0 && typeof answers[0] === 'object' && 'confidence' in answers[0]) {
+      const confidenceLevels = answers.map((a: any) => a.confidence);
+      const avgConfidence = confidenceLevels.reduce((sum: number, c: number) => sum + c, 0) / confidenceLevels.length;
+      const lowConfidenceCount = confidenceLevels.filter((c: number) => c <= 2).length;
+      const highConfidenceCount = confidenceLevels.filter((c: number) => c >= 4).length;
+
+      confidenceMetrics = {
+        average: Math.round(avgConfidence * 100) / 100,
+        distribution: {
+          guessing: confidenceLevels.filter((c: number) => c === 1).length,
+          unsure: confidenceLevels.filter((c: number) => c === 2).length,
+          neutral: confidenceLevels.filter((c: number) => c === 3).length,
+          confident: confidenceLevels.filter((c: number) => c === 4).length,
+          verySure: confidenceLevels.filter((c: number) => c === 5).length,
+        },
+        lowConfidencePercentage: Math.round((lowConfidenceCount / answers.length) * 100),
+        highConfidencePercentage: Math.round((highConfidenceCount / answers.length) * 100),
+      };
+
+      console.log(`[Confidence] Calculated metrics for ${assessmentType}:`, confidenceMetrics);
+    }
+
     // Save results
     const resultKey = `result:${user.id}:${assessmentType}`;
     await kv.set(resultKey, {
@@ -415,6 +505,7 @@ app.post('/assessment/submit', async (c) => {
       strengths,
       weaknesses,
       recommendations,
+      confidenceMetrics, // NEW: Store confidence metrics
       completedAt: new Date().toISOString()
     });
 

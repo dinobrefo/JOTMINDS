@@ -31,17 +31,20 @@ export function RadarChartWidget({ data, title, description }: RadarChartWidgetP
       <div className="w-full h-80">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={data}>
-            <PolarGrid stroke="hsl(var(--border))" />
-            <PolarAngleAxis 
-              dataKey="dimension" 
+            <PolarGrid key="polar-grid" stroke="hsl(var(--border))" />
+            <PolarAngleAxis
+              key="polar-angle"
+              dataKey="dimension"
               tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
             />
-            <PolarRadiusAxis 
-              angle={90} 
+            <PolarRadiusAxis
+              key="polar-radius"
+              angle={90}
               domain={[0, 'dataMax']}
               tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
             />
             <Radar
+              key="radar-score"
               name="Score"
               dataKey="value"
               stroke="hsl(var(--primary))"
@@ -49,6 +52,7 @@ export function RadarChartWidget({ data, title, description }: RadarChartWidgetP
               fillOpacity={0.6}
             />
             <Tooltip
+              key="tooltip"
               contentStyle={{
                 backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',

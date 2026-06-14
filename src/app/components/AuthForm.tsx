@@ -14,6 +14,8 @@ import { Alert, AlertDescription } from './ui/alert';
 import { PasswordStrengthIndicator, checkPasswordStrength } from './PasswordStrengthIndicator';
 import { Checkbox } from './ui/checkbox';
 import { OrganizationCodeHelp } from './OrganizationCodeHelp';
+import { Logo } from './Logo';
+import { validateInstitutionCode, addMember } from '../utils/institution';
 
 interface AuthFormProps {
   onLogin: () => void;
@@ -61,48 +63,54 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
 
   const validateOrgCode = async () => {
     if (!organizationCode.trim()) {
-      setError('Please enter an organization code');
+      setError('Please enter a School Jots Code or organisation code');
       return;
     }
 
     setVerifyingCode(true);
     setError('');
-    
+
+    // First: check against local institution registry (School Jots Code)
+    const localResult = validateInstitutionCode(organizationCode);
+    if (localResult.valid && localResult.institution) {
+      setVerifiedOrgName(localResult.institution.name);
+      setOrganizationName(localResult.institution.name);
+      setVerifyingCode(false);
+      return;
+    }
+    if (!localResult.valid && localResult.error !== 'not_found') {
+      // Found but inactive or expired
+      setError(localResult.errorMessage ?? 'Invalid code');
+      setVerifiedOrgName('');
+      setVerifyingCode(false);
+      return;
+    }
+
+    // Fallback: check Supabase server-side org codes (professional/supervisor codes)
     try {
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-fc8eb847/validate-org-code`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` },
         body: JSON.stringify({ code: organizationCode.toUpperCase() })
       });
 
-      // Check for network/connection errors
       if (!response.ok) {
-        if (response.status === 403) {
-          setError('Connection error (403): Please ensure Supabase is connected in the integrations panel.');
-        } else if (response.status >= 500) {
-          setError(`Server error (${response.status}): Unable to validate code. Please try again later.`);
-        } else {
-          setError(`Error ${response.status}: Unable to validate organization code.`);
-        }
+        if (response.status === 403) setError('Connection error. Please check your network and try again.');
+        else setError(`Code not found. Please check the code and try again.`);
         setVerifiedOrgName('');
         return;
       }
 
       const data = await response.json();
-      
       if (data.valid) {
         setVerifiedOrgName(data.organizationName);
         setOrganizationName(data.organizationName);
       } else {
-        setError(data.error || 'Invalid organization code');
+        setError(data.error || 'Invalid code. Please check with your institution administrator.');
         setVerifiedOrgName('');
       }
-    } catch (error) {
-      console.error('Error validating org code:', error);
-      setError('Failed to validate organization code. Please check your connection and try again.');
+    } catch {
+      setError('Could not verify code. Please check your connection and try again.');
       setVerifiedOrgName('');
     } finally {
       setVerifyingCode(false);
@@ -397,10 +405,8 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
         )}
         <Card className="w-full border-2 shadow-large">
           <CardHeader className="space-y-3 text-center pb-8">
-            <div className="mx-auto">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent mb-2">
-                JotMinds
-              </h1>
+            <div className="mx-auto flex flex-col items-center">
+              <Logo size="lg" className="mb-2" />
               <p className="text-sm text-muted-foreground">Discover How You Think</p>
             </div>
             <CardDescription className="text-center text-base text-foreground/80 dark:text-foreground/90">
@@ -416,7 +422,7 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                       key={step}
                       className={`h-2 rounded-full transition-all ${
                         step === registrationStep
-                          ? 'w-8 bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83]'
+                          ? 'w-8 bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1]'
                           : step < registrationStep
                           ? 'w-2 bg-[#7B61FF]'
                           : 'w-2 bg-gray-300 dark:bg-gray-600'
@@ -489,7 +495,7 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                     <div className="text-right">
                       <button
                         type="button"
-                        className="text-sm text-[#7B61FF] hover:text-[#2C2E83] underline transition-colors"
+                        className="text-sm text-[#7B61FF] hover:text-[#5B7DB1] underline transition-colors"
                         onClick={onForgotPassword}
                       >
                         Forgot Password?
@@ -596,7 +602,7 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Include country code (e.g., +1 for US, +233 for Ghana, +44 for UK)
+                      Include country code (e.g., +233 for Ghana). {role === 'teacher' ? <strong>For teachers, your phone number is your school identifier — your head teacher can look you up by this number.</strong> : 'Used for account verification.'}
                     </p>
                   </div>
                 </>
@@ -658,51 +664,53 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                   )}
 
                   {role === 'teacher' && (
-                    <div className="space-y-2 mt-4">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="teacherOrgCode">Organization Invitation Code (Optional)</Label>
-                        <OrganizationCodeHelp />
+                    <>
+                      <div className="space-y-2 mt-4">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="teacherOrgCode">School Jots Code</Label>
+                          <OrganizationCodeHelp />
+                        </div>
+                        <div className="flex gap-2">
+                          <Input
+                            id="teacherOrgCode"
+                            type="text"
+                            placeholder="JOTM-XXXXXX"
+                            value={organizationCode}
+                            onChange={(e) => {
+                              setOrganizationCode(e.target.value.toUpperCase());
+                              setVerifiedOrgName('');
+                            }}
+                            disabled={!!verifiedOrgName}
+                          />
+                          <Button
+                            type="button"
+                            onClick={validateOrgCode}
+                            disabled={verifyingCode || !!verifiedOrgName || !organizationCode}
+                            className="whitespace-nowrap"
+                            aria-label="Verify Jots Code"
+                          >
+                            {verifyingCode ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : verifiedOrgName ? (
+                              <CheckCircle2 className="h-4 w-4" />
+                            ) : (
+                              'Verify'
+                            )}
+                          </Button>
+                        </div>
+                        {verifiedOrgName && (
+                          <Alert>
+                            <CheckCircle2 className="h-4 w-4" style={{ color: '#10B981' }} />
+                            <AlertDescription>
+                              Verified school: <strong>{verifiedOrgName}</strong>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Enter the Jots Code (Organisation Code) provided by your head teacher. This links your account to the school — the head teacher can then view your <strong>Teaching Style</strong> and <strong>Thinking Style</strong> side by side and access your full combined professional profile. After signup, complete both assessments from your dashboard's <em>My Style</em> tab.
+                        </p>
                       </div>
-                      <div className="flex gap-2">
-                        <Input
-                          id="teacherOrgCode"
-                          type="text"
-                          placeholder="JOTM-XXXXXX"
-                          value={organizationCode}
-                          onChange={(e) => {
-                            setOrganizationCode(e.target.value.toUpperCase());
-                            setVerifiedOrgName('');
-                          }}
-                          disabled={!!verifiedOrgName}
-                        />
-                        <Button
-                          type="button"
-                          onClick={validateOrgCode}
-                          disabled={verifyingCode || !!verifiedOrgName || !organizationCode}
-                          className="whitespace-nowrap"
-                          aria-label="Verify organization code"
-                        >
-                          {verifyingCode ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : verifiedOrgName ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            'Verify'
-                          )}
-                        </Button>
-                      </div>
-                      {verifiedOrgName && (
-                        <Alert>
-                          <CheckCircle2 className="h-4 w-4" style={{ color: '#10B981' }} />
-                          <AlertDescription>
-                            Verified Institution: <strong>{verifiedOrgName}</strong>
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        If your school or institution provided you with an invitation code, enter it here to link your account.
-                      </p>
-                    </div>
+                    </>
                   )}
 
                   {role === 'student' && (
@@ -736,6 +744,31 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                         />
                       </div>
                     </>
+                  )}
+
+                  {role === 'student' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="studentJotsCode">School Jots Code (Optional)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="studentJotsCode"
+                          type="text"
+                          placeholder="JOTM-XXXXXX"
+                          value={organizationCode}
+                          onChange={e => { setOrganizationCode(e.target.value.toUpperCase()); setVerifiedOrgName(''); }}
+                          disabled={!!verifiedOrgName}
+                        />
+                        <Button type="button" onClick={validateOrgCode} disabled={verifyingCode || !!verifiedOrgName || !organizationCode} className="whitespace-nowrap">
+                          {verifyingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : verifiedOrgName ? <CheckCircle2 className="h-4 w-4" /> : 'Verify'}
+                        </Button>
+                      </div>
+                      {verifiedOrgName && (
+                        <Alert><CheckCircle2 className="h-4 w-4" style={{ color: '#10B981' }} /><AlertDescription>Linked to: <strong>{verifiedOrgName}</strong></AlertDescription></Alert>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        If your school provided a Jots Code, enter it here to link your account. You can leave this blank and add it later.
+                      </p>
+                    </div>
                   )}
 
                   {role === 'professional' && (
@@ -839,7 +872,7 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                   <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-800">
                     <AlertCircle className="h-4 w-4 text-[#7B61FF]" />
                     <AlertDescription className="text-sm">
-                      <p className="font-semibold text-[#2C2E83] dark:text-[#7B61FF] mb-2">
+                      <p className="font-semibold text-[#5B7DB1] dark:text-[#7B61FF] mb-2">
                         {isMinor ? 'Parental Consent Required' : 'Terms and Consent'}
                       </p>
                       <p className="text-gray-700 dark:text-gray-300">
@@ -874,7 +907,7 @@ export function AuthForm({ onLogin, onBack, onForgotPassword }: AuthFormProps) {
                   <div className="text-center">
                     <button
                       type="button"
-                      className="text-sm text-[#7B61FF] hover:text-[#2C2E83] underline transition-colors"
+                      className="text-sm text-[#7B61FF] hover:text-[#5B7DB1] underline transition-colors"
                       onClick={() => window.open('https://jotminds.com/terms', '_blank')}
                     >
                       View full Terms & Privacy Policy

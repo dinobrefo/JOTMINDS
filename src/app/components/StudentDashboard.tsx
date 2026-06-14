@@ -25,11 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { toast } from 'sonner@2.0.3';
 import { formatMonthYear, formatDate, formatChartDate } from '../utils/dateFormat';
-import { 
-  BookOpen, 
-  Eye, 
-  LogOut, 
-  TrendingUp, 
+import {
+  BookOpen,
+  Eye,
+  LogOut,
+  TrendingUp,
   FileText,
   Sparkles,
   GraduationCap,
@@ -45,7 +45,9 @@ import {
   Clock,
   User as UserIcon,
   Settings,
-  ChevronDown
+  ChevronDown,
+  ArrowLeft,
+  Briefcase
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { AssessmentTaking } from './AssessmentTaking';
@@ -56,7 +58,11 @@ import { AssessmentHistory } from './AssessmentHistory';
 import { ReflectionsViewer } from './ReflectionsViewer';
 import { MobileHeaderMenu } from './MobileHeaderMenu';
 import { GamificationDashboard } from './GamificationDashboard';
+import { CognitiveGrowthDashboard } from './CognitiveGrowthDashboard';
 import { SkillBuilder } from './SkillBuilder';
+import { CognitiveProfileView } from './CognitiveProfileView';
+import { CareerRecommendations } from './CareerRecommendations';
+import { getCognitiveProfile, CognitiveProfile } from '../utils/cognitiveProfileApi';
 
 interface StudentDashboardProps {
   user: User;
@@ -77,15 +83,20 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [challengeKey, setChallengeKey] = useState(0);
   const [moodMeterKey, setMoodMeterKey] = useState(0);
+  const [showingCognitiveGrowth, setShowingCognitiveGrowth] = useState(false);
   const [showingBrainGym, setShowingBrainGym] = useState(false);
   const [brainGymResults, setBrainGymResults] = useState<DailyChallengeResults | null>(null);
   const [brainGymProgress, setBrainGymProgress] = useState(() => getBrainGymProgress(user.id));
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showingSkillBuilder, setShowingSkillBuilder] = useState(false);
+  const [showingCognitiveProfile, setShowingCognitiveProfile] = useState(false);
+  const [showingCareerRecommendations, setShowingCareerRecommendations] = useState(false);
+  const [cognitiveProfile, setCognitiveProfile] = useState<CognitiveProfile | null>(null);
 
   useEffect(() => {
     loadAssessments();
+    loadCognitiveProfile();
   }, [user.id, impersonatedUser]);
 
   // Helper function to safely calculate dominant style from scores
@@ -267,9 +278,21 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     }
   };
 
+  const loadCognitiveProfile = async () => {
+    try {
+      const profile = await getCognitiveProfile();
+      setCognitiveProfile(profile);
+      console.log('[StudentDashboard] Loaded cognitive profile:', profile.cognitiveArchetype);
+    } catch (e: any) {
+      console.log('[StudentDashboard] No cognitive profile yet:', e.message);
+      setCognitiveProfile(null);
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await loadAssessments();
+    await loadCognitiveProfile();
   };
 
   const hasCompletedAssessment = (type: Assessment['type']) => {
@@ -307,6 +330,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     try {
       console.log('Assessment completed:', assessment);
       await loadAssessments();
+      await loadCognitiveProfile(); // Reload profile after assessment completion
       setActiveAssessment(null);
       setViewingReport(assessment);
     } catch (error) {
@@ -384,6 +408,11 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
     setShowingBrainGym(false);
   };
 
+  // Show Cognitive Growth Dashboard
+  if (showingCognitiveGrowth) {
+    return <CognitiveGrowthDashboard user={user} onBack={() => setShowingCognitiveGrowth(false)} />;
+  }
+
   // Show Brain Gym
   if (showingBrainGym) {
     return (
@@ -418,6 +447,61 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
       <SkillBuilder
         onBack={() => setShowingSkillBuilder(false)}
       />
+    );
+  }
+
+  // Show Cognitive Profile
+  if (showingCognitiveProfile) {
+    return (
+      <CognitiveProfileView
+        onBack={() => {
+          setShowingCognitiveProfile(false);
+          loadCognitiveProfile(); // Reload in case it was regenerated
+        }}
+        onNavigateToCareers={() => {
+          setShowingCognitiveProfile(false);
+          setShowingCareerRecommendations(true);
+        }}
+      />
+    );
+  }
+
+  // Show Career Recommendations
+  if (showingCareerRecommendations) {
+    // Use cognitive archetype as the style, or fallback to dominant style from assessments
+    const cognitiveStyle = cognitiveProfile?.cognitiveArchetype || cognitiveProfile?.dominantStyle || 'Balanced';
+
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur px-4 py-3">
+          <div className="max-w-6xl mx-auto flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowingCareerRecommendations(false)}
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="font-semibold text-lg">Career Recommendations</h1>
+              <p className="text-xs text-muted-foreground">
+                Careers that match your cognitive profile
+              </p>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-6xl mx-auto p-4">
+          <CareerRecommendations
+            cognitiveStyle={cognitiveStyle}
+            assessmentType="cognitive-profile"
+            onNavigateToSkillBuilder={(dimensionId) => {
+              setShowingCareerRecommendations(false);
+              setShowingSkillBuilder(true);
+            }}
+          />
+        </main>
+      </div>
     );
   }
 
@@ -526,7 +610,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
               </div>
               
               {/* Tooltip */}
-              <div className="absolute left-0 top-full mt-2 w-64 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-[#1FC8E1]/20 dark:border-[#1FC8E1]/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <div className="absolute left-0 top-full mt-2 w-64 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-[#6B4C9A]/20 dark:border-[#6B4C9A]/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 pb-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="w-10 h-10 rounded-full gradient-aqua-violet flex items-center justify-center text-white font-bold">
@@ -577,12 +661,12 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 </div>
                 
                 {/* Tooltip Arrow */}
-                <div className="absolute -top-2 left-6 w-4 h-4 bg-white dark:bg-gray-800 border-l-2 border-t-2 border-[#1FC8E1]/20 dark:border-[#1FC8E1]/40 transform rotate-45"></div>
+                <div className="absolute -top-2 left-6 w-4 h-4 bg-white dark:bg-gray-800 border-l-2 border-t-2 border-[#6B4C9A]/20 dark:border-[#6B4C9A]/40 transform rotate-45"></div>
               </div>
             </div>
             
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">JotMinds</h1>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">JotMinds</h1>
               <p className="text-sm text-muted-foreground hidden sm:block">Welcome, {user.name}!</p>
             </div>
           </div>
@@ -693,19 +777,19 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
             </TabsList>
           ) : (
             <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto gap-2 mb-6 h-auto p-2 bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm">
-              <TabsTrigger value="dashboard" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+              <TabsTrigger value="dashboard" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#6B4C9A] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
                 <Home className="h-5 w-5" />
                 <span className="text-sm font-semibold">Home</span>
               </TabsTrigger>
-              <TabsTrigger value="daily-challenges" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+              <TabsTrigger value="daily-challenges" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#6B4C9A] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
                 <Sparkles className="h-5 w-5" />
                 <span className="text-sm font-semibold">Boost</span>
               </TabsTrigger>
-              <TabsTrigger value="track-record" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+              <TabsTrigger value="track-record" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#6B4C9A] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
                 <BarChart3 className="h-5 w-5" />
                 <span className="text-sm font-semibold">Assess</span>
               </TabsTrigger>
-              <TabsTrigger value="profile" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#1FC8E1] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
+              <TabsTrigger value="profile" className="flex flex-col items-center gap-2 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#6B4C9A] data-[state=active]:to-[#7B61FF] data-[state=active]:text-white transition-all">
                 <UserIcon className="h-5 w-5" />
                 <span className="text-sm font-semibold">Profile</span>
               </TabsTrigger>
@@ -734,11 +818,11 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
             
             {/* Full Cognitive Profile - Shows when all 3 assessments are complete */}
             {!loading && hasCompletedAllThree() && (
-              <Card className="border-2 border-gradient-primary bg-gradient-to-br from-[#1FC8E1]/10 via-[#7B61FF]/10 to-[#2C2E83]/10">
+              <Card className="border-2 border-gradient-primary bg-gradient-to-br from-[#6B4C9A]/10 via-[#7B61FF]/10 to-[#5B7DB1]/10">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-2xl bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
+                      <CardTitle className="text-2xl bg-gradient-to-r from-[#6B4C9A] via-[#7B61FF] to-[#5B7DB1] bg-clip-text text-transparent">
                         🎉 Your Complete Cognitive Profile
                       </CardTitle>
                       <CardDescription className="mt-2">
@@ -886,6 +970,82 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 </p>
               </CardContent>
             </Card>
+
+            {/* Cognitive Profile - Your Thinking Archetype */}
+            {cognitiveProfile && (
+              <Card className="border-2 border-gradient-to-r from-purple-200 to-pink-200 dark:from-purple-700 dark:to-pink-700 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-orange-900/20 overflow-hidden relative shadow-xl">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl" />
+                <CardHeader className="relative">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-14 w-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                      <Brain className="h-7 w-7 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <CardTitle className="text-xl sm:text-2xl">🧠 {cognitiveProfile.cognitiveArchetype}</CardTitle>
+                        <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
+                          {Math.round(cognitiveProfile.profileCompleteness)}% Complete
+                        </Badge>
+                      </div>
+                      <CardDescription className="text-sm sm:text-base">
+                        Your Cognitive Profile
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="relative space-y-4">
+                  <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-lg p-4 border-2 border-purple-200 dark:border-purple-700">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Your Top Strengths:</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2 text-center">
+                        <p className="text-xs text-muted-foreground">Learning Agility</p>
+                        <p className="text-lg font-bold text-purple-600">{cognitiveProfile.learningAgility}</p>
+                      </div>
+                      <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-2 text-center">
+                        <p className="text-xs text-muted-foreground">Innovation</p>
+                        <p className="text-lg font-bold text-pink-600">{cognitiveProfile.innovationPotential}</p>
+                      </div>
+                      <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2 text-center">
+                        <p className="text-xs text-muted-foreground">Execution</p>
+                        <p className="text-lg font-bold text-orange-600">{cognitiveProfile.executionCapability}</p>
+                      </div>
+                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2 text-center">
+                        <p className="text-xs text-muted-foreground">Self-Awareness</p>
+                        <p className="text-lg font-bold text-purple-600">{cognitiveProfile.metacognitiveAwareness}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setShowingCognitiveProfile(true)}
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl transition-all"
+                      size="lg"
+                    >
+                      <Brain className="mr-2 h-5 w-5" />
+                      View Full Profile
+                    </Button>
+                    {cognitiveProfile.profileCompleteness === 100 && (
+                      <Button
+                        onClick={() => setShowingCareerRecommendations(true)}
+                        variant="outline"
+                        className="flex-1"
+                        size="lg"
+                      >
+                        <Briefcase className="mr-2 h-5 w-5" />
+                        Career Matches
+                      </Button>
+                    )}
+                  </div>
+
+                  {cognitiveProfile.profileCompleteness < 100 && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      💡 Complete {3 - cognitiveProfile.completedAssessments.length} more assessment(s) for career recommendations
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Skill Builder - Personalized Learning Plans */}
             <Card className="border-2 border-gradient-to-r from-teal-200 to-cyan-200 dark:from-teal-700 dark:to-cyan-700 bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 dark:from-teal-900/20 dark:via-cyan-900/20 dark:to-blue-900/20 overflow-hidden relative shadow-xl">
@@ -1155,11 +1315,11 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF715B] to-[#2C2E83] flex items-center justify-center shadow-lg">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF715B] to-[#5B7DB1] flex items-center justify-center shadow-lg">
                     <Sparkles className="h-8 w-8 text-white" />
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-2xl bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] bg-clip-text text-transparent">
+                    <CardTitle className="text-2xl bg-gradient-to-r from-[#FF715B] via-[#6B4C9A] to-[#5B7DB1] bg-clip-text text-transparent">
                       🧠 Thinking Styles Adventure
                     </CardTitle>
                     <CardDescription className="text-base mt-1">
@@ -1218,7 +1378,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 ) : (
                   <Button 
                     onClick={() => setShowJHSAssessment(true)}
-                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#6B4C9A] to-[#5B7DB1] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
                     size="lg"
                   >
                     <Sparkles className="mr-2 h-5 w-5" />
@@ -1434,11 +1594,11 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF715B] to-[#2C2E83] flex items-center justify-center shadow-lg">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF715B] to-[#5B7DB1] flex items-center justify-center shadow-lg">
                     <Sparkles className="h-8 w-8 text-white" />
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-2xl bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] bg-clip-text text-transparent">
+                    <CardTitle className="text-2xl bg-gradient-to-r from-[#FF715B] via-[#6B4C9A] to-[#5B7DB1] bg-clip-text text-transparent">
                       🧠 Thinking Styles Adventure
                     </CardTitle>
                     <CardDescription className="text-base mt-1">
@@ -1488,7 +1648,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                         const assessment = getLatestAssessment('children-thinking');
                         if (assessment) setViewingReport(assessment);
                     }}
-                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#6B4C9A] to-[#5B7DB1] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
                     size="lg"
                   >
                     <FileText className="mr-2 h-5 w-5" />
@@ -1497,7 +1657,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 ) : (
                   <Button 
                     onClick={() => setShowChildrenAssessment(true)}
-                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#1FC8E1] to-[#2C2E83] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
+                    className="w-full bg-gradient-to-r from-[#FF715B] via-[#6B4C9A] to-[#5B7DB1] hover:from-[#E6644F] hover:via-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all text-base py-6"
                     size="lg"
                   >
                     <Sparkles className="mr-2 h-5 w-5" />
@@ -1723,6 +1883,21 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
               <>
                 {/* Gamification Dashboard for ages 11-14+ */}
                 <GamificationDashboard userId={user.id} />
+
+                {/* Cognitive Growth shortcut */}
+                <div
+                  className="rounded-xl p-4 flex items-center justify-between gap-4 cursor-pointer hover:opacity-90 transition-opacity"
+                  style={{ background: 'linear-gradient(135deg, #5B7DB1, #6B4C9A)' }}
+                  onClick={() => setShowingCognitiveGrowth(true)}
+                >
+                  <div className="text-white">
+                    <p className="text-sm opacity-90 mb-0.5">Track your cognitive development</p>
+                    <p className="text-xs opacity-70">XP · Milestones · Progress graphs</p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white/20 text-white text-xs px-3 py-1.5 rounded-full shrink-0">
+                    🧠 My Growth →
+                  </div>
+                </div>
                 
                 {/* Original Daily Challenges */}
                 <DailyChallengeTab 
@@ -1777,10 +1952,10 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
 
           <TabsContent value="feedback" className="space-y-6">
             <div className="max-w-3xl mx-auto">
-              <Card className="border-2 border-[#1FC8E1] bg-gradient-to-br from-cyan-50 to-blue-50">
+              <Card className="border-2 border-[#6B4C9A] bg-gradient-to-br from-cyan-50 to-blue-50">
                 <CardHeader className="text-center">
                   <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] flex items-center justify-center">
                       <MessageSquare className="h-8 w-8 text-white" />
                     </div>
                   </div>
@@ -1792,38 +1967,38 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                 <CardContent className="space-y-6">
                   <div className="bg-white/80 backdrop-blur-sm rounded-lg p-6 space-y-4">
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-[#1FC8E1]" />
+                      <Sparkles className="h-5 w-5 text-[#6B4C9A]" />
                       We'd love to hear from you about:
                     </h3>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">Your overall experience using JotMinds</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">How accurate your assessment results were</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">What features you found most helpful</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">Suggestions for improvement</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                        <span className="text-[#1FC8E1] font-bold text-lg">•</span>
+                        <span className="text-[#6B4C9A] font-bold text-lg">•</span>
                         <span className="text-sm">How JotMinds has helped your learning</span>
                       </div>
                       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="text-[#2C2E83] font-bold text-lg">•</span>
+                        <span className="text-[#5B7DB1] font-bold text-lg">•</span>
                         <span className="text-sm">Any challenges you encountered</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-[#1FC8E1]/10 to-[#2C2E83]/10 rounded-lg p-4 border border-[#1FC8E1]/30">
+                  <div className="bg-gradient-to-r from-[#6B4C9A]/10 to-[#5B7DB1]/10 rounded-lg p-4 border border-[#6B4C9A]/30">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
                         <span className="text-white font-bold">✓</span>
@@ -1841,7 +2016,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
                     <Button
                       onClick={() => window.open('https://forms.gle/SXPFj29PxUbmYVQq7', '_blank')}
                       size="lg"
-                      className="w-full max-w-md bg-gradient-to-r from-[#1FC8E1] to-[#2C2E83] hover:from-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all"
+                      className="w-full max-w-md bg-gradient-to-r from-[#6B4C9A] to-[#5B7DB1] hover:from-[#1AB5CC] hover:to-[#252770] text-white shadow-lg hover:shadow-xl transition-all"
                     >
                       <MessageSquare className="mr-2 h-5 w-5" />
                       Complete Feedback Form
@@ -1854,11 +2029,11 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
 
                   <div className="grid md:grid-cols-2 gap-3 pt-4">
                     <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-2xl font-bold text-[#1FC8E1]">2-3</p>
+                      <p className="text-2xl font-bold text-[#6B4C9A]">2-3</p>
                       <p className="text-xs text-gray-600">Minutes to complete</p>
                     </div>
                     <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-2xl font-bold text-[#2C2E83]">100%</p>
+                      <p className="text-2xl font-bold text-[#5B7DB1]">100%</p>
                       <p className="text-xs text-gray-600">Confidential</p>
                     </div>
                   </div>
@@ -1869,7 +2044,7 @@ export function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
 
           <TabsContent value="profile" className="space-y-6">
             {/* User Profile Header */}
-            <Card className="border-2 border-gradient-primary bg-gradient-to-br from-[#1FC8E1]/10 via-[#7B61FF]/10 to-[#2C2E83]/10">
+            <Card className="border-2 border-gradient-primary bg-gradient-to-br from-[#6B4C9A]/10 via-[#7B61FF]/10 to-[#5B7DB1]/10">
               <CardHeader>
                 <div className="flex items-center gap-4">
                   <div className="w-20 h-20 rounded-full gradient-aqua-violet flex items-center justify-center text-white text-3xl font-bold">

@@ -3,6 +3,8 @@ import { getPersonalizedQuestions } from '../utils/assessmentQuestions';
 import { calculateKolbScore, calculateSternbergScore, calculateDualProcessScore } from '../utils/scoring';
 import { generateId, saveAssessmentProgress, getAssessmentProgress, clearAssessmentProgress } from '../utils/storage';
 import { submitAssessment, saveProgress, getProgress } from '../utils/api';
+import { generateCognitiveProfile } from '../utils/cognitiveProfileApi';
+import { generateCareerMatches } from '../utils/careerApi';
 import { Assessment, AssessmentScore } from '../types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -11,8 +13,16 @@ import { Label } from './ui/label';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { ArrowLeft, ArrowRight, CheckCircle, BookOpen, Brain, Target, Info, Clock, Save } from 'lucide-react';
+import { Slider } from './ui/slider';
+import { ArrowLeft, ArrowRight, CheckCircle, BookOpen, Brain, Target, Info, Clock, Save, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+
+interface QuestionResponse {
+  value: number;           // Likert 1-5
+  confidence: number;      // Confidence 1-5
+  responseTime: number;    // milliseconds
+  timestamp: string;       // ISO timestamp
+}
 
 interface AssessmentTakingProps {
   userId: string;
@@ -54,7 +64,15 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
   const [questions, setQuestions] = useState(() => getPersonalizedQuestions(assessmentType, userId, isOrganizational, userAge, true)); // randomize=true
   const [showIntro, setShowIntro] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [responses, setResponses] = useState<number[]>(new Array(questions.length).fill(0));
+  const [responses, setResponses] = useState<QuestionResponse[]>(
+    new Array(questions.length).fill(null).map(() => ({
+      value: 0,
+      confidence: 3, // Default to neutral confidence
+      responseTime: 0,
+      timestamp: ''
+    }))
+  );
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [hasResumableProgress, setHasResumableProgress] = useState(false);
   const [lastSaveTime, setLastSaveTime] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -249,15 +267,37 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   const handleResponse = (value: string) => {
+    const responseTime = Date.now() - questionStartTime;
     const newResponses = [...responses];
-    newResponses[currentQuestion] = parseInt(value);
+    newResponses[currentQuestion] = {
+      ...newResponses[currentQuestion],
+      value: parseInt(value),
+      responseTime,
+      timestamp: new Date().toISOString()
+    };
     setResponses(newResponses);
-    console.log('Response recorded:', { question: currentQuestion, value: parseInt(value), total: newResponses.filter(r => r > 0).length });
+    console.log('Response recorded:', {
+      question: currentQuestion,
+      value: parseInt(value),
+      confidence: newResponses[currentQuestion].confidence,
+      responseTime,
+      total: newResponses.filter(r => r.value > 0).length
+    });
+  };
+
+  const handleConfidenceChange = (conf: number[]) => {
+    const newResponses = [...responses];
+    newResponses[currentQuestion] = {
+      ...newResponses[currentQuestion],
+      confidence: conf[0]
+    };
+    setResponses(newResponses);
   };
 
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
+      setQuestionStartTime(Date.now()); // Reset timer for next question
     }
   };
 
@@ -273,35 +313,38 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
       console.warn('Submission already in progress or completed');
       return;
     }
-    
+
     // Validate all questions are answered
-    const unansweredCount = responses.filter(r => r === 0).length;
+    const unansweredCount = responses.filter(r => r.value === 0).length;
     if (unansweredCount > 0) {
       toast.error(`Please answer all questions. ${unansweredCount} question${unansweredCount > 1 ? 's' : ''} remaining.`);
       return;
     }
-    
+
     setIsSubmitting(true);
     submittedRef[0] = true;
-    
+
     try {
       toast.info('Calculating your results...');
-      
+
       let score: AssessmentScore = {};
 
+      // Extract just the values for scoring (scoring functions expect number arrays)
+      const responseValues = responses.map(r => r.value);
+
       // Validate responses before scoring
-      const validResponses = responses.every(r => r >= 1 && r <= 5);
+      const validResponses = responseValues.every(r => r >= 1 && r <= 5);
       if (!validResponses) {
         throw new Error('Invalid responses detected. Please ensure all answers are between 1-5.');
       }
 
       try {
         if (assessmentType === 'kolb') {
-          score.kolb = calculateKolbScore(responses, questions);
+          score.kolb = calculateKolbScore(responseValues, questions);
         } else if (assessmentType === 'sternberg') {
-          score.sternberg = calculateSternbergScore(responses, questions);
+          score.sternberg = calculateSternbergScore(responseValues, questions);
         } else {
-          score.dualProcess = calculateDualProcessScore(responses, questions);
+          score.dualProcess = calculateDualProcessScore(responseValues, questions);
         }
       } catch (scoringError) {
         console.error('Score calculation error:', scoringError);
@@ -317,7 +360,7 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
         id: generateId(),
         userId,
         type: assessmentType,
-        responses,
+        responses: responseValues, // Keep legacy format for local storage
         questions, // Save the questions used for this assessment
         score,
         completedAt: new Date().toISOString(),
@@ -327,14 +370,14 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
       let submitSuccess = false;
       let retryCount = 0;
       const maxRetries = 3;
-      
+
       while (!submitSuccess && retryCount < maxRetries) {
         try {
           toast.info(`Submitting to server${retryCount > 0 ? ` (attempt ${retryCount + 1}/${maxRetries})` : ''}...`);
 
           const result = await submitAssessment(
             assessmentType,
-            responses,
+            responses, // Send full response data with confidence
             score,
             [], // strengths - to be calculated
             [], // weaknesses - to be calculated
@@ -358,6 +401,42 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
               `🎯 We created a 7-day ${label} plan to help you grow in this area! Check your Skill Builder.`,
               { duration: 6000 }
             );
+          }
+
+          // Auto-generate cognitive profile and career matches
+          try {
+            const profile = await generateCognitiveProfile();
+            console.log('[Profile] Generated cognitive profile:', profile.cognitiveArchetype);
+
+            // Show archetype reveal notification
+            toast.success(
+              `🧠 Your cognitive archetype: ${profile.cognitiveArchetype}! View your complete profile in the dashboard.`,
+              { duration: 7000 }
+            );
+
+            // Auto-generate career matches if profile is complete
+            if (profile.profileCompleteness === 100) {
+              try {
+                const matches = await generateCareerMatches();
+                console.log('[Career] Generated career matches, top match:', matches[0]?.career.title);
+
+                toast.success(
+                  `💼 Found ${matches.length} career matches! Your top match: ${matches[0]?.career.title}`,
+                  { duration: 7000 }
+                );
+              } catch (careerError) {
+                console.warn('[Career] Failed to generate matches:', careerError);
+                // Non-critical, continue
+              }
+            } else {
+              toast.info(
+                `📊 Complete ${3 - profile.completedAssessments.length} more assessment(s) for career recommendations!`,
+                { duration: 5000 }
+              );
+            }
+          } catch (profileError) {
+            console.warn('[Profile] Failed to generate profile:', profileError);
+            // Non-critical, continue
           }
 
           // Clear saved progress after successful submission
@@ -438,7 +517,7 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
   };
 
   const isLastQuestion = currentQuestion === questions.length - 1;
-  const canProceed = responses[currentQuestion] > 0;
+  const canProceed = responses[currentQuestion].value > 0;
 
   // Get assessment-specific info
   const assessmentIcons: Record<typeof assessmentType, typeof BookOpen> = {
@@ -642,9 +721,9 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-muted-foreground">
-                    {responses.filter(r => r > 0).length} answered
+                    {responses.filter(r => r.value > 0).length} answered
                   </span>
-                  <span className="text-sm font-semibold" style={{ color: '#1FC8E1' }}>
+                  <span className="text-sm font-semibold" style={{ color: '#6B4C9A' }}>
                     {Math.round(progress)}% Complete
                   </span>
                 </div>
@@ -658,20 +737,21 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                     key={index}
                     onClick={() => {
                       setCurrentQuestion(index);
+                      setQuestionStartTime(Date.now());
                       toast.info(`Jumped to question ${index + 1}`);
                     }}
-                    disabled={responses[index] === 0 && index !== currentQuestion}
+                    disabled={responses[index].value === 0 && index !== currentQuestion}
                     className={`
                       w-8 h-8 rounded-full text-xs font-semibold transition-all
-                      ${index === currentQuestion 
-                        ? 'bg-[#1FC8E1] text-white ring-2 ring-[#1FC8E1] ring-offset-2' 
-                        : responses[index] !== 0
+                      ${index === currentQuestion
+                        ? 'bg-[#6B4C9A] text-white ring-2 ring-[#6B4C9A] ring-offset-2'
+                        : responses[index].value !== 0
                           ? 'bg-green-500 text-white hover:bg-green-600'
                           : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                       }
-                      ${responses[index] !== 0 && index !== currentQuestion ? 'hover:scale-110' : ''}
+                      ${responses[index].value !== 0 && index !== currentQuestion ? 'hover:scale-110' : ''}
                     `}
-                    title={`Question ${index + 1}${responses[index] !== 0 ? ' (answered)' : ''}`}
+                    title={`Question ${index + 1}${responses[index].value !== 0 ? ' (answered)' : ''}`}
                   >
                     {index + 1}
                   </button>
@@ -689,17 +769,17 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
 
               {/* Enhanced Radio Options with 44×44px Hit Area */}
               <RadioGroup
-                value={responses[currentQuestion].toString()}
+                value={responses[currentQuestion].value.toString()}
                 onValueChange={handleResponse}
                 className="space-y-3"
               >
-                <div 
+                <div
                   className={`
                     flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer
                     min-h-[44px] touch-manipulation
-                    ${responses[currentQuestion] === 1
-                      ? 'border-[#1FC8E1] bg-[#1FC8E1]/10 shadow-md'
-                      : 'border-gray-200 hover:border-[#1FC8E1] hover:bg-accent'
+                    ${responses[currentQuestion].value === 1
+                      ? 'border-[#6B4C9A] bg-[#6B4C9A]/10 shadow-md'
+                      : 'border-gray-200 hover:border-[#6B4C9A] hover:bg-accent'
                     }
                   `}
                   onClick={() => handleResponse('1')}
@@ -709,14 +789,14 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                     Strongly Disagree
                   </Label>
                 </div>
-                
-                <div 
+
+                <div
                   className={`
                     flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer
                     min-h-[44px] touch-manipulation
-                    ${responses[currentQuestion] === 2
-                      ? 'border-[#1FC8E1] bg-[#1FC8E1]/10 shadow-md'
-                      : 'border-gray-200 hover:border-[#1FC8E1] hover:bg-accent'
+                    ${responses[currentQuestion].value === 2
+                      ? 'border-[#6B4C9A] bg-[#6B4C9A]/10 shadow-md'
+                      : 'border-gray-200 hover:border-[#6B4C9A] hover:bg-accent'
                     }
                   `}
                   onClick={() => handleResponse('2')}
@@ -726,14 +806,14 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                     Disagree
                   </Label>
                 </div>
-                
-                <div 
+
+                <div
                   className={`
                     flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer
                     min-h-[44px] touch-manipulation
-                    ${responses[currentQuestion] === 3
-                      ? 'border-[#1FC8E1] bg-[#1FC8E1]/10 shadow-md'
-                      : 'border-gray-200 hover:border-[#1FC8E1] hover:bg-accent'
+                    ${responses[currentQuestion].value === 3
+                      ? 'border-[#6B4C9A] bg-[#6B4C9A]/10 shadow-md'
+                      : 'border-gray-200 hover:border-[#6B4C9A] hover:bg-accent'
                     }
                   `}
                   onClick={() => handleResponse('3')}
@@ -743,14 +823,14 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                     Neutral
                   </Label>
                 </div>
-                
-                <div 
+
+                <div
                   className={`
                     flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer
                     min-h-[44px] touch-manipulation
-                    ${responses[currentQuestion] === 4
-                      ? 'border-[#1FC8E1] bg-[#1FC8E1]/10 shadow-md'
-                      : 'border-gray-200 hover:border-[#1FC8E1] hover:bg-accent'
+                    ${responses[currentQuestion].value === 4
+                      ? 'border-[#6B4C9A] bg-[#6B4C9A]/10 shadow-md'
+                      : 'border-gray-200 hover:border-[#6B4C9A] hover:bg-accent'
                     }
                   `}
                   onClick={() => handleResponse('4')}
@@ -760,14 +840,14 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                     Agree
                   </Label>
                 </div>
-                
-                <div 
+
+                <div
                   className={`
                     flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer
                     min-h-[44px] touch-manipulation
-                    ${responses[currentQuestion] === 5
-                      ? 'border-[#1FC8E1] bg-[#1FC8E1]/10 shadow-md'
-                      : 'border-gray-200 hover:border-[#1FC8E1] hover:bg-accent'
+                    ${responses[currentQuestion].value === 5
+                      ? 'border-[#6B4C9A] bg-[#6B4C9A]/10 shadow-md'
+                      : 'border-gray-200 hover:border-[#6B4C9A] hover:bg-accent'
                     }
                   `}
                   onClick={() => handleResponse('5')}
@@ -778,6 +858,48 @@ export function AssessmentTaking({ userId, assessmentType, onComplete, onCancel,
                   </Label>
                 </div>
               </RadioGroup>
+
+              {/* Confidence Slider - NEW FEATURE */}
+              {responses[currentQuestion].value > 0 && (
+                <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="h-5 w-5 text-purple-600" />
+                    <Label className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                      How confident are you in this answer?
+                    </Label>
+                  </div>
+                  <div className="space-y-3">
+                    <Slider
+                      value={[responses[currentQuestion].confidence]}
+                      onValueChange={handleConfidenceChange}
+                      min={1}
+                      max={5}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground px-1">
+                      <span className={responses[currentQuestion].confidence === 1 ? 'font-bold text-purple-600' : ''}>
+                        1 - Guessing
+                      </span>
+                      <span className={responses[currentQuestion].confidence === 2 ? 'font-bold text-purple-600' : ''}>
+                        2 - Unsure
+                      </span>
+                      <span className={responses[currentQuestion].confidence === 3 ? 'font-bold text-purple-600' : ''}>
+                        3 - Neutral
+                      </span>
+                      <span className={responses[currentQuestion].confidence === 4 ? 'font-bold text-purple-600' : ''}>
+                        4 - Confident
+                      </span>
+                      <span className={responses[currentQuestion].confidence === 5 ? 'font-bold text-purple-600' : ''}>
+                        5 - Very Sure
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2 italic">
+                    💡 Your confidence helps us better understand your self-awareness
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">

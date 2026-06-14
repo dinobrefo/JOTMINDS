@@ -144,7 +144,7 @@ export function ParentAccessRequests({ userId }: ParentAccessRequestsProps) {
                     </p>
                     <div className="mt-3 p-3 bg-white rounded border border-amber-100">
                       <div className="flex items-start gap-2">
-                        <Shield className="h-4 w-4 text-[#2C2E83] mt-0.5 flex-shrink-0" />
+                        <Shield className="h-4 w-4 text-[#5B7DB1] mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-gray-700">
                           If you approve this request, <strong>{request.parentName}</strong> will be able to view your learning style, thinking style, and decision-making assessments. You can revoke this access at any time.
                         </p>
@@ -275,9 +275,9 @@ export function ParentAccessRequests({ userId }: ParentAccessRequestsProps) {
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-[#2C2E83] mt-0.5 flex-shrink-0" />
+            <AlertCircle className="h-5 w-5 text-[#5B7DB1] mt-0.5 flex-shrink-0" />
             <div className="space-y-2">
-              <h4 className="font-semibold text-[#2C2E83]">Your Privacy is Protected</h4>
+              <h4 className="font-semibold text-[#5B7DB1]">Your Privacy is Protected</h4>
               <ul className="text-sm text-gray-700 space-y-1">
                 <li>• You control who can see your assessment results</li>
                 <li>• Parents can only view data after you approve their request</li>

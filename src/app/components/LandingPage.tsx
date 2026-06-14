@@ -4,6 +4,7 @@ import { Badge } from './ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { FeedbackPrompt } from './FeedbackPrompt';
+import { Logo } from './Logo';
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 
@@ -32,17 +33,17 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
     {
       name: 'Your Learning Style',
       icon: BookOpen,
-      color: 'from-[#1FC8E1] to-[#7B61FF]',
+      color: 'from-[#6B4C9A] to-[#7B61FF]',
       bgColor: 'bg-cyan-50 dark:bg-cyan-950/20',
       borderColor: 'border-cyan-200 dark:border-cyan-800',
-      iconColor: 'text-[#1FC8E1]',
+      iconColor: 'text-[#6B4C9A]',
       description: 'Discover how you learn best',
       details: 'Your thoughts make you unique — understand whether you learn through experience, reflection, analysis, or experimentation'
     },
     {
       name: 'Your Thinking Style',
       icon: Brain,
-      color: 'from-[#7B61FF] to-[#2C2E83]',
+      color: 'from-[#7B61FF] to-[#5B7DB1]',
       bgColor: 'bg-violet-50 dark:bg-violet-950/20',
       borderColor: 'border-violet-200 dark:border-violet-800',
       iconColor: 'text-[#7B61FF]',
@@ -52,10 +53,10 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
     {
       name: 'Your Decision Style',
       icon: Target,
-      color: 'from-[#2C2E83] to-[#FF715B]',
+      color: 'from-[#5B7DB1] to-[#FF715B]',
       bgColor: 'bg-indigo-50 dark:bg-indigo-950/20',
       borderColor: 'border-indigo-200 dark:border-indigo-800',
-      iconColor: 'text-[#2C2E83]',
+      iconColor: 'text-[#5B7DB1]',
       description: 'Learn how you make decisions',
       details: 'Discover whether you rely on intuition or analytical thinking when making choices'
     }
@@ -65,7 +66,7 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
     {
       role: 'Students',
       icon: GraduationCap,
-      color: 'text-[#1FC8E1]',
+      color: 'text-[#6B4C9A]',
       description: 'For Elementary to Tertiary',
       benefits: [
         'Discover your Learning, Thinking, and Decision Styles',
@@ -81,7 +82,7 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
     {
       role: 'Parents',
       icon: Users,
-      color: 'text-[#2C2E83]',
+      color: 'text-[#5B7DB1]',
       description: 'Support your child\'s growth',
       benefits: [
         'View a clear, friendly dashboard of your child’s cognitive patterns',
@@ -157,17 +158,12 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
         >
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] flex items-center justify-center">
-                <Brain className="h-5 w-5 text-white" />
-              </div>
-              <span className="font-bold text-lg bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent">
-                JotMinds
-              </span>
+              <Logo size="md" />
             </div>
             <Button 
               onClick={onGetStarted}
               size="sm"
-              className="bg-[#2C2E83] hover:bg-[#1a1b4d] text-white h-10 px-6"
+              className="bg-[#5B7DB1] hover:bg-[#1a1b4d] text-white h-10 px-6"
             >
               Start Assessment
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -196,9 +192,9 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
           <Badge className="mb-6 bg-gradient-aqua-violet text-[rgb(103,100,100)] border-0 px-4 py-1 text-sm">
             Discover How You Think
           </Badge>
-          <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold mb-6 bg-gradient-to-r from-[#1FC8E1] via-[#7B61FF] to-[#2C2E83] bg-clip-text text-transparent leading-tight">
-            JotMinds
-          </h1>
+          <div className="mb-6 flex justify-center">
+            <Logo size="xl" className="h-20 md:h-24 lg:h-32" />
+          </div>
           <h2 className="text-2xl md:text-3xl lg:text-4xl text-gray-700 dark:text-gray-300 mb-6 font-bold max-w-3xl mx-auto px-4 leading-snug">
             Understand Your Mind. Learn Better. Think Sharper. Decide Smarter.
           </h2>
@@ -206,7 +202,7 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
             Start your journey to discovering how you learn, think, and make decisions—so you can grow academically, professionally, and personally.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
-            <Button size="lg" onClick={onGetStarted} className="group text-lg px-8 h-12 bg-[#2C2E83] hover:bg-[#1a1b4d] text-[rgb(255,255,255)]">
+            <Button size="lg" onClick={onGetStarted} className="group text-lg px-8 h-12 bg-[#5B7DB1] hover:bg-[#1a1b4d] text-[rgb(255,255,255)]">
               Get Started
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Button>
@@ -274,7 +270,7 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
             <CardContent>
               <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-8">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#1FC8E1] to-[#7B61FF] flex items-center justify-center text-white mb-3 shadow-md">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6B4C9A] to-[#7B61FF] flex items-center justify-center text-white mb-3 shadow-md">
                     <BookOpen className="h-10 w-10" />
                   </div>
                   <h4 className="font-semibold mb-1">Input</h4>
@@ -284,7 +280,7 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
                 <ArrowRight className="h-8 w-8 text-muted-foreground rotate-90 md:rotate-0 flex-shrink-0" />
                 
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#7B61FF] to-[#2C2E83] flex items-center justify-center text-white mb-3 shadow-md">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#7B61FF] to-[#5B7DB1] flex items-center justify-center text-white mb-3 shadow-md">
                     <Brain className="h-10 w-10" />
                   </div>
                   <h4 className="font-semibold mb-1">Processing</h4>
@@ -294,7 +290,7 @@ export function LandingPage({ onGetStarted, onSupervisorPortal, onViewPrivacyPol
                 <ArrowRight className="h-8 w-8 text-muted-foreground rotate-90 md:rotate-0 flex-shrink-0" />
                 
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#2C2E83] to-[#FF715B] flex items-center justify-center text-white mb-3 shadow-md">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#5B7DB1] to-[#FF715B] flex items-center justify-center text-white mb-3 shadow-md">
                     <Target className="h-10 w-10" />
                   </div>
                   <h4 className="font-semibold mb-1">Output</h4>

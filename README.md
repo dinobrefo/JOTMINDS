@@ -1,7 +1,7 @@
 
-  # Thinking Styles Assessment Website
+  # JOTMINDS
 
-  This is a code bundle for Thinking Styles Assessment Website. The original project is available at https://www.figma.com/design/bQEU1NUjUXsoxeeWZMsQnW/Thinking-Styles-Assessment-Website.
+  This is a code bundle for JOTMINDS. The original project is available at https://www.figma.com/design/bQEU1NUjUXsoxeeWZMsQnW/JOTMINDS.
 
   ## Running the code
 

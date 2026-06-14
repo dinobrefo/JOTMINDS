@@ -24,6 +24,27 @@ import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TermsOfUsePage } from './components/TermsOfUsePage';
 import { ContactPage } from './components/ContactPage';
 import { SkillBuilder } from './components/SkillBuilder';
+import { SharedProfileView } from './components/SharedProfileView';
+import { GamificationDashboard } from './components/GamificationDashboard';
+import { TeacherAnalyticsDashboard } from './components/TeacherAnalyticsDashboard';
+import { HeadTeacherDashboard } from './components/HeadTeacherDashboard';
+import { PrivacyDashboard } from './components/PrivacyDashboard';
+import { EngagementDashboard } from './components/EngagementDashboard';
+import { ProfileImprovementTracker } from './components/ProfileImprovementTracker';
+import { NudgesPanel } from './components/NudgesPanel';
+import { CognitiveWorkoutDashboard } from './components/CognitiveWorkoutDashboard';
+import { LessonViewer } from './components/LessonViewer';
+import { AILearningCoach } from './components/AILearningCoach';
+import { CognitiveGrowthDashboard } from './components/CognitiveGrowthDashboard';
+import { TeacherIntelligenceDashboard } from './components/TeacherIntelligenceDashboard';
+import { SchoolAnalyticsDashboard } from './components/SchoolAnalyticsDashboard';
+import { PlatformEssentials } from './components/PlatformEssentials';
+import { SchoolTeacherStylesView } from './components/SchoolTeacherStylesView';
+import { InstitutionRegistration } from './components/InstitutionRegistration';
+import { InstitutionDashboard } from './components/InstitutionDashboard';
+import { runAccountMigration } from './utils/accountMigration';
+import { Button } from './components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 type ViewType =
   | 'landing'
@@ -41,7 +62,25 @@ type ViewType =
   | 'summary'
   | 'profile'
   | 'skill-builder'
-  | 'admin';
+  | 'gamification'
+  | 'shared-profile'
+  | 'admin'
+  | 'school-admin'
+  | 'teacher-analytics'
+  | 'privacy-dashboard'
+  | 'engagement'
+  | 'profile-improvement'
+  | 'cognitive-workout'
+  | 'lesson-viewer'
+  | 'daily-challenge'
+  | 'ai-coach'
+  | 'cognitive-growth'
+  | 'teacher-intelligence'
+  | 'school-analytics'
+  | 'platform-essentials'
+  | 'school-teacher-styles'
+  | 'institution-register'
+  | 'institution-dashboard';
 
 type AssessmentType = 'learning' | 'thinking' | 'decision';
 
@@ -52,10 +91,13 @@ function AppContent() {
   const [assessmentResults, setAssessmentResults] = useState<any>(null);
   const [consentData, setConsentData] = useState<any>(null);
   const [assessmentKey, setAssessmentKey] = useState(0); // Key to force Assessment remount on retake
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [currentLessonId, setCurrentLessonId] = useState<string | null>(null);
 
-  // Set document title
+  // Set document title + run one-time account migrations
   useEffect(() => {
     document.title = 'JotMinds - Discover How You Think';
+    runAccountMigration();
   }, []);
 
   useEffect(() => {
@@ -76,9 +118,20 @@ function AppContent() {
         return;
       }
 
-      // Check for OAuth consent in the URL path
+      // Check for shared profile in the URL path
       const path = window.location.pathname;
       const searchParams = new URLSearchParams(window.location.search);
+
+      // Check for /shared/:token route
+      const sharedMatch = path.match(/^\/shared\/([a-f0-9-]+)$/);
+      if (sharedMatch) {
+        console.log('[App] Shared profile view detected');
+        setShareToken(sharedMatch[1]);
+        setCurrentView('shared-profile');
+        return;
+      }
+
+      // Check for OAuth consent
       if (path.includes('/oauth/consent')) {
         console.log('[App] OAuth consent flow detected');
         const state = searchParams.get('state');
@@ -128,6 +181,9 @@ function AppContent() {
       // BUT allow them to view dashboard when impersonating a user
       console.log('[App] ⚠️ Admin in dashboard view without impersonation! Redirecting to admin panel');
       setCurrentView('admin');
+    } else if (user?.role === 'school_admin' && (currentView === 'landing' || currentView === 'auth')) {
+      console.log('[App] School admin detected, routing to school admin dashboard');
+      setCurrentView('school-admin');
     } else if (user?.role === 'supervisor' || user?.role === 'Supervisor' || user?.role === 'organization' || user?.role === 'Organization') {
       // Supervisors should only use the Supervisor Portal, not the main app
       console.log('[App] ⚠️ Supervisor detected in main app, redirecting to supervisor portal');
@@ -246,6 +302,97 @@ function AppContent() {
     setCurrentView('profile');
   };
 
+  const handleViewGamification = () => {
+    setCurrentView('gamification');
+  };
+
+  const handleViewTeacherAnalytics = () => {
+    setCurrentView('teacher-analytics');
+  };
+
+  const handleViewSchoolAdmin = () => {
+    setCurrentView('school-admin');
+  };
+
+  const handleViewPrivacyDashboard = () => {
+    setCurrentView('privacy-dashboard');
+  };
+
+  const handleViewEngagement = () => {
+    setCurrentView('engagement');
+  };
+
+  const handleViewProfileImprovement = () => {
+    setCurrentView('profile-improvement');
+  };
+
+  const handleViewCognitiveWorkout = () => {
+    setCurrentView('cognitive-workout');
+  };
+
+  const handleViewAICoach = () => {
+    setCurrentView('ai-coach');
+  };
+
+  const handleViewCognitiveGrowth = () => {
+    setCurrentView('cognitive-growth');
+  };
+
+  const handleViewTeacherIntelligence = () => {
+    setCurrentView('teacher-intelligence');
+  };
+
+  const handleViewSchoolAnalytics = () => {
+    setCurrentView('school-analytics');
+  };
+
+  const handleViewPlatformEssentials = () => {
+    setCurrentView('platform-essentials');
+  };
+
+  const handleViewSchoolTeacherStyles = () => {
+    setCurrentView('school-teacher-styles');
+  };
+
+  const handleViewInstitutionDashboard = () => {
+    setCurrentView('institution-dashboard');
+  };
+
+  const handleViewInstitutionRegister = () => {
+    setCurrentView('institution-register');
+  };
+
+  const handleStartLesson = (lessonId: string) => {
+    setCurrentLessonId(lessonId);
+    setCurrentView('lesson-viewer');
+  };
+
+  const handleStartDailyChallenge = () => {
+    setCurrentView('daily-challenge');
+  };
+
+  const handleLessonComplete = () => {
+    setCurrentLessonId(null);
+    setCurrentView('cognitive-workout');
+  };
+
+  // Helper to navigate from nudges
+  const handleNudgeNavigate = (route: string) => {
+    if (route === '/brain-gym') {
+      setCurrentView('skill-builder');
+    } else if (route === '/gamification') {
+      setCurrentView('gamification');
+    } else if (route === '/assessments') {
+      setCurrentView('dashboard');
+    } else if (route === '/career-exploration') {
+      setCurrentView('dashboard');
+    } else if (route === '/profile-improvement') {
+      setCurrentView('profile-improvement');
+    } else if (route === '/cognitive-workout') {
+      setCurrentView('cognitive-workout');
+    }
+  };
+
   const handleViewAdmin = () => {
     // Ensure admin token is set before navigating to admin panel
     const adminToken = localStorage.getItem('admin_token');
@@ -292,7 +439,7 @@ function AppContent() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#2C2E83' }}></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#5B7DB1' }}></div>
           <p>Loading...</p>
         </div>
       </div>
@@ -317,6 +464,10 @@ function AppContent() {
       );
     }
     
+    if (currentView === 'shared-profile' && shareToken) {
+      return <SharedProfileView shareToken={shareToken} />;
+    }
+
     if (currentView === 'privacy-policy') {
       return <PrivacyPolicyPage onBack={handleBackToLanding} />;
     }
@@ -366,8 +517,11 @@ function AppContent() {
     );
   }
 
+  // Determine if we should show nudges (only for logged-in users, not on auth pages)
+  const shouldShowNudges = user && !['landing', 'auth', 'forgot-password', 'reset-password', 'consent', 'oauth-consent', 'shared-profile'].includes(currentView);
+
   // Render based on current view
-  switch (currentView) {
+  const mainContent = (() => { switch (currentView) {
     case 'landing':
       return (
         <LandingPage 
@@ -417,14 +571,183 @@ function AppContent() {
     case 'skill-builder':
       return <SkillBuilder onBack={handleBackToDashboard} />;
 
+    case 'gamification':
+      return user ? (
+        <div className="min-h-screen bg-background">
+          <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur px-4 py-3">
+            <div className="max-w-6xl mx-auto flex items-center gap-3">
+              <Button variant="ghost" onClick={handleBackToDashboard} className="flex items-center gap-2">
+                <ArrowLeft className="h-5 w-5" />
+                Back to Dashboard
+              </Button>
+              <div className="flex-1">
+                <h1 className="font-semibold text-lg">Progress & Achievements</h1>
+                <p className="text-xs text-muted-foreground">Track your journey and earn badges</p>
+              </div>
+            </div>
+          </header>
+          <main className="max-w-6xl mx-auto p-4">
+            <GamificationDashboard userId={user.id} />
+          </main>
+        </div>
+      ) : null;
+
     case 'admin':
       return (
-        <AdminPanel 
+        <AdminPanel
           onBack={handleBackToDashboard}
           onLogout={handleLogout}
           onViewUserDashboard={handleViewUserDashboard}
         />
       );
+
+    case 'teacher-analytics':
+      return user ? (
+        <TeacherAnalyticsDashboard
+          teacherId={user.id}
+          classId="class-001" // TODO: Get actual class ID
+          students={[]} // TODO: Get actual students
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'school-admin':
+      return user ? (
+        <HeadTeacherDashboard
+          schoolId={user.school || 'school-001'}
+          schoolName={user.school || 'Demo School'}
+          students={[]}
+          teachers={[]}
+          classes={[]}
+          onBack={handleBackToDashboard}
+          user={impersonatedUser || user}
+          onViewInstitutionDashboard={handleViewInstitutionDashboard}
+        />
+      ) : null;
+
+    case 'privacy-dashboard':
+      return user ? (
+        <PrivacyDashboard
+          userId={user.id}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'engagement':
+      return user ? (
+        <EngagementDashboard
+          userId={user.id}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'profile-improvement':
+      return user ? (
+        <ProfileImprovementTracker
+          userId={user.id}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'cognitive-workout':
+      return user ? (
+        <CognitiveWorkoutDashboard
+          userId={user.id}
+          onBack={handleBackToDashboard}
+          onStartLesson={handleStartLesson}
+          onStartChallenge={handleStartDailyChallenge}
+        />
+      ) : null;
+
+    case 'lesson-viewer':
+      return user && currentLessonId ? (
+        <LessonViewer
+          userId={user.id}
+          lessonId={currentLessonId}
+          onComplete={handleLessonComplete}
+          onBack={() => setCurrentView('cognitive-workout')}
+        />
+      ) : null;
+
+    case 'daily-challenge':
+      // TODO: Create DailyChallengeRunner component
+      return user ? (
+        <div className="min-h-screen bg-background p-8 text-center">
+          <h1 className="text-2xl font-bold mb-4">Daily Challenge</h1>
+          <p className="text-muted-foreground mb-4">Challenge runner coming soon!</p>
+          <Button onClick={handleBackToDashboard}>Back to Dashboard</Button>
+        </div>
+      ) : null;
+
+    case 'ai-coach':
+      return user ? (
+        <AILearningCoach
+          userId={user.id}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'cognitive-growth':
+      return user ? (
+        <CognitiveGrowthDashboard
+          user={impersonatedUser || user}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'teacher-intelligence':
+      return user ? (
+        <TeacherIntelligenceDashboard
+          user={impersonatedUser || user}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'school-analytics':
+      return user ? (
+        <SchoolAnalyticsDashboard
+          user={impersonatedUser || user}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'platform-essentials':
+      return user ? (
+        <PlatformEssentials
+          user={impersonatedUser || user}
+          onBack={handleBackToDashboard}
+          onNavigate={(view) => {
+            const allowed: ViewType[] = ['dashboard', 'skill-builder', 'ai-coach', 'cognitive-growth', 'gamification', 'engagement', 'privacy-dashboard'];
+            setCurrentView(allowed.includes(view as ViewType) ? (view as ViewType) : 'dashboard');
+          }}
+        />
+      ) : null;
+
+    case 'school-teacher-styles':
+      return user ? (
+        <SchoolTeacherStylesView
+          admin={impersonatedUser || user}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'institution-register':
+      return user ? (
+        <InstitutionRegistration
+          user={impersonatedUser || user}
+          onComplete={() => setCurrentView('institution-dashboard')}
+          onBack={handleBackToDashboard}
+        />
+      ) : null;
+
+    case 'institution-dashboard':
+      return user ? (
+        <InstitutionDashboard
+          user={impersonatedUser || user}
+          onBack={handleBackToDashboard}
+          onRegisterNew={handleViewInstitutionRegister}
+        />
+      ) : null;
 
     case 'dashboard':
     default:
@@ -449,15 +772,37 @@ function AppContent() {
         );
       }
       
+      if (normalizedRole === 'school_admin') {
+        return (
+          <HeadTeacherDashboard
+            schoolId={displayUser.school || 'school-001'}
+            schoolName={displayUser.school || 'Demo School'}
+            students={[]}
+            teachers={[]}
+            classes={[]}
+            onBack={handleBackToDashboard}
+            user={displayUser}
+            onViewInstitutionDashboard={handleViewInstitutionDashboard}
+          />
+        );
+      }
+
       if (normalizedRole === 'teacher') {
         return (
           <TeacherDashboard
             user={displayUser}
             onLogout={logoutHandler}
+            onViewAnalytics={handleViewTeacherAnalytics}
+            onViewPrivacy={handleViewPrivacyDashboard}
+            onViewEngagement={handleViewEngagement}
+            onViewTeacherIntelligence={handleViewTeacherIntelligence}
+            onViewSchoolAnalytics={handleViewSchoolAnalytics}
+            onViewPlatformEssentials={handleViewPlatformEssentials}
+            onStartAssessment={(type) => { handleStartAssessment(type); }}
           />
         );
       }
-      
+
       if (normalizedRole === 'student') {
         // Check if student should use Kids Mode (ages 6-10)
         // Calculate age if not already present
@@ -518,9 +863,25 @@ function AppContent() {
           onViewAdmin={user.role === 'admin' ? handleViewAdmin : undefined}
           onViewChildProfile={handleViewChildProfile}
           onViewSkillBuilder={() => setCurrentView('skill-builder')}
+          onViewGamification={handleViewGamification}
+          onViewEngagement={handleViewEngagement}
+          onViewPrivacyDashboard={handleViewPrivacyDashboard}
+          onViewProfileImprovement={handleViewProfileImprovement}
+          onViewCognitiveWorkout={handleViewCognitiveWorkout}
+          onViewAICoach={handleViewAICoach}
         />
       );
   }
+  })();
+
+  return (
+    <>
+      {mainContent}
+      {shouldShowNudges && user && (
+        <NudgesPanel userId={user.id} onNavigate={handleNudgeNavigate} />
+      )}
+    </>
+  );
 }
 
 export default function App() {

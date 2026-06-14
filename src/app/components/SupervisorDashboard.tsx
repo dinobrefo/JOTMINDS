@@ -255,7 +255,7 @@ export function SupervisorDashboard({ user, onLogout }: SupervisorDashboardProps
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="flex-1 bg-white border-2 border-indigo-200 rounded-lg px-4 py-3">
-                      <code className="text-2xl tracking-wider" style={{ color: '#2C2E83' }}>
+                      <code className="text-2xl tracking-wider" style={{ color: '#5B7DB1' }}>
                         {organizationCode}
                       </code>
                     </div>

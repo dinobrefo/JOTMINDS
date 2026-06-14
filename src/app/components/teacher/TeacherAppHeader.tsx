@@ -1,24 +1,25 @@
-import { Menu } from 'lucide-react';
+import { Menu, BarChart3, Shield, Activity, Brain } from 'lucide-react';
 import { User } from '../../types';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
+import { Logo } from '../Logo';
 
 interface TeacherAppHeaderProps {
   user: User;
   onLogout: () => void;
+  onViewAnalytics?: () => void;
+  onViewPrivacy?: () => void;
+  onViewEngagement?: () => void;
+  onViewTeacherIntelligence?: () => void;
 }
 
-export function TeacherAppHeader({ user, onLogout }: TeacherAppHeaderProps) {
+export function TeacherAppHeader({ user, onLogout, onViewAnalytics, onViewPrivacy, onViewEngagement, onViewTeacherIntelligence }: TeacherAppHeaderProps) {
   return (
     <header className="h-14 bg-white border-b border-border px-4 flex items-center justify-between sticky top-0 z-10">
       {/* Left: Logo + Avatar */}
       <div className="flex items-center gap-3">
-        {/* JotMinds Wordmark */}
-        <div className="flex items-center gap-2">
-          <div className="text-[18px] font-bold bg-gradient-to-r from-[#2563EB] to-[#7C3AED] bg-clip-text text-transparent">
-            JotMinds
-          </div>
-        </div>
+        {/* JotMinds Logo */}
+        <Logo size="sm" />
 
         {/* User Avatar */}
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white text-[13px] font-semibold">
@@ -43,10 +44,51 @@ export function TeacherAppHeader({ user, onLogout }: TeacherAppHeaderProps) {
                 <p className="text-sm text-muted-foreground">{user.school}</p>
               )}
             </div>
-            <div className="pt-4 border-t">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start" 
+            <div className="pt-4 border-t space-y-2">
+              {onViewTeacherIntelligence && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={onViewTeacherIntelligence}
+                  style={{ borderColor: '#5B7DB1', color: '#5B7DB1' }}
+                >
+                  <Brain className="h-4 w-4 mr-2" />
+                  Teacher Intelligence
+                </Button>
+              )}
+              {onViewAnalytics && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={onViewAnalytics}
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Classroom Analytics
+                </Button>
+              )}
+              {onViewEngagement && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={onViewEngagement}
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  My Engagement
+                </Button>
+              )}
+              {onViewPrivacy && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={onViewPrivacy}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Privacy Settings
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="w-full justify-start"
                 onClick={onLogout}
               >
                 Logout
